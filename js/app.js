@@ -196,6 +196,33 @@ function runSearch(query) {
 // ---------- modals ----------
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+function anyModalOpen() {
+  return [...document.querySelectorAll('.modal')].some(m => !m.classList.contains('hidden'));
+}
+
+// ---------- feed navigation & autoplay ----------
+function feedStep(dir) {
+  const el = document.getElementById('view-feed');
+  const atEnd = dir > 0 && el.scrollTop + el.clientHeight * 1.5 >= el.scrollHeight;
+  if (atEnd) el.scrollTo({ top: 0, behavior: 'smooth' });        // loop like TikTok
+  else el.scrollBy({ top: dir * el.clientHeight, behavior: 'smooth' });
+}
+
+let autoplayTimer = null;
+function setAutoplay(on) {
+  clearInterval(autoplayTimer);
+  autoplayTimer = null;
+  const btn = document.getElementById('btn-autoplay');
+  btn.classList.toggle('on', on);
+  btn.textContent = on ? '⏸' : '▶';
+  btn.setAttribute('aria-pressed', String(on));
+  if (on) {
+    autoplayTimer = setInterval(() => {
+      if (activeView !== 'feed' || anyModalOpen() || document.hidden) return;
+      feedStep(1);
+    }, 8000);
+  }
+}
 
 // ---------- seed notes (first run) ----------
 async function seedIfNeeded() {
@@ -245,6 +272,7 @@ async function boot() {
     onOpenMap: () => switchView('mindmap'),
     onChanged: () => reload().then(() => showToast('Note deleted')),
     onAdd: () => openCapture(),
+    showToast,
   });
   initMindmap({ onOpen: openInFeed });
   initCapture({
@@ -307,11 +335,34 @@ async function boot() {
   for (const m of document.querySelectorAll('.modal')) {
     m.addEventListener('pointerdown', ev => { if (ev.target === m) m.classList.add('hidden'); });
   }
+  // autoplay toggle
+  document.getElementById('btn-autoplay').addEventListener('click', () => {
+    const turningOn = !autoplayTimer;
+    if (turningOn && activeView !== 'feed') switchView('feed');
+    setAutoplay(turningOn);
+    showToast(turningOn ? 'Auto-scroll on — sit back 🍿' : 'Auto-scroll off');
+  });
+
   document.addEventListener('keydown', ev => {
     if (ev.key === 'Escape') {
       for (const m of document.querySelectorAll('.modal:not(.hidden)')) m.classList.add('hidden');
+      return;
+    }
+    if (anyModalOpen() || ev.target.closest?.('input, textarea')) return;
+    if (activeView !== 'feed') return;
+    if (ev.key === 'ArrowDown' || ev.key === 'PageDown' || ev.key === 'j') {
+      ev.preventDefault();
+      feedStep(1);
+    } else if (ev.key === 'ArrowUp' || ev.key === 'PageUp' || ev.key === 'k') {
+      ev.preventDefault();
+      feedStep(-1);
     }
   });
+
+  // installable PWA + offline shell
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* e.g. sandboxed context */ });
+  }
 
   await seedIfNeeded();
   await reload();

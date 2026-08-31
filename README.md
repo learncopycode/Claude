@@ -23,6 +23,14 @@ turns it into a vivid, animated "note short" you can scroll through like a feed.
   shared-tag links; the "✨ AI: link my notes" button upgrades them with Claude.
 - **🌗 View toggle** — the grid icon (top right) or the bottom nav switches
   between the TikTok feed and a calm, classic notes grid.
+- **📤 Share a short** — the rail's share button renders the note into a
+  1080×1920 story-format image (gradient, screenshot, title, key points, tags)
+  and opens the native share sheet, or downloads the PNG on desktop.
+- **▶ Auto-scroll** — the play button (top right) plays through your feed
+  hands-free, advancing every 8 seconds and looping back to the top.
+- **⌨️ Keyboard nav** — arrow keys (or j/k) flip between shorts on desktop.
+- **📲 Installable PWA** — a manifest + service worker make it installable to
+  a phone home screen and keep the app shell working offline.
 
 ## Running it
 
@@ -69,4 +77,7 @@ js/feed.js        TikTok-style feed
 js/notes.js       classic notes grid
 js/mindmap.js     force-directed canvas mind map
 js/capture.js     paste → analyze → confirm tags → save flow
+js/share.js       render a short to a story-format PNG for sharing
+sw.js             service worker (offline app shell)
+manifest.webmanifest, icon.svg   PWA install metadata
 ```

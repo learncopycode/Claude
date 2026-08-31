@@ -1,6 +1,7 @@
 // TikTok-style vertical feed of "note shorts".
 
 import { saveNote, deleteNote } from './store.js';
+import { shareNoteAsImage } from './share.js';
 
 const feedEl = document.getElementById('view-feed');
 
@@ -103,6 +104,7 @@ function renderShort(note) {
       </button>
       <button class="rail-btn" data-action="edit"><span class="rail-ico">✏️</span><span class="lbl">Edit</span></button>
       <button class="rail-btn" data-action="map"><span class="rail-ico">🕸️</span><span class="lbl">Map</span></button>
+      <button class="rail-btn" data-action="share"><span class="rail-ico">📤</span><span class="lbl">Share</span></button>
       <button class="rail-btn" data-action="delete"><span class="rail-ico">🗑️</span><span class="lbl">Delete</span></button>
     </div>
     <div class="short-progress"><i></i></div>`;
@@ -110,6 +112,17 @@ function renderShort(note) {
   el.querySelector('[data-action="like"]').addEventListener('click', () => toggleLike(note, el));
   el.querySelector('[data-action="edit"]').addEventListener('click', () => callbacks.onEdit?.(note));
   el.querySelector('[data-action="map"]').addEventListener('click', () => callbacks.onOpenMap?.(note));
+  el.querySelector('[data-action="share"]').addEventListener('click', async () => {
+    try {
+      const how = await shareNoteAsImage(note);
+      if (how === 'downloaded') callbacks.showToast?.('Short saved as an image 📤');
+    } catch (err) {
+      if (err?.name !== 'AbortError') {
+        console.error(err);
+        callbacks.showToast?.('⚠️ Could not share this short');
+      }
+    }
+  });
   el.querySelector('[data-action="delete"]').addEventListener('click', async () => {
     if (!confirm(`Delete "${note.title}"?`)) return;
     await deleteNote(note.id);
