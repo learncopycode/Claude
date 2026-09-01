@@ -14,6 +14,35 @@ export function hasApiKey() {
   return !!getApiKey();
 }
 
+// ---- Claude artifact runtime (window.claude.use("sample")) ----
+// When this page is published as a Claude artifact, the viewer grants it a
+// built-in "ask Claude" capability — no API key needed. Resolves null in a
+// normal browser or when the viewer can't run it.
+let samplePromise = null;
+function getSample() {
+  if (!samplePromise) {
+    samplePromise = window.claude?.use
+      ? window.claude.use('sample').catch(() => null)
+      : Promise.resolve(null);
+  }
+  return samplePromise;
+}
+
+// 'claude' (artifact runtime) | 'key' (direct API) | 'local' (heuristics)
+export async function aiMode() {
+  if (await getSample()) return 'claude';
+  return hasApiKey() ? 'key' : 'local';
+}
+
+function dataUrlToBlob(dataUrl) {
+  const m = dataUrl.match(/^data:(image\/[a-z+.-]+);base64,(.+)$/s);
+  if (!m) return null;
+  const bytes = atob(m[2]);
+  const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([arr], { type: m[1] });
+}
+
 async function callClaude(content, { maxTokens = 3000, system } = {}) {
   const key = getApiKey();
   if (!key) throw new Error('no-key');
@@ -90,6 +119,30 @@ Make the theme gradient vivid and saturated, matched to the content's mood (e.g.
 
 // ---- screenshot / text -> note fields ----
 export async function analyzeCapture({ imageDataUrl, text }) {
+  const sample = await getSample();
+  if (sample) {
+    let images;
+    if (imageDataUrl) {
+      const canSendImages = await sample.limits().then(l => !!l.images).catch(() => false);
+      const blob = canSendImages ? dataUrlToBlob(imageDataUrl) : null;
+      if (blob) images = [blob];
+    }
+    const prompt = ANALYZE_SYSTEM + '\n\n' + (text
+      ? `Here is my note text${images ? ' to go with the attached screenshot' : ''}:\n\n${text}`
+      : (images
+        ? 'Analyze the attached screenshot and turn it into a note short.'
+        : 'Turn this into a note short: (screenshot could not be attached — invent nothing, keep it generic)'));
+    try {
+      const parsed = await sample.json(prompt, images ? { images } : {});
+      return normalizeAnalysis(parsed, text);
+    } catch (err) {
+      // Viewer declined or can't use Claude here: quietly fall back to local.
+      if (['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed'].includes(err?.code)) {
+        return analyzeLocally({ text });
+      }
+      throw new Error(err?.message || 'Analysis failed');
+    }
+  }
   if (hasApiKey()) {
     const content = [];
     if (imageDataUrl) content.push(imageBlockFromDataUrl(imageDataUrl));
@@ -133,33 +186,52 @@ Only link notes with a real thematic, topical or causal connection. Prefer quali
 
 export async function suggestLinks(notes) {
   if (notes.length < 2) return [];
+  const digest = notes.map(n => ({
+    id: n.id,
+    title: n.title,
+    summary: n.summary,
+    tags: n.tags,
+    category: n.category,
+  }));
+  const maxLinks = Math.min(notes.length * 2, 30);
+  const instruction = LINK_SYSTEM.replace('${MAX}', String(maxLinks));
+
+  const sample = await getSample();
+  if (sample) {
+    try {
+      const parsed = await sample.json(
+        instruction + '\n\nMy notes:\n' + JSON.stringify(digest, null, 1)
+      );
+      return sanitizeLinks(parsed, notes);
+    } catch (err) {
+      if (['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed'].includes(err?.code)) {
+        return linkLocally(notes);
+      }
+      throw new Error(err?.message || 'Linking failed');
+    }
+  }
   if (hasApiKey()) {
-    const digest = notes.map(n => ({
-      id: n.id,
-      title: n.title,
-      summary: n.summary,
-      tags: n.tags,
-      category: n.category,
-    }));
-    const maxLinks = Math.min(notes.length * 2, 30);
     const reply = await callClaude(
       [{ type: 'text', text: 'My notes:\n' + JSON.stringify(digest, null, 1) }],
-      { system: LINK_SYSTEM.replace('${MAX}', String(maxLinks)), maxTokens: 2000 },
+      { system: instruction, maxTokens: 2000 },
     );
-    const parsed = extractJson(reply);
-    const ids = new Set(notes.map(n => n.id));
-    const seen = new Set();
-    const links = [];
-    for (const l of Array.isArray(parsed) ? parsed : []) {
-      if (!ids.has(l.a) || !ids.has(l.b) || l.a === l.b) continue;
-      const pair = [l.a, l.b].sort().join('|');
-      if (seen.has(pair)) continue;
-      seen.add(pair);
-      links.push({ a: l.a, b: l.b, reason: String(l.reason || 'related').slice(0, 60) });
-    }
-    return links;
+    return sanitizeLinks(extractJson(reply), notes);
   }
   return linkLocally(notes);
+}
+
+function sanitizeLinks(parsed, notes) {
+  const ids = new Set(notes.map(n => n.id));
+  const seen = new Set();
+  const links = [];
+  for (const l of Array.isArray(parsed) ? parsed : []) {
+    if (!ids.has(l.a) || !ids.has(l.b) || l.a === l.b) continue;
+    const pair = [l.a, l.b].sort().join('|');
+    if (seen.has(pair)) continue;
+    seen.add(pair);
+    links.push({ a: l.a, b: l.b, reason: String(l.reason || 'related').slice(0, 60) });
+  }
+  return links;
 }
 
 // ============================================================

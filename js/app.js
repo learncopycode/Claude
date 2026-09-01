@@ -1,11 +1,12 @@
 // NoteTok — main glue: navigation, categories, search, settings, seeding.
 
 import { getAllNotes, saveNote, clearAllNotes, getApiKey, setApiKey, wasSeeded, markSeeded, newId } from './store.js';
-import { suggestLinks, hasApiKey } from './ai.js';
+import { suggestLinks, aiMode } from './ai.js';
 import { initFeed, renderFeed, scrollFeedToNote } from './feed.js';
 import { renderNotesGrid } from './notes.js';
 import { initMindmap, setGraph, startMindmap, stopMindmap } from './mindmap.js';
 import { initCapture, openCapture } from './capture.js';
+import { confirmDialog } from './ui.js';
 
 let notes = [];
 let activeCategory = 'For You';
@@ -118,7 +119,7 @@ async function aiRelink() {
   const status = document.getElementById('mindmap-status');
   if (notes.length < 2) { showToast('Add at least two notes first'); return; }
   btn.disabled = true;
-  status.textContent = hasApiKey() ? 'Claude is connecting the dots…' : 'Linking by shared tags…';
+  status.textContent = (await aiMode()) !== 'local' ? 'Claude is connecting the dots…' : 'Linking by shared tags…';
   try {
     mindmapLinks = await suggestLinks(notes);
     mindmapFresh = true;
@@ -310,6 +311,9 @@ async function boot() {
   // settings
   document.getElementById('btn-settings').addEventListener('click', () => {
     document.getElementById('settings-api-key').value = getApiKey();
+    aiMode().then(mode => {
+      document.getElementById('settings-ai-note').classList.toggle('hidden', mode !== 'claude');
+    });
     openModal('modal-settings');
   });
   document.getElementById('btn-save-settings').addEventListener('click', () => {
@@ -318,7 +322,7 @@ async function boot() {
     showToast(getApiKey() ? 'API key saved — Claude is on ✨' : 'Key cleared — using local analyzer');
   });
   document.getElementById('btn-clear-all').addEventListener('click', async () => {
-    if (!confirm('Delete ALL notes? This cannot be undone.')) return;
+    if (!await confirmDialog('Delete ALL notes? This cannot be undone.', { confirmLabel: 'Delete all' })) return;
     await clearAllNotes();
     await reload();
     closeModal('modal-settings');
@@ -345,7 +349,10 @@ async function boot() {
 
   document.addEventListener('keydown', ev => {
     if (ev.key === 'Escape') {
-      for (const m of document.querySelectorAll('.modal:not(.hidden)')) m.classList.add('hidden');
+      for (const m of document.querySelectorAll('.modal:not(.hidden)')) {
+        if (m.id === 'modal-confirm') document.getElementById('btn-confirm-cancel').click();
+        else m.classList.add('hidden');
+      }
       return;
     }
     if (anyModalOpen() || ev.target.closest?.('input, textarea')) return;

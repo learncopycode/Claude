@@ -142,6 +142,7 @@
           <h2>Setup</h2>
           <button class="icon-btn modal-close" data-close="modal-settings" aria-label="Close">✕</button>
         </div>
+        <p id="settings-ai-note" class="muted small-text hidden">✨ You're viewing this inside Claude — AI already works here, no key needed. A key only matters when the app is hosted elsewhere.</p>
         <label class="field-label">Anthropic API key</label>
         <input id="settings-api-key" type="password" placeholder="sk-ant-…" autocomplete="off" />
         <p class="muted small-text">
@@ -153,6 +154,17 @@
         <div class="review-actions">
           <button id="btn-clear-all" class="pill-btn ghost danger">Delete all notes</button>
           <button id="btn-save-settings" class="cta-btn">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======== CONFIRM DIALOG ======== -->
+    <div id="modal-confirm" class="modal hidden" role="alertdialog" aria-modal="true" aria-label="Confirm">
+      <div class="modal-card confirm-card">
+        <p id="confirm-message"></p>
+        <div class="review-actions">
+          <button id="btn-confirm-cancel" class="pill-btn ghost">Cancel</button>
+          <button id="btn-confirm-ok" class="pill-btn danger-solid">Delete</button>
         </div>
       </div>
     </div>

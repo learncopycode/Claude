@@ -156,6 +156,20 @@ export async function shareNoteAsImage(note) {
     await navigator.share({ files: [file], title: note.title });
     return 'shared';
   }
+  // Claude artifact viewer: direct downloads are inert; use the granted
+  // downloads capability, which shows the viewer a save confirmation.
+  if (window.claude?.use) {
+    const downloads = await window.claude.use('downloads').catch(() => null);
+    if (downloads) {
+      try {
+        await downloads.save({ filename: file.name, data: blob });
+        return 'saved';
+      } catch (err) {
+        if (err?.code === 'declined') return 'cancelled';
+        throw new Error(err?.message || 'Save failed');
+      }
+    }
+  }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = file.name;

@@ -2,6 +2,7 @@
 
 import { saveNote, deleteNote } from './store.js';
 import { shareNoteAsImage } from './share.js';
+import { confirmDialog } from './ui.js';
 
 const feedEl = document.getElementById('view-feed');
 
@@ -124,7 +125,7 @@ function renderShort(note) {
     }
   });
   el.querySelector('[data-action="delete"]').addEventListener('click', async () => {
-    if (!confirm(`Delete "${note.title}"?`)) return;
+    if (!await confirmDialog(`Delete "${note.title}"?`)) return;
     await deleteNote(note.id);
     callbacks.onChanged?.();
   });

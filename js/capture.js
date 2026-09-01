@@ -1,7 +1,7 @@
 // Capture flow: paste/drop/pick a screenshot (and/or type text),
 // let the AI analyze it, review + confirm tags, save.
 
-import { analyzeCapture, hasApiKey } from './ai.js';
+import { analyzeCapture, aiMode } from './ai.js';
 import { saveNote, newId } from './store.js';
 
 const modal = document.getElementById('modal-capture');
@@ -81,9 +81,12 @@ export function openCapture(editNote = null) {
   modalTitle.textContent = editNote ? 'Edit note' : 'New note';
   textInput.value = editNote?.text || '';
   setImage(state.image);
-  hintEl.textContent = hasApiKey()
-    ? 'Claude will read the screenshot, write the short, pick a vibe and suggest tags.'
-    : 'No API key set (see Setup) — using the built-in analyzer. Add a key for the full Claude magic.';
+  hintEl.textContent = '';
+  aiMode().then(mode => {
+    hintEl.textContent = mode === 'local'
+      ? 'No API key set (see Setup) — using the built-in analyzer. Add a key for the full Claude magic.'
+      : 'Claude will read the screenshot, write the short, pick a vibe and suggest tags.';
+  });
   modal.classList.remove('hidden');
 
   if (editNote) {
@@ -153,7 +156,7 @@ async function analyze() {
     return;
   }
   showStep('loading');
-  loadingMsg.textContent = hasApiKey()
+  loadingMsg.textContent = (await aiMode()) !== 'local'
     ? (state.image ? 'Claude is reading your screenshot…' : 'Claude is shaping your note…')
     : 'Analyzing locally…';
   try {
