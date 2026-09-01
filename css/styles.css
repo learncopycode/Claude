@@ -21,6 +21,8 @@ body {
   overflow: hidden;
 }
 button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+/* stop iOS double-tap zoom from fighting double-tap-to-like and adding tap delay */
+button, .short, #bottomnav, #topbar { touch-action: manipulation; }
 input, textarea {
   font: inherit; color: var(--text); background: var(--surface-2);
   border: 1px solid #2c2c40; border-radius: 10px; padding: 10px 12px; width: 100%;
@@ -43,13 +45,14 @@ code { background: #000; padding: 1px 5px; border-radius: 5px; font-size: 12px; 
 }
 .category-bar {
   flex: 1; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent);
   mask-image: linear-gradient(90deg, #000 92%, transparent);
 }
 .category-bar::-webkit-scrollbar { display: none; }
 .cat-chip {
   flex: 0 0 auto; padding: 7px 14px; border-radius: 999px;
   background: #ffffff14; color: #ffffffcc; font-size: 13px; font-weight: 600;
-  backdrop-filter: blur(8px); border: 1px solid #ffffff10;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border: 1px solid #ffffff10;
   transition: transform .15s, background .2s;
 }
 .cat-chip:active { transform: scale(.94); }
@@ -61,7 +64,7 @@ code { background: #000; padding: 1px 5px; border-radius: 5px; font-size: 12px; 
 .topbar-actions { display: flex; gap: 4px; }
 .icon-btn {
   width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%;
-  background: #ffffff12; backdrop-filter: blur(8px);
+  background: #ffffff12; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
 }
 .icon-btn svg { width: 19px; height: 19px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .icon-btn:active { transform: scale(.92); }
@@ -192,7 +195,7 @@ code { background: #000; padding: 1px 5px; border-radius: 5px; font-size: 12px; 
 .rail-btn .rail-ico {
   width: 46px; height: 46px; display: grid; place-items: center;
   font-size: 22px; border-radius: 50%;
-  background: #00000042; backdrop-filter: blur(6px);
+  background: #00000042; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
   transition: transform .12s;
 }
 .rail-btn:active .rail-ico { transform: scale(.85); }
@@ -273,7 +276,7 @@ code { background: #000; padding: 1px 5px; border-radius: 5px; font-size: 12px; 
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
   height: var(--nav-h);
   display: flex; align-items: stretch; justify-content: space-around;
-  background: #07070ce8; backdrop-filter: blur(14px);
+  background: #07070ce8; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
   border-top: 1px solid #ffffff0d;
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -296,7 +299,7 @@ code { background: #000; padding: 1px 5px; border-radius: 5px; font-size: 12px; 
 /* ============ Modals ============ */
 .modal {
   position: fixed; inset: 0; z-index: 60;
-  background: #000000a8; backdrop-filter: blur(6px);
+  background: #000000a8; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
   display: grid; place-items: end center;
 }
 .modal-card {
@@ -340,7 +343,7 @@ code { background: #000; padding: 1px 5px; border-radius: 5px; font-size: 12px; 
 .cta-btn:disabled { filter: grayscale(.8); opacity: .6; cursor: default; }
 .pill-btn {
   padding: 9px 16px; border-radius: 999px; font-weight: 700; font-size: 13.5px;
-  background: #ffffff18; color: #fff; backdrop-filter: blur(8px);
+  background: #ffffff18; color: #fff; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
 }
 .pill-btn.small { padding: 6px 13px; font-size: 12.5px; }
 .pill-btn.ghost { background: transparent; border: 1px solid #ffffff2a; }

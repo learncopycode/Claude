@@ -1,7 +1,7 @@
 // NoteTok service worker: cache the app shell so it installs and works offline.
 // AI calls go to api.anthropic.com (cross-origin) and are never intercepted.
 
-const CACHE = 'notetok-v1';
+const CACHE = 'notetok-v2';
 const SHELL = [
   '.',
   'index.html',
@@ -16,6 +16,8 @@ const SHELL = [
   'js/share.js',
   'manifest.webmanifest',
   'icon.svg',
+  'icon-180.png',
+  'icon-512.png',
 ];
 
 self.addEventListener('install', event => {
