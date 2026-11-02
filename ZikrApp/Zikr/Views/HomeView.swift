@@ -8,8 +8,10 @@ struct HomeView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \ZikrItem.updatedAt, order: .reverse) private var items: [ZikrItem]
     @Query private var tallies: [DailyTally]
+    @Query(sort: \CustomCollection.createdAt, order: .reverse) private var myCollections: [CustomCollection]
 
-    @State private var showingNew = false
+    @EnvironmentObject private var assistant: AssistantService
+    @State private var newSheetKind: NewZikrSheet.Kind?
     @State private var dhikrsExpanded = true
     @State private var collectionsExpanded = true
 
@@ -107,13 +109,31 @@ struct HomeView: View {
                             title: "Collections",
                             quote: "Guided sets of dhikr and duas, one after another",
                             symbol: "list.bullet",
-                            count: Collections.all.count,
+                            count: Collections.all.count + myCollections.count,
                             expandable: true,
                             expanded: collectionsExpanded
                         )
                     }
                     .buttonStyle(.plain)
                     if collectionsExpanded {
+                        ForEach(myCollections) { custom in
+                            Button { router.path.append(.customCollection(custom)) } label: {
+                                BulletRow(title: custom.title, subtitle: custom.asCollection.subtitle, badge: "Mine")
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button("Delete", systemImage: "trash", role: .destructive) { context.delete(custom) }
+                            }
+                        }
+                        Button { newSheetKind = .collection } label: {
+                            Label("Create a collection with AI", systemImage: "sparkles")
+                                .font(.headline)
+                                .foregroundStyle(Theme.mint)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Theme.mint.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
                         ForEach(Collections.all) { collection in
                             Button { router.path.append(.collection(collection.id)) } label: {
                                 BulletRow(
@@ -133,7 +153,7 @@ struct HomeView: View {
             .navigationTitle("Zikr")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showingNew = true } label: { Image(systemName: "plus") }
+                    Button { newSheetKind = .zikr } label: { Image(systemName: "plus") }
                         .accessibilityLabel("New zikr")
                 }
             }
@@ -145,6 +165,8 @@ struct HomeView: View {
                     if let collection = Collections.collection(id: id) {
                         CollectionRunnerView(collection: collection)
                     }
+                case .customCollection(let custom):
+                    CollectionRunnerView(collection: custom.asCollection)
                 case .names:
                     NamesListView()
                 case .duas(let title, let categories):
@@ -153,7 +175,11 @@ struct HomeView: View {
                     SurahListView()
                 }
             }
-            .sheet(isPresented: $showingNew) { NewZikrSheet() }
+            .sheet(item: $newSheetKind) { kind in
+                NewZikrSheet(initialKind: kind)
+                    .environmentObject(router)
+                    .environmentObject(assistant)
+            }
         }
     }
 

@@ -12,6 +12,14 @@ struct AssistantPlan {
     var isEmpty: Bool { duas.isEmpty && quran.isEmpty }
 }
 
+/// What the assistant suggests for a new collection.
+struct CollectionSuggestion {
+    var title: String
+    var items: [DuaContent]
+    var note: String
+    var usedAI: Bool
+}
+
 /// Offline, rule-based understanding of requests. Runs on every iPhone and
 /// is also used to double-check exact Quran references the AI returns.
 enum LocalMatcher {

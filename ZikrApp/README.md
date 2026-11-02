@@ -24,7 +24,13 @@ finds any dua, surah or zikr you ask for and drops it straight into a counter.
 - **Today, streak and all-time totals** on the home screen.
 - **Library tab** — search everything; Ayat al-Kursi and the three Quls are
   bundled so they work offline.
-- Custom zikr with your own text and target. Everything is saved on the phone.
+- **Add new zikr (with AI)** — the + button opens Zikr / Dua / Collection tabs.
+  Type a few words ("dua for exams", "SubhanAllah 100 times") and the AI fills
+  in the title, Arabic, transcription, translation, source and count from
+  verified sources — every field stays editable, and other matches are one tap
+  away. In **Collection**, describe it ("morning protection", "before sleep")
+  and the AI picks the zikrs; tick more from the lists, adjust counts, save.
+- Everything is saved on the phone.
 
 ## The AI is free
 

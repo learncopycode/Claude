@@ -52,6 +52,53 @@ final class AssistantService: ObservableObject {
         return local
     }
 
+    /// Builds a set of adhkar for a collection from a short description
+    /// ("morning protection", "before an exam"). Only verified texts are used.
+    func suggestCollection(_ query: String) async -> CollectionSuggestion {
+        var title = ""
+        var note = ""
+        var usedAI = false
+        var duas: [DuaContent] = []
+        var requests = LocalMatcher.quranRequests(in: query)
+
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *), mode == .onDeviceAI,
+           let ai = try? await OnDeviceAI.collection(for: query) {
+            usedAI = true
+            title = ai.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            note = ai.note.trimmingCharacters(in: .whitespacesAndNewlines)
+            duas = ai.duaIDs.compactMap { DuaLibrary.dua(id: $0.trimmingCharacters(in: .whitespaces)) }
+            for surah in ai.surahs {
+                if let request = QuranRequest.valid(surah: surah), !requests.contains(request) {
+                    requests.append(request)
+                }
+            }
+        }
+        #endif
+
+        if duas.isEmpty && requests.isEmpty {
+            usedAI = false
+            duas = LocalMatcher.searchDuas(query, limit: 8) + LocalMatcher.searchNames(query)
+        }
+
+        var items: [DuaContent] = []
+        for request in requests {
+            if let content = try? await QuranService.shared.fetch(request) { items.append(content) }
+        }
+        for dua in duas where !items.contains(where: { $0.id == dua.id }) {
+            items.append(dua)
+        }
+
+        if title.isEmpty {
+            let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            title = trimmed.prefix(1).uppercased() + trimmed.dropFirst()
+        }
+        if note.isEmpty {
+            note = items.isEmpty ? "" : "Picked \(items.count) from verified sources."
+        }
+        return CollectionSuggestion(title: title, items: Array(items.prefix(12)), note: note, usedAI: usedAI)
+    }
+
     #if canImport(FoundationModels)
     @available(iOS 26.0, *)
     private func merge(ai: AIPlan, local: AssistantPlan) -> AssistantPlan {
@@ -113,6 +160,22 @@ struct AIPlan {
 }
 
 @available(iOS 26.0, *)
+@Generable
+struct AICollectionPlan {
+    @Guide(description: "A short title for the collection, 2 to 6 words, in English.")
+    var title: String
+
+    @Guide(description: "3 to 8 IDs from the catalog, in the order they should be recited. Use only IDs that appear in the catalog.")
+    var duaIDs: [String]
+
+    @Guide(description: "Surah numbers from 1 to 114 to include if the request asks for whole surahs, otherwise empty.")
+    var surahs: [Int]
+
+    @Guide(description: "One short sentence about the set. Do not quote Arabic, verses or translations.")
+    var note: String
+}
+
+@available(iOS 26.0, *)
 enum OnDeviceAI {
     static var unavailableReason: String? {
         switch SystemLanguageModel.default.availability {
@@ -157,6 +220,13 @@ enum OnDeviceAI {
         // A fresh session per request keeps the context small.
         let session = LanguageModelSession(instructions: instructions)
         let response = try await session.respond(to: query, generating: AIPlan.self)
+        return response.content
+    }
+
+    static func collection(for query: String) async throws -> AICollectionPlan {
+        let session = LanguageModelSession(instructions: instructions)
+        let prompt = "Build a collection of adhkar and duas to recite one after another for: \(query)"
+        let response = try await session.respond(to: prompt, generating: AICollectionPlan.self)
         return response.content
     }
 }

@@ -4,7 +4,7 @@ import Foundation
 struct ZikrCollection: Identifiable, Hashable {
     struct Step: Hashable {
         let content: DuaContent
-        let count: Int
+        var count: Int
     }
 
     let id: String

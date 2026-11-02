@@ -14,7 +14,7 @@ struct ZikrApp: App {
                 .preferredColorScheme(.dark)
                 .tint(Theme.mint)
         }
-        .modelContainer(for: [ZikrItem.self, DailyTally.self])
+        .modelContainer(for: [ZikrItem.self, DailyTally.self, CustomCollection.self])
     }
 }
 
@@ -22,6 +22,7 @@ struct ZikrApp: App {
 enum Route: Hashable {
     case counter(ZikrItem)
     case collection(String)
+    case customCollection(CustomCollection)
     case names
     case duas(title: String, categories: [DuaCategory])
     case surahs
@@ -40,6 +41,11 @@ final class AppRouter: ObservableObject {
     func openCounter(_ item: ZikrItem) {
         tab = .counter
         path = [.counter(item)]
+    }
+
+    func openCollection(_ collection: CustomCollection) {
+        tab = .counter
+        path = [.customCollection(collection)]
     }
 
     func ask(_ question: String? = nil) {
