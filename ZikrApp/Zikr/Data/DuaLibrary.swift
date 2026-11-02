@@ -117,7 +117,7 @@ enum DuaLibrary {
              translit: "Allahumma anta Rabbi la ilaha illa ant, khalaqtani wa ana 'abduk, wa ana 'ala 'ahdika wa wa'dika mastata't, a'udhu bika min sharri ma sana't, abu'u laka bini'matika 'alayya, wa abu'u bidhanbi faghfir li, fa innahu la yaghfirudh-dhunuba illa ant",
              meaning: "O Allah, You are my Lord; none has the right to be worshipped but You. You created me and I am Your servant, and I keep Your covenant and promise as best I can. I seek refuge in You from the evil I have done. I acknowledge Your favour upon me and I acknowledge my sin, so forgive me, for none forgives sins but You.",
              source: "Sahih al-Bukhari 6306 (the master of seeking forgiveness — morning and evening)",
-             tags: ["istighfar", "forgiveness", "master", "morning", "evening", "sins", "repentance"]),
+             tags: ["sayyidul istighfar", "sayyid ul istighfar", "istighfar", "forgiveness", "master", "morning", "evening", "sins", "repentance"]),
         make("laylatul-qadr", "Allahumma innaka 'afuwwun", .forgiveness, count: 33,
              arabic: "اللَّهُمَّ إِنَّكَ عَفُوٌّ تُحِبُّ الْعَفْوَ فَاعْفُ عَنِّي",
              translit: "Allahumma innaka 'afuwwun tuhibbul-'afwa fa'fu 'anni",

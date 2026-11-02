@@ -183,6 +183,95 @@ enum LocalMatcher {
         return sorted.filter { $0.1 * 3 >= best }.prefix(limit).map { $0.0 }
     }
 
+    // MARK: Live search (type in English letters)
+
+    /// One live search result: a ready dua, or a Quran passage to load.
+    enum Suggestion: Identifiable, Hashable {
+        case content(DuaContent)
+        case quran(QuranRequest)
+
+        var id: String {
+            switch self {
+            case .content(let c): return c.id
+            case .quran(let r): return "quran-\(r.reference)"
+            }
+        }
+
+        var title: String {
+            switch self {
+            case .content(let c): return c.title
+            case .quran(let r): return r.title
+            }
+        }
+    }
+
+    /// A loose spelling key so "astagfirullah", "astaghfirullah" and
+    /// "Astaghfirullaah" all match: letters only, common digraphs folded,
+    /// "h" dropped, e→i, o→u, and doubled letters collapsed.
+    static func searchKey(_ text: String) -> String {
+        var t = text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en"))
+            .lowercased()
+            .filter { $0.isASCII && $0.isLetter }
+        for (from, to) in [("gh", "g"), ("kh", "k"), ("dh", "d"), ("th", "t"), ("sh", "s"), ("q", "k"),
+                           ("h", ""), ("e", "i"), ("o", "u"), ("y", "i")] {
+            t = t.replacingOccurrences(of: from, with: to)
+        }
+        var out = ""
+        var last: Character?
+        for c in t {
+            if c != last { out.append(c) }
+            last = c
+        }
+        return out
+    }
+
+    private static let searchIndex: [(content: DuaContent, translit: String, title: String)] =
+        (DuaLibrary.all + AllahNames.all).map { ($0, searchKey($0.transliteration), searchKey($0.title)) }
+
+    /// Instant results while typing: transliteration first ("rabbana atina"),
+    /// then meaning words ("parents"), plus Quran passages ("surah mulk", "2:255").
+    static func autocomplete(_ query: String, limit: Int = 6) -> [Suggestion] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2 else { return [] }
+
+        var keys = [searchKey(trimmed)]
+        let lower = trimmed.lowercased()
+        if lower.hasPrefix("ya ") { keys.append(searchKey(String(trimmed.dropFirst(3)))) }
+        keys = keys.filter { $0.count >= 2 }
+
+        var scored: [(DuaContent, Int)] = []
+        for entry in searchIndex {
+            var score = 0
+            for key in keys {
+                if entry.translit.hasPrefix(key) || entry.title.hasPrefix(key) {
+                    score = max(score, 100)
+                } else if key.count >= 3, entry.translit.contains(key) || entry.title.contains(key) {
+                    score = max(score, 60)
+                }
+            }
+            if score > 0 {
+                if entry.content.category == .names { score -= 5 }
+                // Shorter matches first, so "SubhanAllah" beats longer phrases.
+                score -= min(20, entry.translit.count / 10)
+                scored.append((entry.content, score))
+            }
+        }
+        if scored.count < limit {
+            for dua in searchDuas(trimmed, limit: limit) where !scored.contains(where: { $0.0.id == dua.id }) {
+                scored.append((dua, 30))
+            }
+        }
+
+        var results: [Suggestion] = quranRequests(in: trimmed).map { request in
+            DuaLibrary.bundled(for: request).map(Suggestion.content) ?? .quran(request)
+        }
+        for (content, _) in scored.sorted(by: { $0.1 > $1.1 })
+        where !results.contains(where: { $0.id == content.id }) {
+            results.append(.content(content))
+        }
+        return Array(results.prefix(limit))
+    }
+
     // MARK: 99 Names
 
     /// Finds names like "Ya Razzaq" or "al-wadud".

@@ -4,6 +4,8 @@ enum Theme {
     /// Mint green used for the tap panel, dots and highlights.
     static let mint = Color(red: 0.40, green: 0.80, blue: 0.58)
     static let green = mint
+    /// Slightly deeper mint for the panel gradient.
+    static let mintDeep = Color(red: 0.30, green: 0.72, blue: 0.52)
     static let gold = Color(red: 0.83, green: 0.66, blue: 0.29)
     /// Dark grey page background with black cards on top.
     static let background = Color(red: 0.11, green: 0.11, blue: 0.12)

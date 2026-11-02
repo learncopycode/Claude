@@ -160,7 +160,7 @@ struct HomeView: View {
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .counter(let item):
-                    CounterView(item: item)
+                    CounterFeedView(startID: item.id)
                 case .collection(let id):
                     if let collection = Collections.collection(id: id) {
                         CollectionRunnerView(collection: collection)

@@ -14,6 +14,10 @@ finds any dua, surah or zikr you ask for and drops it straight into a counter.
   can open or expand: **99 Names of Allah**, **Dhikrs**, **Duas**,
   **Duas from the Quran**, **Quran** (all 114 surahs) and **Collections**.
   Tapping any item opens its counter straight away.
+- **Swipe like TikTok** — counters are a vertical feed: tap the mint panel
+  to count (with a ripple where you tap), swipe up for your next zikr, down
+  for the previous one. Collections glide to the next dhikr on their own
+  when you finish one.
 - **Counter screen** — the dua on a black card (Arabic, transliteration,
   translation, source) above a big mint tap panel. Shows "N left", has a tap
   sound toggle, share, full-screen mode, undo, reset, custom targets, rounds,
@@ -25,7 +29,11 @@ finds any dua, surah or zikr you ask for and drops it straight into a counter.
 - **Library tab** — search everything; Ayat al-Kursi and the three Quls are
   bundled so they work offline.
 - **Add new zikr (with AI)** — the + button opens Zikr / Dua / Collection tabs.
-  Type a few words ("dua for exams", "SubhanAllah 100 times") and the AI fills
+  Start typing a dua in English letters in **Title** ("rabbana atina",
+  "hasbunallah", "astagfirullah" — any spelling) and matches appear instantly
+  with their Arabic; one tap fills in the Arabic, transcription, translation
+  and source. For plain-English requests, tap **Ask AI**: type a few words
+  ("dua for exams", "SubhanAllah 100 times") and the AI fills
   in the title, Arabic, transcription, translation, source and count from
   verified sources — every field stays editable, and other matches are one tap
   away. In **Collection**, describe it ("morning protection", "before sleep")

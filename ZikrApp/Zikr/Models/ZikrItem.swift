@@ -75,6 +75,32 @@ final class ZikrItem {
         return item
     }
 
+    /// Counts one recitation. Returns true when this tap completed a round.
+    @discardableResult
+    func increment(in context: ModelContext) -> Bool {
+        count += 1
+        totalCount += 1
+        updatedAt = .now
+        DailyTally.add(1, in: context)
+        guard target > 0, count >= target else { return false }
+        rounds += 1
+        count = 0
+        return true
+    }
+
+    /// Takes back the last recitation (also across a finished round).
+    func undo(in context: ModelContext) {
+        guard totalCount > 0 else { return }
+        if count > 0 {
+            count -= 1
+        } else if rounds > 0 {
+            rounds -= 1
+            count = max(0, target - 1)
+        }
+        totalCount -= 1
+        DailyTally.add(-1, in: context)
+    }
+
     /// Recitations left in the current round.
     var remaining: Int { target > 0 ? max(0, target - count) : 0 }
 

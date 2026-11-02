@@ -38,6 +38,8 @@ struct NewZikrSheet: View {
     @State private var openSection: String?
 
     @FocusState private var aiFocused: Bool
+    @FocusState private var titleFocused: Bool
+    @State private var loadingSuggestionID: String?
 
     init(initialKind: Kind = .zikr) {
         _kind = State(initialValue: initialKind)
@@ -52,9 +54,8 @@ struct NewZikrSheet: View {
                     }
                     .pickerStyle(.segmented)
 
-                    aiBox
-
                     if kind == .collection {
+                        aiBox
                         collectionForm
                     } else {
                         zikrForm
@@ -79,7 +80,9 @@ struct NewZikrSheet: View {
                 suggestions = []
                 if filled == nil { target = kind == .dua ? 1 : 33 }
             }
-            .onAppear { aiFocused = true }
+            .onAppear {
+                if kind == .collection { aiFocused = true } else { titleFocused = true }
+            }
         }
         .presentationDragIndicator(.visible)
     }
@@ -150,20 +153,64 @@ struct NewZikrSheet: View {
 
     // MARK: Zikr / Dua form
 
+    /// Live matches while typing the title in English letters.
+    private var liveSuggestions: [LocalMatcher.Suggestion] {
+        guard titleFocused, title != filled?.title else { return [] }
+        return LocalMatcher.autocomplete(title)
+    }
+
+    private var showsSearchPanel: Bool {
+        titleFocused && title.trimmingCharacters(in: .whitespaces).count >= 2 && title != filled?.title
+    }
+
     private var zikrForm: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                TextField("Title", text: $title)
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(titleFocused ? Theme.mint : .secondary)
+                TextField("Title — type to search, e.g. “rabbana atina”", text: $title)
                     .font(.title3)
-                Button {
-                    runAI(title)
-                } label: {
-                    Image(systemName: "sparkles")
-                }
-                .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || thinking)
-                .accessibilityLabel("Find this title with AI")
+                    .focused($titleFocused)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.words)
+                    .submitLabel(.search)
+                    .onSubmit {
+                        if let first = LocalMatcher.autocomplete(title).first {
+                            pick(first)
+                        } else {
+                            runAI(title)
+                        }
+                    }
+                if thinking { ProgressView() }
             }
             .formRow()
+
+            if showsSearchPanel {
+                searchPanel
+                    .padding(.top, 10)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            if let aiNote, !showsSearchPanel {
+                Label(aiNote, systemImage: aiModeIcon)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 12)
+            }
+            if suggestions.count > 1 && !showsSearchPanel {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack {
+                        ForEach(suggestions) { item in
+                            Button(item.title) { fill(item, target: nil) }
+                                .buttonStyle(.bordered)
+                                .buttonBorderShape(.capsule)
+                                .tint(filled?.id == item.id ? Theme.mint : .secondary)
+                                .font(.subheadline)
+                        }
+                    }
+                }
+                .padding(.top, 10)
+            }
 
             TextField("Arabic text", text: $arabic, axis: .vertical)
                 .font(arabic.isEmpty ? .title3 : Theme.arabicFont(size: 26))
@@ -193,6 +240,62 @@ struct NewZikrSheet: View {
                 TargetPicker(target: $target)
             }
             .padding(.top, 18)
+        }
+    }
+
+    /// Dropdown of instant matches, plus "Ask AI" for anything in plain words.
+    private var searchPanel: some View {
+        VStack(spacing: 0) {
+            ForEach(liveSuggestions) { suggestion in
+                Button { pick(suggestion) } label: {
+                    SuggestionRow(suggestion: suggestion, loading: loadingSuggestionID == suggestion.id)
+                }
+                .buttonStyle(.plain)
+                Divider().overlay(Color.white.opacity(0.06))
+            }
+            Button { runAI(title) } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(.black)
+                        .frame(width: 30, height: 30)
+                        .background(Theme.mint, in: Circle())
+                    Text("Ask AI: “\(title.trimmingCharacters(in: .whitespaces))”")
+                        .foregroundStyle(Theme.mint)
+                        .lineLimit(1)
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(thinking)
+        }
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.white.opacity(0.06)))
+        .animation(.smooth(duration: 0.2), value: liveSuggestions.map(\.id))
+    }
+
+    /// Fills the form from a live match (loading Quran text first if needed).
+    private func pick(_ suggestion: LocalMatcher.Suggestion) {
+        switch suggestion {
+        case .content(let content):
+            fill(content, target: nil)
+            suggestions = []
+            aiNote = "Filled from \(content.source). You can still edit anything."
+            titleFocused = false
+        case .quran(let request):
+            loadingSuggestionID = suggestion.id
+            Task {
+                if let content = try? await QuranService.shared.fetch(request) {
+                    fill(content, target: nil)
+                    aiNote = "Loaded from the Quran. You can still edit anything."
+                    titleFocused = false
+                } else {
+                    aiNote = "Couldn't load \(request.title). Check your internet connection."
+                }
+                loadingSuggestionID = nil
+            }
         }
     }
 
@@ -314,6 +417,7 @@ struct NewZikrSheet: View {
         let query = (text ?? aiQuery).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty, !thinking else { return }
         aiFocused = false
+        titleFocused = false
         thinking = true
         let currentKind = kind
 
@@ -391,6 +495,49 @@ struct NewZikrSheet: View {
             dismiss()
             router.openCounter(item)
         }
+    }
+}
+
+/// A live search match: title, Arabic preview and source.
+private struct SuggestionRow: View {
+    let suggestion: LocalMatcher.Suggestion
+    var loading = false
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(suggestion.title)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                switch suggestion {
+                case .content(let content):
+                    Text(content.arabic)
+                        .font(Theme.arabicFont(size: 18))
+                        .foregroundStyle(Theme.mint)
+                        .lineLimit(1)
+                    Text(content.source)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                case .quran:
+                    Text("Tap to load from the Quran")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 8)
+            if loading {
+                ProgressView()
+            } else {
+                Image(systemName: "arrow.up.left")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
     }
 }
 

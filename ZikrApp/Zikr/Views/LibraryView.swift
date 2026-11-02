@@ -8,7 +8,15 @@ struct LibraryView: View {
     private var filtered: [DuaContent] {
         let query = search.trimmingCharacters(in: .whitespaces)
         guard !query.isEmpty else { return DuaLibrary.all + AllahNames.all }
-        let hits = LocalMatcher.searchDuas(query, limit: 50) + LocalMatcher.searchNames(query)
+        let live = LocalMatcher.autocomplete(query, limit: 30).compactMap { suggestion -> DuaContent? in
+            if case .content(let content) = suggestion { return content }
+            return nil
+        }
+        var hits = live
+        for dua in LocalMatcher.searchDuas(query, limit: 50) + LocalMatcher.searchNames(query)
+        where !hits.contains(where: { $0.id == dua.id }) {
+            hits.append(dua)
+        }
         if !hits.isEmpty { return hits }
         let lower = query.lowercased()
         return (DuaLibrary.all + AllahNames.all).filter {
