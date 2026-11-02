@@ -81,3 +81,11 @@ js/share.js       render a short to a story-format PNG for sharing
 sw.js             service worker (offline app shell)
 manifest.webmanifest, icon.svg   PWA install metadata
 ```
+
+---
+
+## Also in this repo: Zikr (iPhone app)
+
+[`ZikrApp/`](ZikrApp/README.md) is a native SwiftUI tasbih/zikr counter with a
+free on-device AI that finds duas, surahs and adhkar and adds them to a counter.
+See [ZikrApp/README.md](ZikrApp/README.md) to run it.
