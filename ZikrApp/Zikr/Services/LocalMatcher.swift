@@ -17,7 +17,7 @@ struct AssistantPlan {
 enum LocalMatcher {
     static func plan(for query: String) -> AssistantPlan {
         let quran = quranRequests(in: query)
-        let duas = searchDuas(query)
+        let duas = searchDuas(query) + searchNames(query)
         var plan = AssistantPlan(duas: duas, quran: quran, repetitions: repetitions(in: query))
         let total = duas.count + quran.count
         plan.note = total == 0
@@ -173,6 +173,29 @@ enum LocalMatcher {
         guard let best = sorted.first?.1 else { return [] }
         // Drop weak matches when there are strong ones.
         return sorted.filter { $0.1 * 3 >= best }.prefix(limit).map { $0.0 }
+    }
+
+    // MARK: 99 Names
+
+    /// Finds names like "Ya Razzaq" or "al-wadud".
+    static func searchNames(_ query: String, limit: Int = 3) -> [DuaContent] {
+        let lower = query.lowercased()
+        let words = lower
+            .replacingOccurrences(of: "-", with: " ")
+            .components(separatedBy: CharacterSet.letters.inverted.subtracting(CharacterSet(charactersIn: "'")))
+            .filter { !$0.isEmpty && !articles.contains($0) && $0 != "ya" }
+        let keys = Set(words.map(normalize).filter { $0.count >= 3 })
+        guard !keys.isEmpty else { return [] }
+        return AllahNames.all.filter { name in
+            let parts = name.transliteration.lowercased()
+                .split(whereSeparator: { $0 == "-" || $0 == " " })
+                .map(String.init)
+                .filter { !articles.contains($0) }
+            let key = normalize(parts.joined())
+            return keys.contains(key)
+        }
+        .prefix(limit)
+        .map { $0 }
     }
 
     // MARK: Regex helpers

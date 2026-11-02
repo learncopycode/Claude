@@ -10,12 +10,20 @@ finds any dua, surah or zikr you ask for and drops it straight into a counter.
   The assistant finds it, shows the Arabic, transliteration, translation and
   source, and **Add to counter** puts it in a counter (with the count you asked
   for, e.g. 100).
-- **Counter tab** — tap anywhere to count, with a progress ring, rounds
-  (e.g. 33 per round), haptics, undo, reset, custom targets and the screen kept
-  awake. Shows today's total, your daily streak and your all-time total.
-  One tap adds the after-prayer tasbih (33 SubhanAllah · 33 Alhamdulillah · 33 Allahu Akbar).
-- **Library tab** — 41 authentic duas and adhkar in 8 categories, plus all 114
-  surahs of the Quran.
+- **Counter tab** — a dark home screen with your counters, then sections you
+  can open or expand: **99 Names of Allah**, **Dhikrs**, **Duas**,
+  **Duas from the Quran**, **Quran** (all 114 surahs) and **Collections**.
+  Tapping any item opens its counter straight away.
+- **Counter screen** — the dua on a black card (Arabic, transliteration,
+  translation, source) above a big mint tap panel. Shows "N left", has a tap
+  sound toggle, share, full-screen mode, undo, reset, custom targets, rounds,
+  haptics, and keeps the screen awake.
+- **Collections** — guided sets that move to the next dhikr automatically:
+  tasbih after salah, morning and evening protection, surahs before bed
+  (3 times), daily forgiveness and barakah, and all 99 Names in order.
+- **Today, streak and all-time totals** on the home screen.
+- **Library tab** — search everything; Ayat al-Kursi and the three Quls are
+  bundled so they work offline.
 - Custom zikr with your own text and target. Everything is saved on the phone.
 
 ## The AI is free

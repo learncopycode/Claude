@@ -21,6 +21,7 @@ actor QuranService {
     private var surahCache: [Int: [Verse]] = [:]
 
     func fetch(_ request: QuranRequest) async throws -> DuaContent {
+        if let bundled = DuaLibrary.bundled(for: request) { return bundled }
         let verses = try await loadSurah(request.surah)
         let selected: [Verse]
         if let from = request.fromAyah {

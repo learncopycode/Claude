@@ -5,7 +5,7 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $router.tab) {
-            AdhkarListView()
+            HomeView()
                 .tabItem { Label("Counter", systemImage: "circle.circle") }
                 .tag(AppRouter.Tab.counter)
 

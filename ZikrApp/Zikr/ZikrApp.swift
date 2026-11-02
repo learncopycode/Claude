@@ -11,9 +11,20 @@ struct ZikrApp: App {
             ContentView()
                 .environmentObject(router)
                 .environmentObject(assistant)
+                .preferredColorScheme(.dark)
+                .tint(Theme.mint)
         }
         .modelContainer(for: [ZikrItem.self, DailyTally.self])
     }
+}
+
+/// Screens that can be pushed on the Counter tab.
+enum Route: Hashable {
+    case counter(ZikrItem)
+    case collection(String)
+    case names
+    case duas(title: String, categories: [DuaCategory])
+    case surahs
 }
 
 /// Lets any screen switch tabs or open a counter (e.g. after "Add & start").
@@ -22,10 +33,17 @@ final class AppRouter: ObservableObject {
     enum Tab: Hashable { case counter, assistant, library }
 
     @Published var tab: Tab = .counter
-    @Published var counterPath: [ZikrItem] = []
+    @Published var path: [Route] = []
+    /// Text to pre-fill in the Ask AI tab.
+    @Published var pendingQuestion: String?
 
     func openCounter(_ item: ZikrItem) {
         tab = .counter
-        counterPath = [item]
+        path = [.counter(item)]
+    }
+
+    func ask(_ question: String? = nil) {
+        pendingQuestion = question
+        tab = .assistant
     }
 }

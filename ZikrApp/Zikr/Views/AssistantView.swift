@@ -4,6 +4,7 @@ import SwiftData
 /// Chat-style assistant: ask for a dua, surah or zikr and add it to a counter.
 struct AssistantView: View {
     @EnvironmentObject private var assistant: AssistantService
+    @EnvironmentObject private var router: AppRouter
     @State private var messages: [ChatMessage] = []
     @State private var input = ""
     @State private var thinking = false
@@ -41,7 +42,7 @@ struct AssistantView: View {
                     }
                 }
             }
-            .background(Color(.systemGroupedBackground))
+            .themedBackground()
             .safeAreaInset(edge: .bottom) { inputBar }
             .navigationTitle("Ask AI")
             .toolbar {
@@ -51,7 +52,13 @@ struct AssistantView: View {
                     }
                 }
             }
-            .onAppear { assistant.refreshMode() }
+            .onAppear {
+                assistant.refreshMode()
+                if let question = router.pendingQuestion {
+                    router.pendingQuestion = nil
+                    send(question)
+                }
+            }
         }
     }
 
@@ -80,7 +87,7 @@ struct AssistantView: View {
                 .onSubmit { send(input) }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             Button {
                 send(input)
             } label: {
@@ -113,7 +120,9 @@ struct AssistantView: View {
                     errors.append("\(request.title): \(error.localizedDescription)")
                 }
             }
-            results += plan.duas
+            for dua in plan.duas where !results.contains(where: { $0.id == dua.id }) {
+                results.append(dua)
+            }
             messages.append(ChatMessage(
                 role: .assistant,
                 text: plan.note,
@@ -149,8 +158,8 @@ private struct MessageView: View {
                 Text(message.text)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .foregroundStyle(.white)
-                    .background(Theme.green, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .foregroundStyle(.black)
+                    .background(Theme.mint, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
         case .assistant:
             VStack(alignment: .leading, spacing: 12) {
@@ -223,11 +232,10 @@ struct ResultCard: View {
                     .buttonStyle(.bordered)
                 } else {
                     Button {
-                        let item = ZikrItem(content: content, target: count)
-                        context.insert(item)
-                        added = item
+                        added = ZikrItem.findOrCreate(for: content, target: count, in: context)
                     } label: {
                         Label("Add to counter", systemImage: "plus.circle.fill")
+                            .foregroundStyle(.black)
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)

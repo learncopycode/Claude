@@ -7,11 +7,11 @@ struct LibraryView: View {
 
     private var filtered: [DuaContent] {
         let query = search.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return DuaLibrary.all }
-        let hits = LocalMatcher.searchDuas(query, limit: 50)
+        guard !query.isEmpty else { return DuaLibrary.all + AllahNames.all }
+        let hits = LocalMatcher.searchDuas(query, limit: 50) + LocalMatcher.searchNames(query)
         if !hits.isEmpty { return hits }
         let lower = query.lowercased()
-        return DuaLibrary.all.filter {
+        return (DuaLibrary.all + AllahNames.all).filter {
             $0.title.lowercased().contains(lower) || $0.translation.lowercased().contains(lower)
         }
     }
@@ -32,7 +32,8 @@ struct LibraryView: View {
                             Label("Ayat al-Kursi", systemImage: "star")
                         }
                     }
-                    ForEach(DuaCategory.allCases.filter { $0 != .quran }) { category in
+                    .listRowBackground(Theme.card)
+                    ForEach(DuaCategory.allCases.filter { $0 != .names }) { category in
                         Section {
                             ForEach(DuaLibrary.items(in: category)) { dua in
                                 NavigationLink { DuaDetailView(content: dua) } label: { DuaRow(dua: dua) }
@@ -41,12 +42,15 @@ struct LibraryView: View {
                             Label(category.rawValue, systemImage: category.symbol)
                         }
                     }
+                    .listRowBackground(Theme.card)
                 } else {
                     ForEach(filtered) { dua in
                         NavigationLink { DuaDetailView(content: dua) } label: { DuaRow(dua: dua) }
                     }
+                    .listRowBackground(Theme.card)
                 }
             }
+            .themedBackground()
             .navigationTitle("Library")
             .searchable(text: $search, prompt: "Search duas")
         }
@@ -97,7 +101,9 @@ struct SurahListView: View {
                     }
                 }
             }
+            .listRowBackground(Theme.card)
         }
+        .themedBackground()
         .navigationTitle("Quran")
         .searchable(text: $search, prompt: "Name or number")
     }
@@ -170,19 +176,18 @@ struct DuaDetailView: View {
                 .card()
 
                 Button {
-                    let item = ZikrItem(content: content, target: target)
-                    context.insert(item)
                     added = true
-                    router.openCounter(item)
+                    router.openCounter(ZikrItem.findOrCreate(for: content, target: target, in: context))
                 } label: {
                     Label("Add & start counting", systemImage: "play.circle.fill")
+                        .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
                 }
                 .buttonStyle(.borderedProminent)
 
                 Button {
-                    context.insert(ZikrItem(content: content, target: target))
+                    _ = ZikrItem.findOrCreate(for: content, target: target, in: context)
                     added = true
                 } label: {
                     Label(added ? "Added to counter" : "Add to counter", systemImage: added ? "checkmark" : "plus")
@@ -192,7 +197,7 @@ struct DuaDetailView: View {
             }
             .padding()
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Theme.background.ignoresSafeArea())
         .navigationTitle(content.title)
         .navigationBarTitleDisplayMode(.inline)
         .sensoryFeedback(.success, trigger: added)

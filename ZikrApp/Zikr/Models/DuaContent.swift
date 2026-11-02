@@ -11,6 +11,7 @@ enum DuaCategory: String, CaseIterable, Identifiable {
     case daily = "Daily Life"
     case salawat = "Salawat"
     case quran = "Quran"
+    case names = "99 Names of Allah"
 
     var id: String { rawValue }
 
@@ -25,6 +26,7 @@ enum DuaCategory: String, CaseIterable, Identifiable {
         case .daily: return "house"
         case .salawat: return "sparkles"
         case .quran: return "book.closed"
+        case .names: return "star.fill"
         }
     }
 }

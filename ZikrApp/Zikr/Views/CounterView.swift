@@ -1,42 +1,45 @@
 import SwiftUI
 import SwiftData
 
-/// The tasbih counter: tap anywhere on the lower half to count.
+/// Counter for one saved zikr: text card on top, tap panel below.
 struct CounterView: View {
     @Bindable var item: ZikrItem
     @Environment(\.modelContext) private var context
     @AppStorage("haptics") private var haptics = true
+    @AppStorage("sound") private var sound = false
     @AppStorage("showTranslation") private var showTranslation = true
     @AppStorage("showTransliteration") private var showTransliteration = true
 
+    @State private var fullScreen = false
     @State private var celebrate = false
-    @State private var pulse = false
     @State private var editingTarget = false
     @State private var confirmReset = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            if hasText {
-                ScrollView {
-                    DuaTextView(
-                        arabic: item.arabic,
-                        transliteration: item.transliteration,
-                        translation: item.translation,
-                        source: item.source,
-                        arabicSize: item.arabic.count > 300 ? 22 : 28,
-                        showTransliteration: showTransliteration,
-                        showTranslation: showTranslation
-                    )
-                    .padding(20)
-                }
-                .frame(maxHeight: 280)
-                .background(Color(.secondarySystemGroupedBackground))
+        VStack(spacing: 16) {
+            if !fullScreen && hasText {
+                CounterTextCard(
+                    arabic: item.arabic,
+                    transliteration: item.transliteration,
+                    translation: item.translation,
+                    source: item.source,
+                    header: item.arabic.isEmpty ? item.title : nil
+                )
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
-
-            tapArea
+            CounterTapPanel(
+                count: item.count,
+                caption: item.rounds > 0 ? "\(item.totalCount) · round \(item.rounds + 1)" : "\(item.totalCount)",
+                fullScreen: $fullScreen,
+                celebrate: celebrate,
+                onTap: increment,
+                onReset: { confirmReset = true }
+            )
+            .frame(maxHeight: fullScreen || !hasText ? .infinity : 330)
         }
-        .background(Color(.systemGroupedBackground))
-        .navigationTitle(item.title)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+        .background(Theme.background.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbar }
         .sensoryFeedback(trigger: item.totalCount) { old, new in
@@ -62,75 +65,31 @@ struct CounterView: View {
         !item.arabic.isEmpty || !item.translation.isEmpty || !item.transliteration.isEmpty
     }
 
-    private var tapArea: some View {
-        VStack(spacing: 18) {
-            Spacer(minLength: 12)
-            ZStack {
-                Circle()
-                    .stroke(Theme.green.opacity(0.12), lineWidth: 18)
-                Circle()
-                    .trim(from: 0, to: item.target > 0 ? item.progress : 0)
-                    .stroke(
-                        AngularGradient(colors: [Theme.green, Theme.gold, Theme.green], center: .center),
-                        style: StrokeStyle(lineWidth: 18, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90))
-                    .animation(.spring(response: 0.3), value: item.count)
-
-                VStack(spacing: 4) {
-                    Text("\(item.count)")
-                        .font(.system(size: 76, weight: .bold, design: .rounded).monospacedDigit())
-                        .contentTransition(.numericText(value: Double(item.count)))
-                        .minimumScaleFactor(0.4)
-                        .lineLimit(1)
-                    Text(item.target > 0 ? "of \(item.target)" : "no target")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    if item.rounds > 0 {
-                        Text("Round \(item.rounds + 1) · \(item.rounds) done")
-                            .font(.caption.bold())
-                            .foregroundStyle(Theme.gold)
-                            .padding(.top, 4)
-                    }
-                }
-                .padding(30)
-            }
-            .frame(maxWidth: 280, maxHeight: 280)
-            .scaleEffect(pulse ? 0.96 : 1)
-            .overlay {
-                if celebrate {
-                    Label("Round complete", systemImage: "checkmark.circle.fill")
-                        .font(.headline)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .transition(.scale.combined(with: .opacity))
-                }
-            }
-
-            Text("Tap anywhere to count")
-                .font(.footnote)
-                .foregroundStyle(.tertiary)
-            Spacer(minLength: 12)
-        }
-        .padding(.horizontal, 24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentShape(Rectangle())
-        .onTapGesture(perform: increment)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(item.title), count \(item.count)\(item.target > 0 ? " of \(item.target)" : "")")
-        .accessibilityAddTraits(.isButton)
-        .accessibilityHint("Double-tap to count")
-        .accessibilityAction(named: "Undo") { undo() }
+    private var shareText: String {
+        [item.title, item.arabic, item.transliteration, item.translation, item.source.isEmpty ? "" : "— \(item.source)"]
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
     }
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
+        ToolbarItem(placement: .principal) {
+            RemainingPill(text: item.target > 0 ? "\(item.remaining) left" : item.title)
+                .onTapGesture { editingTarget = true }
+        }
         ToolbarItemGroup(placement: .topBarTrailing) {
-            Button(action: undo) { Image(systemName: "arrow.uturn.backward") }
-                .disabled(item.totalCount == 0)
-                .accessibilityLabel("Undo")
+            Button {
+                sound.toggle()
+            } label: {
+                Image(systemName: sound ? "speaker.wave.2" : "speaker.slash")
+            }
+            .accessibilityLabel(sound ? "Sound on" : "Sound off")
+
+            ShareLink(item: shareText) { Image(systemName: "square.and.arrow.up") }
+
             Menu {
+                Button("Undo last count", systemImage: "arrow.uturn.backward", action: undo)
+                    .disabled(item.totalCount == 0)
                 Button("Change target", systemImage: "target") { editingTarget = true }
                 Button("Reset", systemImage: "arrow.counterclockwise") { confirmReset = true }
                 Divider()
@@ -144,10 +103,10 @@ struct CounterView: View {
     }
 
     private func increment() {
+        if sound { CounterFeedback.playTick() }
         withAnimation(.snappy(duration: 0.15)) {
             item.count += 1
             item.totalCount += 1
-            pulse = true
         }
         item.updatedAt = .now
         DailyTally.add(1, in: context)
@@ -161,9 +120,6 @@ struct CounterView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                 withAnimation { celebrate = false }
             }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            withAnimation(.snappy(duration: 0.15)) { pulse = false }
         }
     }
 

@@ -10,6 +10,11 @@ enum DuaLibrary {
         all.filter { $0.category == category }
     }
 
+    /// Short surahs and verses bundled so they work offline (IDs match QuranService).
+    static func bundled(for request: QuranRequest) -> DuaContent? {
+        byID["quran-\(request.reference)"]
+    }
+
     private static let byID: [String: DuaContent] =
         Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
 
@@ -235,6 +240,32 @@ enum DuaLibrary {
              meaning: "My Lord, have mercy upon them as they brought me up when I was small.",
              source: "Quran 17:24",
              tags: ["parents", "mother", "father", "mom", "dad", "family", "mercy", "deceased"]),
+
+        // MARK: Quran (bundled for offline use)
+        make("quran-2:255", "Ayat al-Kursi", .quran, count: 1,
+             arabic: "اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ ۚ لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ ۚ لَهُ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ ۗ مَنْ ذَا الَّذِي يَشْفَعُ عِنْدَهُ إِلَّا بِإِذْنِهِ ۚ يَعْلَمُ مَا بَيْنَ أَيْدِيهِمْ وَمَا خَلْفَهُمْ ۖ وَلَا يُحِيطُونَ بِشَيْءٍ مِنْ عِلْمِهِ إِلَّا بِمَا شَاءَ ۚ وَسِعَ كُرْسِيُّهُ السَّمَاوَاتِ وَالْأَرْضَ ۖ وَلَا يَئُودُهُ حِفْظُهُمَا ۚ وَهُوَ الْعَلِيُّ الْعَظِيمُ",
+             translit: "Allahu la ilaha illa huwal-Hayyul-Qayyum, la ta'khudhuhu sinatun wa la nawm, lahu ma fis-samawati wa ma fil-ard, man dhal-ladhi yashfa'u 'indahu illa bi-idhnih, ya'lamu ma bayna aydihim wa ma khalfahum, wa la yuhituna bishay'im-min 'ilmihi illa bima sha', wasi'a kursiyyuhus-samawati wal-ard, wa la ya'uduhu hifzuhuma, wa huwal-'Aliyyul-'Azim",
+             meaning: "Allah — there is no deity except Him, the Ever-Living, the Sustainer of existence. Neither drowsiness overtakes Him nor sleep. To Him belongs whatever is in the heavens and whatever is on the earth. Who is it that can intercede with Him except by His permission? He knows what is before them and what will be after them, and they encompass nothing of His knowledge except for what He wills. His Kursi extends over the heavens and the earth, and their preservation tires Him not. And He is the Most High, the Most Great.",
+             source: "Quran 2:255 · after each prayer and before sleep (Sahih al-Bukhari 2311)",
+             tags: ["ayatul kursi", "kursi", "throne", "protection", "sleep", "after prayer", "morning", "evening"]),
+        make("quran-112", "Surah Al-Ikhlas", .quran, count: 3,
+             arabic: "قُلْ هُوَ اللَّهُ أَحَدٌ ۝ اللَّهُ الصَّمَدُ ۝ لَمْ يَلِدْ وَلَمْ يُولَدْ ۝ وَلَمْ يَكُنْ لَهُ كُفُوًا أَحَدٌ",
+             translit: "Qul huwallahu ahad. Allahus-samad. Lam yalid wa lam yulad. Wa lam yakun lahu kufuwan ahad.",
+             meaning: "Say, \"He is Allah, the One. Allah, the Eternal Refuge. He neither begets nor is born, nor is there to Him any equivalent.\"",
+             source: "Quran 112 · 3 times morning, evening and before sleep (Sunan Abi Dawud 5082)",
+             tags: ["ikhlas", "quls", "protection", "sleep", "morning", "evening", "tawhid"]),
+        make("quran-113", "Surah Al-Falaq", .quran, count: 3,
+             arabic: "قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ ۝ مِنْ شَرِّ مَا خَلَقَ ۝ وَمِنْ شَرِّ غَاسِقٍ إِذَا وَقَبَ ۝ وَمِنْ شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ ۝ وَمِنْ شَرِّ حَاسِدٍ إِذَا حَسَدَ",
+             translit: "Qul a'udhu bi-rabbil-falaq. Min sharri ma khalaq. Wa min sharri ghasiqin idha waqab. Wa min sharrin-naffathati fil-'uqad. Wa min sharri hasidin idha hasad.",
+             meaning: "Say, \"I seek refuge in the Lord of daybreak, from the evil of what He created, from the evil of darkness when it settles, from the evil of those who blow on knots, and from the evil of an envier when he envies.\"",
+             source: "Quran 113 · 3 times morning, evening and before sleep (Sunan Abi Dawud 5082)",
+             tags: ["falaq", "quls", "protection", "evil eye", "envy", "magic", "sleep", "morning", "evening"]),
+        make("quran-114", "Surah An-Nas", .quran, count: 3,
+             arabic: "قُلْ أَعُوذُ بِرَبِّ النَّاسِ ۝ مَلِكِ النَّاسِ ۝ إِلَٰهِ النَّاسِ ۝ مِنْ شَرِّ الْوَسْوَاسِ الْخَنَّاسِ ۝ الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ ۝ مِنَ الْجِنَّةِ وَالنَّاسِ",
+             translit: "Qul a'udhu bi-rabbin-nas. Malikin-nas. Ilahin-nas. Min sharril-waswasil-khannas. Alladhi yuwaswisu fi sudurin-nas. Minal-jinnati wan-nas.",
+             meaning: "Say, \"I seek refuge in the Lord of mankind, the King of mankind, the God of mankind, from the evil of the retreating whisperer, who whispers into the hearts of mankind, from among the jinn and mankind.\"",
+             source: "Quran 114 · 3 times morning, evening and before sleep (Sunan Abi Dawud 5082)",
+             tags: ["nas", "quls", "protection", "waswas", "whispers", "jinn", "sleep", "morning", "evening"]),
 
         // MARK: Daily Life
         make("sleep", "Before sleeping", .daily, count: 1,

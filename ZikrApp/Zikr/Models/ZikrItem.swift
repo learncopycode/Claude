@@ -20,6 +20,8 @@ final class ZikrItem {
     var totalCount: Int
     var createdAt: Date
     var updatedAt: Date
+    /// The library dua this counter was made from, so tapping it again reopens the same counter.
+    var libraryID: String?
 
     init(
         title: String,
@@ -41,6 +43,7 @@ final class ZikrItem {
         self.totalCount = 0
         self.createdAt = .now
         self.updatedAt = .now
+        self.libraryID = nil
     }
 
     convenience init(content: DuaContent, target: Int? = nil) {
@@ -52,7 +55,28 @@ final class ZikrItem {
             source: content.source,
             target: target ?? content.defaultCount
         )
+        self.libraryID = content.id
     }
+
+    /// Reopens the counter for a library dua, or creates it the first time.
+    static func findOrCreate(for content: DuaContent, target: Int? = nil, in context: ModelContext) -> ZikrItem {
+        let id: String? = content.id
+        var descriptor = FetchDescriptor<ZikrItem>(predicate: #Predicate { $0.libraryID == id })
+        descriptor.fetchLimit = 1
+        if let existing = try? context.fetch(descriptor).first {
+            if let target, target != existing.target {
+                existing.target = target
+                existing.count = min(existing.count, max(0, target - 1))
+            }
+            return existing
+        }
+        let item = ZikrItem(content: content, target: target)
+        context.insert(item)
+        return item
+    }
+
+    /// Recitations left in the current round.
+    var remaining: Int { target > 0 ? max(0, target - count) : 0 }
 
     var progress: Double {
         guard target > 0 else { return 0 }
