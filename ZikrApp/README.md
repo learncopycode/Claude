@@ -22,6 +22,16 @@ finds any dua, surah or zikr you ask for and drops it straight into a counter.
   Collections use the same swipe deck and move to the next dhikr by themselves.
   Every count — from either mode or a collection — goes into that zikr's own
   counter and history.
+- **Color journey & achievements** — every zikr's card slowly changes color,
+  1% per recitation, so 100 recitations carry it fully to the next color
+  (Mint → Teal → Sky → Sapphire → Indigo → Violet → Orchid → Rose → Coral →
+  Amber → Gold at 1,000 → Olive → Emerald, then the journey loops). Each new
+  color unlocks a named achievement with a description and a burst of color.
+  Every zikr has its own achievements page (trophy button on the counter, or
+  from Stats).
+- **Satisfying feel** — a soft vibration per swipe, a tick when the card is
+  pulled far enough to count, a firmer tap every 33, a celebration every 100;
+  faster flicks fly the card away faster.
 - **Stats tab** — today, this week, this month, this year and all-time totals
   for all zikrs, with a chart, plus each zikr's share; tap a zikr for its own
   five totals and chart.

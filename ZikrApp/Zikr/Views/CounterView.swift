@@ -20,6 +20,8 @@ struct CounterFeedView: View {
     @State private var celebrate = false
     @State private var editingTarget = false
     @State private var confirmReset = false
+    @State private var unlocked: HueJourney.Achievement?
+    @State private var showingAchievements = false
 
     init(startID: UUID) {
         _currentID = State(initialValue: startID)
@@ -90,8 +92,14 @@ struct CounterFeedView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbar }
         .sensoryFeedback(trigger: current?.totalCount ?? 0) { old, new in
-            guard haptics else { return nil }
-            return new > old ? .impact(weight: .medium) : .selection
+            Self.feedback(old: old, new: new, enabled: haptics)
+        }
+        .achievementToast($unlocked)
+        .sheet(isPresented: $showingAchievements) {
+            if let current {
+                NavigationStack { AchievementsView(item: current) }
+                    .presentationDragIndicator(.visible)
+            }
         }
         .sensoryFeedback(trigger: celebrate) { _, new in haptics && new ? .success : nil }
         .onAppear { UIApplication.shared.isIdleTimerDisabled = true }
@@ -118,7 +126,8 @@ struct CounterFeedView: View {
             count: item.count,
             target: item.target,
             caption: captionFor(item),
-            countFocused: mode.wrappedValue == .single
+            countFocused: mode.wrappedValue == .single,
+            hueTotal: item.totalCount
         )
     }
 
@@ -131,11 +140,13 @@ struct CounterFeedView: View {
 
     private func count(_ item: ZikrItem) {
         if sound { CounterFeedback.playTick() }
-        var finishedRound = false
+        var result = ZikrItem.IncrementResult()
         withAnimation(.snappy(duration: 0.2)) {
-            finishedRound = item.increment(in: context)
+            result = item.increment(in: context)
         }
-        if finishedRound {
+        if let achievement = result.unlocked {
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) { unlocked = achievement }
+        } else if result.roundCompleted {
             withAnimation(.spring) { celebrate = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
                 withAnimation { celebrate = false }
@@ -154,6 +165,15 @@ struct CounterFeedView: View {
     private func goBack() {
         guard !items.isEmpty else { return }
         currentID = items[(currentIndex - 1 + items.count) % items.count].id
+    }
+
+    /// Layered haptics: a soft tap per count, firmer every 33, celebration every 100.
+    static func feedback(old: Int, new: Int, enabled: Bool) -> SensoryFeedback? {
+        guard enabled else { return nil }
+        guard new > old else { return .selection }
+        if new % HueJourney.recitationsPerColor == 0 { return .success }
+        if new % 33 == 0 { return .impact(weight: .heavy, intensity: 0.9) }
+        return .impact(flexibility: .soft, intensity: 0.55)
     }
 
     // MARK: Toolbar
@@ -176,6 +196,13 @@ struct CounterFeedView: View {
             }
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
+            Button {
+                showingAchievements = true
+            } label: {
+                Image(systemName: "trophy")
+            }
+            .accessibilityLabel("Achievements")
+
             Button {
                 sound.toggle()
             } label: {

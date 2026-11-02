@@ -23,6 +23,8 @@ struct CollectionRunnerView: View {
     /// Page indexes in the order they were counted, for undo.
     @State private var history: [Int] = []
     @State private var confirmRestart = false
+    @State private var unlocked: HueJourney.Achievement?
+    @Query private var items: [ZikrItem]
 
     init(collection: ZikrCollection) {
         self.collection = collection
@@ -87,8 +89,9 @@ struct CollectionRunnerView: View {
             }
         }
         .sensoryFeedback(trigger: done) { old, new in
-            haptics && new > old ? .impact(weight: .medium) : nil
+            new > old ? CounterFeedView.feedback(old: old, new: new, enabled: haptics) : nil
         }
+        .achievementToast($unlocked)
         .sensoryFeedback(trigger: index) { _, _ in haptics ? .success : nil }
         .confirmationDialog("Start this collection again?", isPresented: $confirmRestart, titleVisibility: .visible) {
             Button("Start again", role: .destructive, action: restart)
@@ -125,11 +128,17 @@ struct CollectionRunnerView: View {
                 source: page.step.content.source,
                 count: counts[pageIndex] + (depth == 1 && pageIndex == index ? 1 : 0),
                 target: page.step.count,
-                header: headerText(for: page)
+                header: headerText(for: page),
+                hueTotal: lifetimeTotal(of: page.step.content)
             )
         } else {
             CompletedCard()
         }
+    }
+
+    /// All recitations ever made of this dhikr, for its card color.
+    private func lifetimeTotal(of content: DuaContent) -> Int {
+        items.first { $0.libraryID == content.id }?.totalCount ?? 0
     }
 
     private func headerText(for page: Page) -> String {
@@ -166,7 +175,10 @@ struct CollectionRunnerView: View {
         let page = pages[index]
         withAnimation(.snappy(duration: 0.2)) { counts[index] += 1 }
         // Add to this dhikr's own counter and history.
-        ZikrItem.findOrCreate(for: page.step.content, in: context).increment(in: context)
+        let result = ZikrItem.findOrCreate(for: page.step.content, in: context).increment(in: context)
+        if let achievement = result.unlocked {
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) { unlocked = achievement }
+        }
         history.append(index)
         if counts[index] >= page.step.count {
             withAnimation(.smooth) { index += 1 }

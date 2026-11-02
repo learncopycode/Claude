@@ -268,14 +268,14 @@ private struct MyCounterRow: View {
             HStack {
                 Text(item.rounds > 0 ? "\(item.rounds) round\(item.rounds == 1 ? "" : "s") done" : "In progress")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.mint)
+                    .foregroundStyle(HueJourney.color(for: item.totalCount))
                 Spacer()
                 Text(item.target > 0 ? "\(item.count) / \(item.target)" : "\(item.count)")
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
             ProgressView(value: item.progress)
-                .tint(Theme.mint)
+                .tint(HueJourney.color(for: item.totalCount))
         }
         .card()
     }

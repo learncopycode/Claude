@@ -19,6 +19,8 @@ struct SwipeDeck<Card: View>: View {
 
     @State private var offset: CGFloat = 0
     @State private var animating = false
+    /// True once the card is pulled far enough that letting go will count.
+    @State private var armed = false
     @State private var bursts: [UUID] = []
 
     var body: some View {
@@ -59,6 +61,7 @@ struct SwipeDeck<Card: View>: View {
             }
             .frame(width: geo.size.width, height: height)
         }
+        .sensoryFeedback(trigger: armed) { _, new in new ? .selection : nil }
         .onChange(of: currentKey) {
             if !animating { offset = 0 }
         }
@@ -71,13 +74,18 @@ struct SwipeDeck<Card: View>: View {
                 let dy = value.translation.height
                 // Resist pulling down when there's nothing to go back to.
                 offset = dy > 0 ? (canGoBack ? dy * 0.6 : dy * 0.15) : dy
+                let isArmed = dy < -90
+                if isArmed != armed { armed = isArmed }
             }
             .onEnded { value in
+                armed = false
                 guard !animating else { return }
                 let dy = value.translation.height
                 let projected = value.predictedEndTranslation.height
                 if dy < -90 || projected < -260 {
-                    commitUp(height: height)
+                    // Faster flicks fly away faster.
+                    let speed = abs(min(0, value.velocity.height))
+                    commitUp(height: height, duration: max(0.14, 0.26 - speed / 12_000))
                 } else if canGoBack && (dy > 110 || projected > 320) {
                     commitDown(height: height)
                 } else {
@@ -86,9 +94,9 @@ struct SwipeDeck<Card: View>: View {
             }
     }
 
-    private func commitUp(height: CGFloat) {
+    private func commitUp(height: CGFloat, duration: Double = 0.24) {
         animating = true
-        withAnimation(.easeIn(duration: 0.22)) {
+        withAnimation(.timingCurve(0.35, 0, 0.75, 0.4, duration: duration)) {
             offset = -height * 1.15
         } completion: {
             var instant = Transaction()
@@ -157,6 +165,8 @@ struct ZikrSwipeCard: View {
     var header: String? = nil
     /// Bigger count area for the single-zikr mode.
     var countFocused = false
+    /// Lifetime recitations of this zikr: drives its slowly changing color.
+    var hueTotal: Int = 0
     @AppStorage("showTranslation") private var showTranslation = true
     @AppStorage("showTransliteration") private var showTransliteration = true
     @State private var showingFullText = false
@@ -172,7 +182,7 @@ struct ZikrSwipeCard: View {
                 Text(header ?? title)
                     .font(.footnote.weight(.semibold))
                     .textCase(.uppercase)
-                    .foregroundStyle(Theme.mint)
+                    .foregroundStyle(HueJourney.color(for: hueTotal))
                     .lineLimit(1)
                 Spacer(minLength: 0)
                 if !arabic.isEmpty {
@@ -251,11 +261,16 @@ struct ZikrSwipeCard: View {
             .padding(.vertical, countFocused ? 34 : 22)
             .frame(maxWidth: .infinity)
             .background(
-                LinearGradient(colors: [Theme.mint, Theme.mintDeep], startPoint: .topLeading, endPoint: .bottomTrailing)
+                LinearGradient(colors: HueJourney.gradient(for: hueTotal), startPoint: .topLeading, endPoint: .bottomTrailing)
             )
+            .animation(.smooth(duration: 0.6), value: hueTotal)
         }
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(.white.opacity(0.06)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(HueJourney.color(for: hueTotal).opacity(0.25), lineWidth: 1)
+        )
+        .shadow(color: HueJourney.color(for: hueTotal).opacity(0.18), radius: 30, y: 10)
         .sheet(isPresented: $showingFullText) {
             ScrollView {
                 DuaTextView(arabic: arabic, transliteration: transliteration, translation: translation, source: source)

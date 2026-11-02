@@ -14,7 +14,7 @@ struct ZikrApp: App {
                 .preferredColorScheme(.dark)
                 .tint(Theme.mint)
         }
-        .modelContainer(for: [ZikrItem.self, DailyTally.self, CustomCollection.self, ZikrDayCount.self])
+        .modelContainer(for: [ZikrItem.self, DailyTally.self, CustomCollection.self, ZikrDayCount.self, AchievementUnlock.self])
     }
 }
 

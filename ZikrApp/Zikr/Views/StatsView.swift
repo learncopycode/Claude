@@ -128,6 +128,24 @@ struct StatsView: View {
                         .filter { $0.value > 0 }
                         .sorted { $0.value > $1.value }
 
+                    if !items.isEmpty {
+                        Text("Achievements")
+                            .font(.title2.bold())
+                            .padding(.top, 8)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(items.sorted { $0.totalCount > $1.totalCount }) { item in
+                                    NavigationLink {
+                                        AchievementsView(item: item)
+                                    } label: {
+                                        AchievementChip(item: item)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                    }
+
                     Text("By zikr · \(period.longName.lowercased())")
                         .font(.title2.bold())
                         .padding(.top, 8)
@@ -153,6 +171,58 @@ struct StatsView: View {
             .themedBackground()
             .navigationTitle("Stats")
         }
+    }
+}
+
+/// Small card in the Stats tab: a zikr's current color and colors unlocked.
+private struct AchievementChip: View {
+    let item: ZikrItem
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(HueJourney.color(for: item.totalCount).gradient)
+                    .frame(width: 44, height: 44)
+                Image(systemName: "trophy.fill").foregroundStyle(.white)
+            }
+            Text(item.title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+            Text("\(item.unlockedTiers) color\(item.unlockedTiers == 1 ? "" : "s") unlocked")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(width: 140, alignment: .leading)
+        .card(padding: 14)
+    }
+}
+
+/// Row linking to a zikr's achievements, showing progress to the next color.
+struct AchievementSummaryRow: View {
+    let item: ZikrItem
+
+    var body: some View {
+        let next = HueJourney.stop(forTier: item.unlockedTiers + 1)
+        let toNext = HueJourney.recitationsPerColor - item.totalCount % HueJourney.recitationsPerColor
+        return HStack(spacing: 14) {
+            Circle()
+                .fill(HueJourney.color(for: item.totalCount).gradient)
+                .frame(width: 40, height: 40)
+                .overlay(Image(systemName: "trophy.fill").font(.footnote).foregroundStyle(.white))
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Achievements · \(item.unlockedTiers) unlocked")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                Text("\(toNext) more to reach \(next.name)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right").foregroundStyle(.secondary)
+        }
+        .card()
     }
 }
 
@@ -302,6 +372,12 @@ struct ZikrStatsDetail: View {
                         .card(padding: 20)
                 }
                 StatsPanel(totals: totals, period: $period, title: item.title)
+                NavigationLink {
+                    AchievementsView(item: item)
+                } label: {
+                    AchievementSummaryRow(item: item)
+                }
+                .buttonStyle(.plain)
                 Button {
                     router.openCounter(item)
                 } label: {

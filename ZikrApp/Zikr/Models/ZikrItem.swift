@@ -75,19 +75,37 @@ final class ZikrItem {
         return item
     }
 
-    /// Counts one recitation. Returns true when this tap completed a round.
+    struct IncrementResult {
+        var roundCompleted = false
+        /// A new color reached (every 100 recitations), if this count unlocked one.
+        var unlocked: HueJourney.Achievement?
+    }
+
+    /// Counts one recitation, finishing rounds and unlocking colors as needed.
     @discardableResult
-    func increment(in context: ModelContext) -> Bool {
+    func increment(in context: ModelContext) -> IncrementResult {
+        var result = IncrementResult()
         count += 1
         totalCount += 1
         updatedAt = .now
         DailyTally.add(1, in: context)
         ZikrDayCount.add(1, itemID: id, in: context)
-        guard target > 0, count >= target else { return false }
-        rounds += 1
-        count = 0
-        return true
+        if totalCount % HueJourney.recitationsPerColor == 0 {
+            let tier = HueJourney.tier(for: totalCount)
+            if AchievementUnlock.record(itemID: id, tier: tier, in: context) {
+                result.unlocked = HueJourney.Achievement(tier: tier, zikrTitle: title)
+            }
+        }
+        if target > 0, count >= target {
+            rounds += 1
+            count = 0
+            result.roundCompleted = true
+        }
+        return result
     }
+
+    /// Achievements reached so far (tiers 1...n).
+    var unlockedTiers: Int { HueJourney.tier(for: totalCount) }
 
     /// Takes back the last recitation (also across a finished round).
     func undo(in context: ModelContext) {
@@ -192,5 +210,32 @@ final class ZikrDayCount {
         } else if delta > 0 {
             context.insert(ZikrDayCount(itemID: itemID, day: day, total: delta))
         }
+    }
+}
+
+/// When a zikr first reached each color, for the achievements page.
+@Model
+final class AchievementUnlock {
+    /// "<zikr id>|<tier>"
+    @Attribute(.unique) var key: String
+    var itemID: UUID
+    var tier: Int
+    var date: Date
+
+    init(itemID: UUID, tier: Int) {
+        self.key = "\(itemID.uuidString)|\(tier)"
+        self.itemID = itemID
+        self.tier = tier
+        self.date = .now
+    }
+
+    /// Saves the unlock. Returns true only the first time (so undo + redo doesn't celebrate twice).
+    static func record(itemID: UUID, tier: Int, in context: ModelContext) -> Bool {
+        let key = "\(itemID.uuidString)|\(tier)"
+        var descriptor = FetchDescriptor<AchievementUnlock>(predicate: #Predicate { $0.key == key })
+        descriptor.fetchLimit = 1
+        if (try? context.fetch(descriptor).first) != nil { return false }
+        context.insert(AchievementUnlock(itemID: itemID, tier: tier))
+        return true
     }
 }
