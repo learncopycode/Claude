@@ -14,10 +14,17 @@ finds any dua, surah or zikr you ask for and drops it straight into a counter.
   can open or expand: **99 Names of Allah**, **Dhikrs**, **Duas**,
   **Duas from the Quran**, **Quran** (all 114 surahs) and **Collections**.
   Tapping any item opens its counter straight away.
-- **Swipe like TikTok** — counters are a vertical feed: tap the mint panel
-  to count (with a ripple where you tap), swipe up for your next zikr, down
-  for the previous one. Collections glide to the next dhikr on their own
-  when you finish one.
+- **Two swipe modes** (your choice is remembered):
+  - **Zikr feed** — your zikrs as TikTok-style cards. Read one, swipe up:
+    +1 goes to that zikr and the next zikr rises up. Swipe down to go back.
+  - **Single zikr** — the same card every time; each swipe flies the card
+    away with a "+1" and counts. Tapping the card also counts.
+  Collections use the same swipe deck and move to the next dhikr by themselves.
+  Every count — from either mode or a collection — goes into that zikr's own
+  counter and history.
+- **Stats tab** — today, this week, this month, this year and all-time totals
+  for all zikrs, with a chart, plus each zikr's share; tap a zikr for its own
+  five totals and chart.
 - **Counter screen** — the dua on a black card (Arabic, transliteration,
   translation, source) above a big mint tap panel. Shows "N left", has a tap
   sound toggle, share, full-screen mode, undo, reset, custom targets, rounds,

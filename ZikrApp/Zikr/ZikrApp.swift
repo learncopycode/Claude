@@ -14,7 +14,7 @@ struct ZikrApp: App {
                 .preferredColorScheme(.dark)
                 .tint(Theme.mint)
         }
-        .modelContainer(for: [ZikrItem.self, DailyTally.self, CustomCollection.self])
+        .modelContainer(for: [ZikrItem.self, DailyTally.self, CustomCollection.self, ZikrDayCount.self])
     }
 }
 
@@ -31,7 +31,7 @@ enum Route: Hashable {
 /// Lets any screen switch tabs or open a counter (e.g. after "Add & start").
 @MainActor
 final class AppRouter: ObservableObject {
-    enum Tab: Hashable { case counter, assistant, library }
+    enum Tab: Hashable { case counter, stats, assistant, library }
 
     @Published var tab: Tab = .counter
     @Published var path: [Route] = []

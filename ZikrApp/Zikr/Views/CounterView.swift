@@ -1,68 +1,99 @@
 import SwiftUI
 import SwiftData
 
-/// All your counters as a vertical, TikTok-style feed: tap anywhere on the
-/// mint panel to count, swipe up for the next zikr, down for the previous.
+/// The counter screen, with two swipe modes (remembered between launches):
+/// - Zikr feed: all your zikrs as cards. Read one, swipe up: +1 to that zikr
+///   and the next zikr comes up. Swipe down to go back.
+/// - Single zikr: the same card every time. Each swipe (or tap) adds +1.
+/// Every count goes into that zikr's own counter and its daily history.
 struct CounterFeedView: View {
     @Environment(\.modelContext) private var context
-    // Sorted by creation so pages don't jump around while you count.
+    // Sorted by creation so the order doesn't shift while you count.
     @Query(sort: \ZikrItem.createdAt) private var items: [ZikrItem]
+    @AppStorage("swipeMode") private var modeRaw = SwipeMode.feed.rawValue
     @AppStorage("haptics") private var haptics = true
     @AppStorage("sound") private var sound = false
     @AppStorage("showTranslation") private var showTranslation = true
     @AppStorage("showTransliteration") private var showTransliteration = true
-    @AppStorage("seenSwipeHint") private var seenSwipeHint = false
 
-    let startID: UUID
-    @State private var currentID: UUID?
-    @State private var fullScreen = false
+    @State private var currentID: UUID
+    @State private var celebrate = false
     @State private var editingTarget = false
     @State private var confirmReset = false
 
     init(startID: UUID) {
-        self.startID = startID
         _currentID = State(initialValue: startID)
     }
 
-    private var current: ZikrItem? {
-        items.first { $0.id == currentID } ?? items.first
+    private var mode: Binding<SwipeMode> {
+        Binding(
+            get: { SwipeMode(rawValue: modeRaw) ?? .feed },
+            set: { modeRaw = $0.rawValue }
+        )
     }
 
-    private var currentIndex: Int {
-        items.firstIndex { $0.id == current?.id } ?? 0
+    private var currentIndex: Int { items.firstIndex { $0.id == currentID } ?? 0 }
+    private var current: ZikrItem? { items.isEmpty ? nil : items[currentIndex] }
+
+    private func item(atDepth depth: Int) -> ZikrItem? {
+        guard !items.isEmpty else { return nil }
+        if mode.wrappedValue == .single { return current }
+        return items[(currentIndex + depth) % items.count]
     }
 
     var body: some View {
-        ScrollView(.vertical) {
-            LazyVStack(spacing: 0) {
-                ForEach(items) { item in
-                    CounterPage(
-                        item: item,
-                        fullScreen: $fullScreen,
-                        showHint: items.count > 1 && !seenSwipeHint && item.id == startID
-                    )
-                    .containerRelativeFrame(.vertical)
-                    .id(item.id)
+        VStack(spacing: 14) {
+            SwipeModePicker(mode: mode)
+                .padding(.top, 4)
+
+            if let current {
+                SwipeDeck(
+                    currentKey: AnyHashable("\(mode.wrappedValue.rawValue)-\(current.id)"),
+                    canGoBack: mode.wrappedValue == .feed && items.count > 1,
+                    onSwipeUp: swipeUp,
+                    onSwipeDown: goBack,
+                    onTap: { count(current) }
+                ) { depth in
+                    if let item = item(atDepth: depth) {
+                        card(for: item)
+                    }
                 }
+                .padding(.horizontal, 16)
+
+                Text(mode.wrappedValue.hint)
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.45))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 6)
+            } else {
+                ContentUnavailableView("No counters yet", systemImage: "circle.dotted")
             }
-            .scrollTargetLayout()
         }
-        .scrollTargetBehavior(.paging)
-        .scrollPosition(id: $currentID)
-        .scrollIndicators(.hidden)
         .background(Theme.background.ignoresSafeArea())
         .overlay(alignment: .trailing) {
-            if items.count > 1 {
-                PageDots(count: items.count, index: currentIndex)
-                    .padding(.trailing, 4)
+            if mode.wrappedValue == .feed && items.count > 1 {
+                PageDots(count: items.count, index: currentIndex).padding(.trailing, 3)
             }
         }
-        .onChange(of: currentID) { _, new in
-            if new != startID { seenSwipeHint = true }
+        .overlay(alignment: .top) {
+            if celebrate {
+                Label("Round complete", systemImage: "checkmark.circle.fill")
+                    .font(.headline)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(.top, 60)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbar }
-        .sensoryFeedback(.selection, trigger: currentID)
+        .sensoryFeedback(trigger: current?.totalCount ?? 0) { old, new in
+            guard haptics else { return nil }
+            return new > old ? .impact(weight: .medium) : .selection
+        }
+        .sensoryFeedback(trigger: celebrate) { _, new in haptics && new ? .success : nil }
         .onAppear { UIApplication.shared.isIdleTimerDisabled = true }
         .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
         .sheet(isPresented: $editingTarget) {
@@ -77,6 +108,56 @@ struct CounterFeedView: View {
         }
     }
 
+    private func card(for item: ZikrItem) -> some View {
+        ZikrSwipeCard(
+            title: item.title,
+            arabic: item.arabic,
+            transliteration: item.transliteration,
+            translation: item.translation,
+            source: item.source,
+            count: item.count,
+            target: item.target,
+            caption: captionFor(item),
+            countFocused: mode.wrappedValue == .single
+        )
+    }
+
+    private func captionFor(_ item: ZikrItem) -> String {
+        let goal = item.target > 0 ? "of \(item.target)" : "no target"
+        return item.rounds > 0 ? "\(goal) · \(item.rounds) round\(item.rounds == 1 ? "" : "s") · \(item.totalCount) total" : goal
+    }
+
+    // MARK: Counting
+
+    private func count(_ item: ZikrItem) {
+        if sound { CounterFeedback.playTick() }
+        var finishedRound = false
+        withAnimation(.snappy(duration: 0.2)) {
+            finishedRound = item.increment(in: context)
+        }
+        if finishedRound {
+            withAnimation(.spring) { celebrate = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
+                withAnimation { celebrate = false }
+            }
+        }
+    }
+
+    private func swipeUp() {
+        guard let current else { return }
+        count(current)
+        if mode.wrappedValue == .feed, !items.isEmpty {
+            currentID = items[(currentIndex + 1) % items.count].id
+        }
+    }
+
+    private func goBack() {
+        guard !items.isEmpty else { return }
+        currentID = items[(currentIndex - 1 + items.count) % items.count].id
+    }
+
+    // MARK: Toolbar
+
     private var shareText: String {
         guard let item = current else { return "" }
         return [item.title, item.arabic, item.transliteration, item.translation,
@@ -89,7 +170,7 @@ struct CounterFeedView: View {
     private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .principal) {
             if let item = current {
-                RemainingPill(text: item.target > 0 ? "\(item.remaining) left" : item.title)
+                RemainingPill(text: item.target > 0 ? "\(item.remaining) left" : "\(item.totalCount) total")
                     .contentTransition(.numericText())
                     .onTapGesture { editingTarget = true }
             }
@@ -118,82 +199,6 @@ struct CounterFeedView: View {
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
-        }
-    }
-}
-
-/// One full-screen page of the feed: text card on top, tap panel below.
-struct CounterPage: View {
-    @Bindable var item: ZikrItem
-    @Binding var fullScreen: Bool
-    var showHint = false
-    @Environment(\.modelContext) private var context
-    @AppStorage("haptics") private var haptics = true
-    @AppStorage("sound") private var sound = false
-    @State private var celebrate = false
-    @State private var confirmReset = false
-
-    private var hasText: Bool {
-        !item.arabic.isEmpty || !item.translation.isEmpty || !item.transliteration.isEmpty
-    }
-
-    var body: some View {
-        VStack(spacing: 14) {
-            if !fullScreen && hasText {
-                CounterTextCard(
-                    arabic: item.arabic,
-                    transliteration: item.transliteration,
-                    translation: item.translation,
-                    source: item.source,
-                    header: item.title
-                )
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
-            CounterTapPanel(
-                count: item.count,
-                caption: item.rounds > 0 ? "\(item.totalCount) · round \(item.rounds + 1)" : "\(item.totalCount)",
-                fullScreen: $fullScreen,
-                celebrate: celebrate,
-                progress: item.progress,
-                onTap: increment,
-                onReset: { confirmReset = true }
-            )
-            .frame(maxHeight: fullScreen || !hasText ? .infinity : 320)
-
-            if showHint {
-                SwipeHint(text: "Swipe up for your next zikr")
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .sensoryFeedback(trigger: item.totalCount) { old, new in
-            guard haptics else { return nil }
-            return new > old ? .impact(weight: .light) : .selection
-        }
-        .sensoryFeedback(trigger: item.rounds) { old, new in
-            haptics && new > old ? .success : nil
-        }
-        .confirmationDialog("Reset this counter?", isPresented: $confirmReset, titleVisibility: .visible) {
-            Button("Reset current round", role: .destructive) { withAnimation { item.count = 0 } }
-            Button("Reset count and rounds", role: .destructive) {
-                withAnimation {
-                    item.count = 0
-                    item.rounds = 0
-                }
-            }
-        }
-    }
-
-    private func increment() {
-        if sound { CounterFeedback.playTick() }
-        var finishedRound = false
-        withAnimation(.snappy(duration: 0.18)) {
-            finishedRound = item.increment(in: context)
-        }
-        guard finishedRound else { return }
-        withAnimation(.spring) { celebrate = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            withAnimation { celebrate = false }
         }
     }
 }

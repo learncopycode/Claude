@@ -82,6 +82,7 @@ final class ZikrItem {
         totalCount += 1
         updatedAt = .now
         DailyTally.add(1, in: context)
+        ZikrDayCount.add(1, itemID: id, in: context)
         guard target > 0, count >= target else { return false }
         rounds += 1
         count = 0
@@ -99,6 +100,7 @@ final class ZikrItem {
         }
         totalCount -= 1
         DailyTally.add(-1, in: context)
+        ZikrDayCount.add(-1, itemID: id, in: context)
     }
 
     /// Recitations left in the current round.
@@ -160,5 +162,35 @@ final class DailyTally {
             date = previous
         }
         return days
+    }
+}
+
+/// Recitations of one zikr on one day, for per-zikr daily, weekly, monthly
+/// and yearly totals.
+@Model
+final class ZikrDayCount {
+    /// "<zikr id>|<yyyy-MM-dd>"
+    @Attribute(.unique) var key: String
+    var itemID: UUID
+    var day: String
+    var total: Int
+
+    init(itemID: UUID, day: String, total: Int) {
+        self.key = "\(itemID.uuidString)|\(day)"
+        self.itemID = itemID
+        self.day = day
+        self.total = total
+    }
+
+    static func add(_ delta: Int, itemID: UUID, in context: ModelContext) {
+        let day = DailyTally.key()
+        let key = "\(itemID.uuidString)|\(day)"
+        var descriptor = FetchDescriptor<ZikrDayCount>(predicate: #Predicate { $0.key == key })
+        descriptor.fetchLimit = 1
+        if let existing = try? context.fetch(descriptor).first {
+            existing.total = max(0, existing.total + delta)
+        } else if delta > 0 {
+            context.insert(ZikrDayCount(itemID: itemID, day: day, total: delta))
+        }
     }
 }

@@ -218,9 +218,17 @@ struct HomeView: View {
     private var stats: some View {
         HStack(spacing: 10) {
             stat("Today", "\(today)", "sun.max.fill")
+            stat("This week", "\(weekTotal)", "calendar")
             stat("Streak", "\(DailyTally.streak(from: tallies))d", "flame.fill")
-            stat("All time", "\(items.reduce(0) { $0 + $1.totalCount })", "infinity")
         }
+        .contentShape(Rectangle())
+        .onTapGesture { router.tab = .stats }
+        .accessibilityHint("Opens your stats")
+    }
+
+    private var weekTotal: Int {
+        guard let range = StatsPeriod.week.dayRange() else { return 0 }
+        return tallies.reduce(0) { range.contains($1.day) ? $0 + $1.total : $0 }
     }
 
     private func stat(_ title: String, _ value: String, _ symbol: String) -> some View {
