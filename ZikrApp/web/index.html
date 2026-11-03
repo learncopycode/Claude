@@ -1,0 +1,885 @@
+<title>Zikr Counter</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: one-screen app. Dark grey page, black cards, mint accent; a full-screen swipe deck slides over it. */
+:root {
+  --bg: #1b1c1e;
+  --card: #000000;
+  --raised: #26282b;
+  --line: rgba(255, 255, 255, 0.08);
+  --fg: #f3f6f4;
+  --muted: #9aa39f;
+  --faint: #6c7471;
+  --mint: #66cc94;
+  --mint-deep: #4db885;
+  --ink-on-mint: #06120c;
+  --font-ui: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-ar: "Amiri", "Geeza Pro", "Noto Naskh Arabic", "Times New Roman", serif;
+  --r-card: 22px;
+  --r-row: 16px;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-ui);
+  font-size: 15px; -webkit-font-smoothing: antialiased; overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+input, textarea { font: inherit; color: var(--fg); }
+.ar { font-family: var(--font-ar); direction: rtl; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---------- App shell ---------- */
+#app { height: 100%; display: flex; flex-direction: column; }
+.screen {
+  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 8px 24px;
+}
+.wrap { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 6px; }
+.topbar h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+.icon-btn {
+  width: 42px; height: 42px; border-radius: 50%; background: var(--raised); display: grid; place-items: center;
+  flex: none;
+}
+.icon-btn svg { width: 20px; height: 20px; }
+h2.section { font-size: 20px; font-weight: 700; margin: 14px 0 0; }
+.muted { color: var(--muted); }
+
+.tabbar {
+  display: flex; justify-content: space-around; background: rgba(12, 13, 14, 0.92);
+  border-top: 1px solid var(--line); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  padding: 8px max(16px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+.tabbar button { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; color: var(--faint); min-width: 72px; }
+.tabbar button svg { width: 24px; height: 24px; }
+.tabbar button[aria-current="page"] { color: var(--mint); }
+
+/* ---------- Home ---------- */
+.stats { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.stat { background: var(--card); border-radius: 16px; padding: 12px; text-align: left; }
+.stat small { display: block; font-size: 12px; color: var(--mint); font-weight: 600; }
+.stat b { display: block; font-size: 20px; margin-top: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.mycounter { background: var(--card); border-radius: var(--r-card); padding: 16px; display: flex; flex-direction: column; gap: 12px; text-align: left; width: 100%; }
+.mycounter .row1 { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.mycounter .t { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mycounter .a { font-size: 22px; max-width: 55%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.mycounter .row2 { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; }
+.bar { height: 5px; border-radius: 99px; background: rgba(255,255,255,0.1); overflow: hidden; }
+.bar > i { display: block; height: 100%; border-radius: inherit; }
+
+.ask { display: flex; align-items: center; gap: 14px; background: var(--card); border-radius: var(--r-card); padding: 16px; text-align: left; width: 100%; }
+.ask .dot { width: 40px; height: 40px; border-radius: 50%; background: var(--mint); color: var(--ink-on-mint); display: grid; place-items: center; flex: none; }
+.ask b { display: block; }
+
+.sec { display: flex; align-items: center; gap: 16px; background: var(--card); border-radius: var(--r-card); padding: 22px 18px; width: 100%; text-align: left; }
+.sec .ico { width: 34px; height: 34px; border-radius: 50%; background: var(--mint); color: var(--ink-on-mint); display: grid; place-items: center; flex: none; }
+.sec .ico svg { width: 18px; height: 18px; }
+.sec .body { flex: 1; min-width: 0; }
+.sec .body b { display: block; font-size: 26px; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; }
+.sec .body span { display: block; color: var(--muted); font-size: 14px; margin-top: 6px; line-height: 1.4; }
+.badge { color: var(--mint); background: rgba(102, 204, 148, 0.15); border-radius: 99px; padding: 4px 10px; font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
+.chev { color: var(--muted); flex: none; transition: transform 0.3s; }
+.sec[aria-expanded="true"] .chev { transform: rotate(180deg); }
+
+.bullet { display: flex; align-items: center; gap: 14px; background: var(--card); border-radius: var(--r-row); padding: 16px 18px; width: 100%; text-align: left; }
+.bullet::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--mint); flex: none; }
+.bullet .bt { flex: 1; min-width: 0; font-size: 17px; }
+.bullet .bt small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+.bullet .bar-ar { font-size: 20px; color: var(--mint); flex: none; max-width: 40%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.list { display: flex; flex-direction: column; gap: 8px; }
+.note { font-size: 13px; color: var(--faint); line-height: 1.5; }
+
+/* ---------- Counter (swipe deck) ---------- */
+.counter {
+  position: fixed; inset: 0; z-index: 20; background: var(--bg); display: flex; flex-direction: column;
+  padding: calc(8px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  animation: rise 0.35s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes rise { from { transform: translateY(24px); opacity: 0; } }
+.chead { display: flex; align-items: center; gap: 8px; max-width: 560px; width: 100%; margin: 0 auto; }
+.chead .grow { flex: 1; display: flex; justify-content: center; min-width: 0; }
+.pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 99px; background: rgba(255,255,255,0.08); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill svg { width: 18px; height: 18px; }
+.modes { display: flex; gap: 4px; padding: 4px; border-radius: 99px; background: rgba(255,255,255,0.08); margin: 12px auto 4px; position: relative; }
+.modes button { position: relative; z-index: 1; padding: 8px 14px; border-radius: 99px; font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.7); transition: color 0.25s; display: inline-flex; gap: 6px; align-items: center; }
+.modes button svg { width: 16px; height: 16px; }
+.modes button[aria-pressed="true"] { color: var(--ink-on-mint); }
+.modes .thumb { position: absolute; top: 4px; bottom: 4px; border-radius: 99px; background: var(--mint); transition: left 0.32s cubic-bezier(.3,.9,.3,1), width 0.32s cubic-bezier(.3,.9,.3,1); }
+
+.deck { flex: 1; position: relative; max-width: 560px; width: 100%; margin: 10px auto 0; touch-action: none; perspective: 1200px; min-height: 0; }
+.card {
+  position: absolute; inset: 0; border-radius: 28px; overflow: hidden; display: flex; flex-direction: column;
+  background: var(--card); will-change: transform; transform-origin: 50% 100%;
+  user-select: none; -webkit-user-select: none;
+}
+.card.back { pointer-events: none; }
+.card .txt { flex: 1; min-height: 0; padding: 22px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; }
+.card .lbl { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .mid { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 14px; width: 100%; overflow: hidden; }
+.card .arb { line-height: 1.9; color: #fff; }
+.card .tl { color: rgba(255,255,255,0.66); line-height: 1.45; }
+.card .tr { color: rgba(255,255,255,0.45); font-style: italic; line-height: 1.45; }
+.card .src { font-size: 12px; color: rgba(255,255,255,0.35); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .foot { padding: 20px 20px 22px; display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; overflow: hidden; transition: background 0.6s ease; }
+.card .cnt { font-size: 72px; font-weight: 300; line-height: 1; color: #fff; font-variant-numeric: tabular-nums; }
+.card.focus .cnt { font-size: 108px; }
+.card.focus .foot { padding-block: 32px 30px; }
+.card .cap { font-weight: 700; color: rgba(255,255,255,0.92); font-variant-numeric: tabular-nums; }
+.card .pbar { width: 70%; height: 4px; border-radius: 99px; background: rgba(255,255,255,0.28); margin-top: 8px; overflow: hidden; }
+.card .pbar i { display: block; height: 100%; background: #fff; border-radius: inherit; transition: width 0.3s ease; }
+.bump { animation: bump 0.22s ease; }
+@keyframes bump { 40% { transform: scale(1.12); } }
+.ripple { position: absolute; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; background: rgba(255,255,255,0.35); pointer-events: none; animation: ripple 0.6s ease-out forwards; }
+@keyframes ripple { from { transform: scale(0.3); opacity: 1; } to { transform: scale(4); opacity: 0; } }
+.plus1 { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); font-size: 34px; font-weight: 700; color: #fff; pointer-events: none; animation: plus1 0.85s ease-out forwards; text-shadow: 0 0 16px rgba(0,0,0,0.35); }
+@keyframes plus1 { from { opacity: 1; transform: translate(-50%, 30px) scale(0.8); } to { opacity: 0; transform: translate(-50%, -140px) scale(1.2); } }
+.hint { text-align: center; font-size: 13px; color: rgba(255,255,255,0.45); padding: 36px 16px 2px; }
+.dots { position: absolute; right: -10px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+.dots i { width: 4px; height: 6px; border-radius: 99px; background: rgba(255,255,255,0.25); transition: height 0.25s, background 0.25s; }
+.dots i.on { height: 18px; background: var(--mint); }
+.menu { position: absolute; right: 0; top: 50px; z-index: 5; background: #2a2c2f; border-radius: 16px; padding: 6px; min-width: 210px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
+.menu button { text-align: left; padding: 12px 14px; border-radius: 10px; font-weight: 600; }
+.menu button:hover { background: rgba(255,255,255,0.06); }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 8px; }
+
+/* ---------- Toast + burst ---------- */
+.toast {
+  position: fixed; z-index: 40; left: 50%; top: calc(70px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
+  width: min(520px, calc(100% - 32px)); display: flex; gap: 14px; align-items: center; padding: 14px; border-radius: 20px;
+  background: rgba(30, 32, 34, 0.86); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  animation: toastIn 0.5s cubic-bezier(.2,1.2,.3,1);
+}
+.toast.out { animation: toastOut 0.4s ease forwards; }
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, -30px) scale(0.95); } }
+@keyframes toastOut { to { opacity: 0; transform: translate(-50%, -20px); } }
+.toast .sw { width: 46px; height: 46px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; }
+.toast small { display: block; font-size: 12px; font-weight: 700; }
+.toast b { display: block; }
+.toast span { display: block; font-size: 13px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+.spark { position: fixed; z-index: 39; width: 8px; height: 8px; border-radius: 50%; pointer-events: none; animation: spark 1.1s ease-out forwards; }
+@keyframes spark { to { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
+
+/* ---------- Stats ---------- */
+.seg { display: flex; background: rgba(255,255,255,0.08); border-radius: 10px; padding: 3px; gap: 2px; }
+.seg button { flex: 1; padding: 7px 4px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.seg button[aria-pressed="true"] { background: #4a4d52; color: var(--fg); }
+.panel { background: var(--card); border-radius: var(--r-card); padding: 18px; display: flex; flex-direction: column; gap: 6px; }
+.big { font-size: 54px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.05; }
+.chart { display: flex; align-items: flex-end; gap: 3px; height: 160px; margin-top: 14px; }
+.chart .col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+.chart .col i { width: 100%; max-width: 28px; border-radius: 5px 5px 2px 2px; background: linear-gradient(var(--mint), var(--mint-deep)); min-height: 2px; transition: height 0.4s ease; }
+.chart .col span { font-size: 10px; color: var(--faint); height: 12px; white-space: nowrap; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+.tile { background: var(--card); border-radius: 14px; padding: 12px; text-align: left; }
+.tile small { display: block; font-size: 12px; color: var(--muted); }
+.tile b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; margin-top: 3px; }
+.tile[aria-pressed="true"] { background: var(--mint); color: var(--ink-on-mint); }
+.tile[aria-pressed="true"] small { color: rgba(6,18,12,0.7); }
+.chips { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.chip { flex: none; width: 140px; background: var(--card); border-radius: 18px; padding: 14px; text-align: left; display: flex; flex-direction: column; gap: 8px; }
+.chip .sw { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: #fff; }
+.chip b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip small { color: var(--muted); font-size: 12px; }
+.share { background: var(--card); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px; width: 100%; text-align: left; }
+.share .r { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.share .r b { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.share .r em { font-style: normal; color: var(--mint); font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; }
+
+/* ---------- Achievements ---------- */
+.ahead { background: var(--card); border-radius: var(--r-card); padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.orb { width: 120px; height: 120px; border-radius: 50%; display: grid; place-items: center; font-size: 28px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+.medals { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 18px 12px; }
+.medal { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.medal .m { width: 74px; height: 74px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #fff; border: 2px solid; font-variant-numeric: tabular-nums; }
+.medal b { font-size: 14px; }
+.medal small { font-size: 12px; color: var(--muted); }
+.medal.locked { opacity: 0.7; }
+
+/* ---------- Sheet (add) ---------- */
+.scrim { position: fixed; inset: 0; z-index: 30; background: rgba(0,0,0,0.55); animation: fade 0.25s; }
+@keyframes fade { from { opacity: 0; } }
+.sheet {
+  position: fixed; z-index: 31; left: 0; right: 0; bottom: 0; max-height: 92%; overflow-y: auto; background: #1f2023;
+  border-radius: 22px 22px 0 0; animation: up 0.38s cubic-bezier(.2,.9,.2,1);
+  padding: 14px max(16px, env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+@keyframes up { from { transform: translateY(100%); } }
+.sheet .in { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 6px; }
+.sheet .bar-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.sheet .bar-top b { font-size: 18px; }
+.textbtn { color: var(--mint); font-weight: 700; font-size: 17px; padding: 6px; }
+.textbtn[disabled] { opacity: 0.35; }
+.field { border-bottom: 1px solid var(--line); padding: 14px 0; display: flex; align-items: center; gap: 10px; }
+.field input, .field textarea { flex: 1; min-width: 0; background: none; border: 0; outline: none; font-size: 19px; resize: none; }
+.field textarea.ar { font-size: 26px; line-height: 1.7; }
+.field ::placeholder { color: #5d6461; }
+.results { background: var(--card); border-radius: 18px; overflow: hidden; margin-top: 8px; }
+.res { display: flex; gap: 12px; align-items: center; width: 100%; text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.res:last-child { border-bottom: 0; }
+.res .rb { flex: 1; min-width: 0; }
+.res b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.res .ar { display: block; color: var(--mint); font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.res small { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.verified { color: var(--mint); font-size: 13px; padding: 12px 0 4px; }
+.presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.presets button { padding: 8px 14px; border-radius: 99px; background: rgba(255,255,255,0.08); font-weight: 700; font-variant-numeric: tabular-nums; }
+.presets button[aria-pressed="true"] { background: var(--mint); color: var(--ink-on-mint); }
+.lbl2 { font-weight: 700; margin-top: 18px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+</style>
+
+<div id="app">
+  <main class="screen" id="screen"></main>
+  <nav class="tabbar" id="tabbar" aria-label="Sections">
+    <button data-act="tab" data-tab="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>Counter</button>
+    <button data-act="tab" data-tab="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>Stats</button>
+    <button data-act="add" data-tab="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Add</button>
+  </nav>
+</div>
+<div id="layer"></div>
+
+<script>
+const DATA = {"duas": [{"id": "subhanallah", "title": "SubhanAllah", "cat": "tasbih", "count": 33, "arabic": "سُبْحَانَ اللَّهِ", "translit": "SubhanAllah", "meaning": "Glory be to Allah.", "source": "Sahih Muslim 597 (33 times after each prayer)", "tags": ["tasbih", "after prayer", "salah", "glory", "33"]}, {"id": "alhamdulillah", "title": "Alhamdulillah", "cat": "tasbih", "count": 33, "arabic": "الْحَمْدُ لِلَّهِ", "translit": "Alhamdulillah", "meaning": "All praise is for Allah.", "source": "Sahih Muslim 597 (33 times after each prayer)", "tags": ["tahmid", "after prayer", "salah", "praise", "gratitude", "thanks", "grateful"]}, {"id": "allahuakbar", "title": "Allahu Akbar", "cat": "tasbih", "count": 33, "arabic": "اللَّهُ أَكْبَرُ", "translit": "Allahu Akbar", "meaning": "Allah is the Greatest.", "source": "Sahih Muslim 597 (33 times after each prayer)", "tags": ["takbir", "after prayer", "salah", "greatest"]}, {"id": "tahlil-complete", "title": "La ilaha illallahu wahdahu", "cat": "tasbih", "count": 100, "arabic": "لَا إِلَٰهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ", "translit": "La ilaha illallahu wahdahu la sharika lah, lahul-mulku wa lahul-hamdu wa huwa 'ala kulli shay'in qadir", "meaning": "None has the right to be worshipped but Allah alone, without partner. His is the dominion and His is the praise, and He is over all things competent.", "source": "Sahih al-Bukhari 6403; Sahih Muslim 2691 (100 times a day)", "tags": ["tahlil", "tawhid", "after prayer", "100", "daily", "morning"]}, {"id": "la-ilaha-illallah", "title": "La ilaha illallah", "cat": "tasbih", "count": 100, "arabic": "لَا إِلَٰهَ إِلَّا اللَّهُ", "translit": "La ilaha illallah", "meaning": "None has the right to be worshipped but Allah.", "source": "Jami' at-Tirmidhi 3383 (the best dhikr)", "tags": ["tahlil", "tawhid", "best dhikr", "kalima", "shahada"]}, {"id": "subhanallahi-wa-bihamdihi", "title": "SubhanAllahi wa bihamdihi", "cat": "tasbih", "count": 100, "arabic": "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ", "translit": "SubhanAllahi wa bihamdihi", "meaning": "Glory be to Allah and praise be to Him.", "source": "Sahih al-Bukhari 6405; Sahih Muslim 2691 (100 times a day — sins forgiven)", "tags": ["tasbih", "100", "daily", "sins", "forgiveness"]}, {"id": "subhanallahil-azim", "title": "SubhanAllahi wa bihamdihi, SubhanAllahil-'Azim", "cat": "tasbih", "count": 33, "arabic": "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ، سُبْحَانَ اللَّهِ الْعَظِيمِ", "translit": "SubhanAllahi wa bihamdihi, SubhanAllahil-'Azim", "meaning": "Glory be to Allah and praise be to Him; glory be to Allah, the Most Great.", "source": "Sahih al-Bukhari 6682 (light on the tongue, heavy on the scale)", "tags": ["tasbih", "scale", "mizan", "beloved", "light on tongue"]}, {"id": "baqiyat", "title": "SubhanAllah, Alhamdulillah, La ilaha illallah, Allahu Akbar", "cat": "tasbih", "count": 100, "arabic": "سُبْحَانَ اللَّهِ، وَالْحَمْدُ لِلَّهِ، وَلَا إِلَٰهَ إِلَّا اللَّهُ، وَاللَّهُ أَكْبَرُ", "translit": "SubhanAllah, walhamdulillah, wa la ilaha illallah, wallahu akbar", "meaning": "Glory be to Allah, all praise is for Allah, none has the right to be worshipped but Allah, and Allah is the Greatest.", "source": "Sahih Muslim 2137 (the words most beloved to Allah)", "tags": ["tasbih", "beloved", "four words", "baqiyat salihat"]}, {"id": "hawqala", "title": "La hawla wa la quwwata illa billah", "cat": "tasbih", "count": 33, "arabic": "لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ", "translit": "La hawla wa la quwwata illa billah", "meaning": "There is no might and no power except with Allah.", "source": "Sahih al-Bukhari 6384 (a treasure of Paradise)", "tags": ["hawqala", "strength", "power", "treasure", "paradise", "help"]}, {"id": "adada-khalqihi", "title": "SubhanAllahi wa bihamdihi 'adada khalqihi", "cat": "tasbih", "count": 3, "arabic": "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ، عَدَدَ خَلْقِهِ، وَرِضَا نَفْسِهِ، وَزِنَةَ عَرْشِهِ، وَمِدَادَ كَلِمَاتِهِ", "translit": "SubhanAllahi wa bihamdihi, 'adada khalqihi, wa rida nafsihi, wa zinata 'arshihi, wa midada kalimatihi", "meaning": "Glory be to Allah and praise be to Him, as many as His creation, as much as pleases Him, as heavy as His Throne, and as much as the ink of His words.", "source": "Sahih Muslim 2726 (3 times, in the morning)", "tags": ["tasbih", "morning", "juwayriyah", "reward"]}, {"id": "salawat", "title": "Salawat on the Prophet ﷺ", "cat": "salawat", "count": 100, "arabic": "اللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ", "translit": "Allahumma salli 'ala Muhammadin wa 'ala ali Muhammad", "meaning": "O Allah, send blessings upon Muhammad and upon the family of Muhammad.", "source": "Sahih Muslim 408 (one blessing brings ten from Allah)", "tags": ["salawat", "durood", "darood", "salat", "prophet", "blessings", "friday", "jumuah"]}, {"id": "astaghfirullah", "title": "Astaghfirullah", "cat": "forgiveness", "count": 100, "arabic": "أَسْتَغْفِرُ اللَّهَ", "translit": "Astaghfirullah", "meaning": "I seek Allah's forgiveness.", "source": "Sahih Muslim 2702 (the Prophet ﷺ sought forgiveness 100 times a day)", "tags": ["istighfar", "forgiveness", "repent", "repentance", "sins", "tawbah", "after prayer"]}, {"id": "astaghfirullah-atubu", "title": "Astaghfirullah wa atubu ilayh", "cat": "forgiveness", "count": 100, "arabic": "أَسْتَغْفِرُ اللَّهَ وَأَتُوبُ إِلَيْهِ", "translit": "Astaghfirullaha wa atubu ilayh", "meaning": "I seek Allah's forgiveness and turn to Him in repentance.", "source": "Sahih al-Bukhari 6307", "tags": ["istighfar", "forgiveness", "repent", "repentance", "tawbah", "sins"]}, {"id": "sayyid-istighfar", "title": "Sayyid al-Istighfar", "cat": "forgiveness", "count": 1, "arabic": "اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَٰهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَىٰ عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ، وَأَبُوءُ بِذَنْبِي فَاغْفِرْ لِي، فَإِنَّهُ لَا يَغْفِرُ الذُّنُوبَ إِلَّا أَنْتَ", "translit": "Allahumma anta Rabbi la ilaha illa ant, khalaqtani wa ana 'abduk, wa ana 'ala 'ahdika wa wa'dika mastata't, a'udhu bika min sharri ma sana't, abu'u laka bini'matika 'alayya, wa abu'u bidhanbi faghfir li, fa innahu la yaghfirudh-dhunuba illa ant", "meaning": "O Allah, You are my Lord; none has the right to be worshipped but You. You created me and I am Your servant, and I keep Your covenant and promise as best I can. I seek refuge in You from the evil I have done. I acknowledge Your favour upon me and I acknowledge my sin, so forgive me, for none forgives sins but You.", "source": "Sahih al-Bukhari 6306 (the master of seeking forgiveness — morning and evening)", "tags": ["sayyidul istighfar", "sayyid ul istighfar", "istighfar", "forgiveness", "master", "morning", "evening", "sins", "repentance"]}, {"id": "laylatul-qadr", "title": "Allahumma innaka 'afuwwun", "cat": "forgiveness", "count": 33, "arabic": "اللَّهُمَّ إِنَّكَ عَفُوٌّ تُحِبُّ الْعَفْوَ فَاعْفُ عَنِّي", "translit": "Allahumma innaka 'afuwwun tuhibbul-'afwa fa'fu 'anni", "meaning": "O Allah, You are Pardoning and love to pardon, so pardon me.", "source": "Jami' at-Tirmidhi 3513 (taught for Laylat al-Qadr)", "tags": ["laylatul qadr", "ramadan", "last ten nights", "pardon", "forgiveness", "night of power"]}, {"id": "dhun-nun", "title": "Dua of Yunus (Dhun-Nun)", "cat": "forgiveness", "count": 100, "arabic": "لَا إِلَٰهَ إِلَّا أَنْتَ سُبْحَانَكَ إِنِّي كُنْتُ مِنَ الظَّالِمِينَ", "translit": "La ilaha illa anta subhanaka inni kuntu minaz-zalimin", "meaning": "There is no god but You; glory be to You. Indeed, I have been of the wrongdoers.", "source": "Quran 21:87; Jami' at-Tirmidhi 3505", "tags": ["yunus", "jonah", "distress", "hardship", "whale", "forgiveness", "anxiety", "difficulty", "trouble"]}, {"id": "bismillah-la-yadurr", "title": "Bismillahil-ladhi la yadurru", "cat": "morningEvening", "count": 3, "arabic": "بِسْمِ اللَّهِ الَّذِي لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْأَرْضِ وَلَا فِي السَّمَاءِ وَهُوَ السَّمِيعُ الْعَلِيمُ", "translit": "Bismillahil-ladhi la yadurru ma'as-mihi shay'un fil-ardi wa la fis-sama'i wa huwas-Sami'ul-'Alim", "meaning": "In the name of Allah, with whose name nothing on earth or in the heavens can cause harm, and He is the All-Hearing, the All-Knowing.", "source": "Sunan Abi Dawud 5088; Jami' at-Tirmidhi 3388 (3 times morning and evening)", "tags": ["morning", "evening", "protection", "harm", "adhkar", "safety"]}, {"id": "raditu", "title": "Raditu billahi Rabba", "cat": "morningEvening", "count": 3, "arabic": "رَضِيتُ بِاللَّهِ رَبًّا، وَبِالْإِسْلَامِ دِينًا، وَبِمُحَمَّدٍ ﷺ نَبِيًّا", "translit": "Raditu billahi Rabba, wa bil-Islami dina, wa bi-Muhammadin ﷺ nabiyya", "meaning": "I am pleased with Allah as my Lord, with Islam as my religion, and with Muhammad ﷺ as my Prophet.", "source": "Sunan Abi Dawud 5072 (3 times morning and evening)", "tags": ["morning", "evening", "adhkar", "contentment", "pleased"]}, {"id": "hasbiyallah", "title": "Hasbiyallahu la ilaha illa huwa", "cat": "morningEvening", "count": 7, "arabic": "حَسْبِيَ اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ عَلَيْهِ تَوَكَّلْتُ وَهُوَ رَبُّ الْعَرْشِ الْعَظِيمِ", "translit": "Hasbiyallahu la ilaha illa huwa, 'alayhi tawakkaltu wa huwa Rabbul-'Arshil-'Azim", "meaning": "Allah is sufficient for me; there is no god but Him. In Him I put my trust, and He is the Lord of the Mighty Throne.", "source": "Quran 9:129; Sunan Abi Dawud 5081 (7 times morning and evening)", "tags": ["morning", "evening", "trust", "tawakkul", "worry", "sufficient", "anxiety"]}, {"id": "auzu-bikalimat", "title": "A'udhu bikalimatillahit-tammat", "cat": "morningEvening", "count": 3, "arabic": "أَعُوذُ بِكَلِمَاتِ اللَّهِ التَّامَّاتِ مِنْ شَرِّ مَا خَلَقَ", "translit": "A'udhu bikalimatillahit-tammati min sharri ma khalaq", "meaning": "I seek refuge in the perfect words of Allah from the evil of what He has created.", "source": "Sahih Muslim 2708, 2709 (evening, and when stopping at a place)", "tags": ["evening", "protection", "refuge", "evil", "travel", "harm", "safety"]}, {"id": "afiyah", "title": "Asking for well-being ('Afiyah)", "cat": "protection", "count": 3, "arabic": "اللَّهُمَّ إِنِّي أَسْأَلُكَ الْعَفْوَ وَالْعَافِيَةَ فِي الدُّنْيَا وَالْآخِرَةِ", "translit": "Allahumma inni as'alukal-'afwa wal-'afiyata fid-dunya wal-akhirah", "meaning": "O Allah, I ask You for pardon and well-being in this world and the Hereafter.", "source": "Sunan Ibn Majah 3871", "tags": ["health", "wellbeing", "afiyah", "protection", "sickness", "illness", "safety", "pardon"]}, {"id": "hasbunallah", "title": "Hasbunallahu wa ni'mal-wakil", "cat": "protection", "count": 33, "arabic": "حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ", "translit": "Hasbunallahu wa ni'mal-wakil", "meaning": "Allah is sufficient for us, and He is the best disposer of affairs.", "source": "Quran 3:173; Sahih al-Bukhari 4563", "tags": ["trust", "tawakkul", "fear", "enemy", "oppression", "worry", "protection", "sufficient"]}, {"id": "muqallib", "title": "Ya Muqallibal-qulub", "cat": "protection", "count": 33, "arabic": "يَا مُقَلِّبَ الْقُلُوبِ ثَبِّتْ قَلْبِي عَلَىٰ دِينِكَ", "translit": "Ya Muqallibal-qulub, thabbit qalbi 'ala dinik", "meaning": "O Turner of hearts, keep my heart firm upon Your religion.", "source": "Jami' at-Tirmidhi 2140", "tags": ["heart", "faith", "iman", "steadfast", "guidance", "firm"]}, {"id": "ainni", "title": "Allahumma a'inni 'ala dhikrik", "cat": "protection", "count": 1, "arabic": "اللَّهُمَّ أَعِنِّي عَلَىٰ ذِكْرِكَ وَشُكْرِكَ وَحُسْنِ عِبَادَتِكَ", "translit": "Allahumma a'inni 'ala dhikrika wa shukrika wa husni 'ibadatik", "meaning": "O Allah, help me to remember You, to thank You, and to worship You in the best way.", "source": "Sunan Abi Dawud 1522 (after every prayer)", "tags": ["after prayer", "salah", "worship", "gratitude", "help", "remembrance"]}, {"id": "hamm-hazan", "title": "Refuge from worry and grief", "cat": "hardship", "count": 3, "arabic": "اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْهَمِّ وَالْحَزَنِ، وَالْعَجْزِ وَالْكَسَلِ، وَالْبُخْلِ وَالْجُبْنِ، وَضَلَعِ الدَّيْنِ وَغَلَبَةِ الرِّجَالِ", "translit": "Allahumma inni a'udhu bika minal-hammi wal-hazan, wal-'ajzi wal-kasal, wal-bukhli wal-jubn, wa dala'id-dayni wa ghalabatir-rijal", "meaning": "O Allah, I seek refuge in You from worry and grief, from weakness and laziness, from miserliness and cowardice, and from the burden of debt and being overpowered by men.", "source": "Sahih al-Bukhari 6369", "tags": ["anxiety", "worry", "grief", "sad", "sadness", "stress", "depression", "debt", "laziness", "fear"]}, {"id": "karb", "title": "Dua in distress", "cat": "hardship", "count": 3, "arabic": "لَا إِلَٰهَ إِلَّا اللَّهُ الْعَظِيمُ الْحَلِيمُ، لَا إِلَٰهَ إِلَّا اللَّهُ رَبُّ الْعَرْشِ الْعَظِيمِ، لَا إِلَٰهَ إِلَّا اللَّهُ رَبُّ السَّمَاوَاتِ وَرَبُّ الْأَرْضِ وَرَبُّ الْعَرْشِ الْكَرِيمِ", "translit": "La ilaha illallahul-'Azimul-Halim, la ilaha illallahu Rabbul-'Arshil-'Azim, la ilaha illallahu Rabbus-samawati wa Rabbul-ardi wa Rabbul-'Arshil-Karim", "meaning": "None has the right to be worshipped but Allah, the Mighty, the Forbearing. None has the right to be worshipped but Allah, Lord of the Mighty Throne. None has the right to be worshipped but Allah, Lord of the heavens, Lord of the earth and Lord of the Noble Throne.", "source": "Sahih al-Bukhari 6346", "tags": ["distress", "hardship", "anxiety", "trouble", "calamity", "stress", "difficulty", "karb"]}, {"id": "sharh-sadr", "title": "Rabbi ishrah li sadri", "cat": "hardship", "count": 7, "arabic": "رَبِّ اشْرَحْ لِي صَدْرِي وَيَسِّرْ لِي أَمْرِي", "translit": "Rabbish-rah li sadri wa yassir li amri", "meaning": "My Lord, expand for me my chest and ease for me my task.", "source": "Quran 20:25–26 (dua of Musa)", "tags": ["ease", "exam", "test", "interview", "speech", "presentation", "nervous", "confidence", "musa", "study"]}, {"id": "rabbana-atina", "title": "Rabbana atina fid-dunya hasanah", "cat": "quranic", "count": 7, "arabic": "رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ", "translit": "Rabbana atina fid-dunya hasanatan wa fil-akhirati hasanatan wa qina 'adhaban-nar", "meaning": "Our Lord, give us good in this world and good in the Hereafter, and protect us from the punishment of the Fire.", "source": "Quran 2:201; Sahih al-Bukhari 6389", "tags": ["good", "dunya", "akhirah", "hereafter", "comprehensive", "tawaf", "hajj", "umrah", "success"]}, {"id": "zidni-ilma", "title": "Rabbi zidni 'ilma", "cat": "quranic", "count": 7, "arabic": "رَبِّ زِدْنِي عِلْمًا", "translit": "Rabbi zidni 'ilma", "meaning": "My Lord, increase me in knowledge.", "source": "Quran 20:114", "tags": ["knowledge", "study", "exam", "test", "school", "learning", "student", "university"]}, {"id": "rabbana-zalamna", "title": "Rabbana zalamna anfusana", "cat": "quranic", "count": 7, "arabic": "رَبَّنَا ظَلَمْنَا أَنْفُسَنَا وَإِنْ لَمْ تَغْفِرْ لَنَا وَتَرْحَمْنَا لَنَكُونَنَّ مِنَ الْخَاسِرِينَ", "translit": "Rabbana zalamna anfusana wa in lam taghfir lana wa tarhamna lanakunanna minal-khasirin", "meaning": "Our Lord, we have wronged ourselves, and if You do not forgive us and have mercy upon us, we will surely be among the losers.", "source": "Quran 7:23 (dua of Adam and Hawwa)", "tags": ["forgiveness", "adam", "repentance", "sins", "mercy", "tawbah"]}, {"id": "hab-lana", "title": "Rabbana hab lana min azwajina", "cat": "quranic", "count": 7, "arabic": "رَبَّنَا هَبْ لَنَا مِنْ أَزْوَاجِنَا وَذُرِّيَّاتِنَا قُرَّةَ أَعْيُنٍ وَاجْعَلْنَا لِلْمُتَّقِينَ إِمَامًا", "translit": "Rabbana hab lana min azwajina wa dhurriyyatina qurrata a'yunin waj'alna lil-muttaqina imama", "meaning": "Our Lord, grant us from our spouses and offspring comfort to our eyes, and make us leaders of the righteous.", "source": "Quran 25:74", "tags": ["marriage", "spouse", "wife", "husband", "children", "kids", "family", "offspring", "pregnancy"]}, {"id": "la-tuzigh", "title": "Rabbana la tuzigh qulubana", "cat": "quranic", "count": 7, "arabic": "رَبَّنَا لَا تُزِغْ قُلُوبَنَا بَعْدَ إِذْ هَدَيْتَنَا وَهَبْ لَنَا مِنْ لَدُنْكَ رَحْمَةً إِنَّكَ أَنْتَ الْوَهَّابُ", "translit": "Rabbana la tuzigh qulubana ba'da idh hadaytana wa hab lana min ladunka rahmah, innaka antal-Wahhab", "meaning": "Our Lord, let not our hearts deviate after You have guided us, and grant us mercy from Yourself. Indeed, You are the Bestower.", "source": "Quran 3:8", "tags": ["guidance", "heart", "faith", "iman", "mercy", "steadfast"]}, {"id": "parents", "title": "Dua for parents", "cat": "quranic", "count": 7, "arabic": "رَبِّ ارْحَمْهُمَا كَمَا رَبَّيَانِي صَغِيرًا", "translit": "Rabbir-hamhuma kama rabbayani saghira", "meaning": "My Lord, have mercy upon them as they brought me up when I was small.", "source": "Quran 17:24", "tags": ["parents", "mother", "father", "mom", "dad", "family", "mercy", "deceased"]}, {"id": "quran-2:255", "title": "Ayat al-Kursi", "cat": "quran", "count": 1, "arabic": "اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ ۚ لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ ۚ لَهُ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ ۗ مَنْ ذَا الَّذِي يَشْفَعُ عِنْدَهُ إِلَّا بِإِذْنِهِ ۚ يَعْلَمُ مَا بَيْنَ أَيْدِيهِمْ وَمَا خَلْفَهُمْ ۖ وَلَا يُحِيطُونَ بِشَيْءٍ مِنْ عِلْمِهِ إِلَّا بِمَا شَاءَ ۚ وَسِعَ كُرْسِيُّهُ السَّمَاوَاتِ وَالْأَرْضَ ۖ وَلَا يَئُودُهُ حِفْظُهُمَا ۚ وَهُوَ الْعَلِيُّ الْعَظِيمُ", "translit": "Allahu la ilaha illa huwal-Hayyul-Qayyum, la ta'khudhuhu sinatun wa la nawm, lahu ma fis-samawati wa ma fil-ard, man dhal-ladhi yashfa'u 'indahu illa bi-idhnih, ya'lamu ma bayna aydihim wa ma khalfahum, wa la yuhituna bishay'im-min 'ilmihi illa bima sha', wasi'a kursiyyuhus-samawati wal-ard, wa la ya'uduhu hifzuhuma, wa huwal-'Aliyyul-'Azim", "meaning": "Allah — there is no deity except Him, the Ever-Living, the Sustainer of existence. Neither drowsiness overtakes Him nor sleep. To Him belongs whatever is in the heavens and whatever is on the earth. Who is it that can intercede with Him except by His permission? He knows what is before them and what will be after them, and they encompass nothing of His knowledge except for what He wills. His Kursi extends over the heavens and the earth, and their preservation tires Him not. And He is the Most High, the Most Great.", "source": "Quran 2:255 · after each prayer and before sleep (Sahih al-Bukhari 2311)", "tags": ["ayatul kursi", "kursi", "throne", "protection", "sleep", "after prayer", "morning", "evening"]}, {"id": "quran-112", "title": "Surah Al-Ikhlas", "cat": "quran", "count": 3, "arabic": "قُلْ هُوَ اللَّهُ أَحَدٌ ۝ اللَّهُ الصَّمَدُ ۝ لَمْ يَلِدْ وَلَمْ يُولَدْ ۝ وَلَمْ يَكُنْ لَهُ كُفُوًا أَحَدٌ", "translit": "Qul huwallahu ahad. Allahus-samad. Lam yalid wa lam yulad. Wa lam yakun lahu kufuwan ahad.", "meaning": "Say, \"He is Allah, the One. Allah, the Eternal Refuge. He neither begets nor is born, nor is there to Him any equivalent.\"", "source": "Quran 112 · 3 times morning, evening and before sleep (Sunan Abi Dawud 5082)", "tags": ["ikhlas", "quls", "protection", "sleep", "morning", "evening", "tawhid"]}, {"id": "quran-113", "title": "Surah Al-Falaq", "cat": "quran", "count": 3, "arabic": "قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ ۝ مِنْ شَرِّ مَا خَلَقَ ۝ وَمِنْ شَرِّ غَاسِقٍ إِذَا وَقَبَ ۝ وَمِنْ شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ ۝ وَمِنْ شَرِّ حَاسِدٍ إِذَا حَسَدَ", "translit": "Qul a'udhu bi-rabbil-falaq. Min sharri ma khalaq. Wa min sharri ghasiqin idha waqab. Wa min sharrin-naffathati fil-'uqad. Wa min sharri hasidin idha hasad.", "meaning": "Say, \"I seek refuge in the Lord of daybreak, from the evil of what He created, from the evil of darkness when it settles, from the evil of those who blow on knots, and from the evil of an envier when he envies.\"", "source": "Quran 113 · 3 times morning, evening and before sleep (Sunan Abi Dawud 5082)", "tags": ["falaq", "quls", "protection", "evil eye", "envy", "magic", "sleep", "morning", "evening"]}, {"id": "quran-114", "title": "Surah An-Nas", "cat": "quran", "count": 3, "arabic": "قُلْ أَعُوذُ بِرَبِّ النَّاسِ ۝ مَلِكِ النَّاسِ ۝ إِلَٰهِ النَّاسِ ۝ مِنْ شَرِّ الْوَسْوَاسِ الْخَنَّاسِ ۝ الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ ۝ مِنَ الْجِنَّةِ وَالنَّاسِ", "translit": "Qul a'udhu bi-rabbin-nas. Malikin-nas. Ilahin-nas. Min sharril-waswasil-khannas. Alladhi yuwaswisu fi sudurin-nas. Minal-jinnati wan-nas.", "meaning": "Say, \"I seek refuge in the Lord of mankind, the King of mankind, the God of mankind, from the evil of the retreating whisperer, who whispers into the hearts of mankind, from among the jinn and mankind.\"", "source": "Quran 114 · 3 times morning, evening and before sleep (Sunan Abi Dawud 5082)", "tags": ["nas", "quls", "protection", "waswas", "whispers", "jinn", "sleep", "morning", "evening"]}, {"id": "sleep", "title": "Before sleeping", "cat": "daily", "count": 1, "arabic": "بِاسْمِكَ اللَّهُمَّ أَمُوتُ وَأَحْيَا", "translit": "Bismika Allahumma amutu wa ahya", "meaning": "In Your name, O Allah, I die and I live.", "source": "Sahih al-Bukhari 6324", "tags": ["sleep", "bed", "night", "bedtime"]}, {"id": "waking", "title": "Upon waking up", "cat": "daily", "count": 1, "arabic": "الْحَمْدُ لِلَّهِ الَّذِي أَحْيَانَا بَعْدَ مَا أَمَاتَنَا وَإِلَيْهِ النُّشُورُ", "translit": "Alhamdu lillahil-ladhi ahyana ba'da ma amatana wa ilayhin-nushur", "meaning": "All praise is for Allah who gave us life after causing us to die, and to Him is the return.", "source": "Sahih al-Bukhari 6324", "tags": ["waking", "wake", "morning", "sleep"]}, {"id": "leaving-home", "title": "Leaving the house", "cat": "daily", "count": 1, "arabic": "بِسْمِ اللَّهِ، تَوَكَّلْتُ عَلَى اللَّهِ، وَلَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ", "translit": "Bismillah, tawakkaltu 'alallah, wa la hawla wa la quwwata illa billah", "meaning": "In the name of Allah, I place my trust in Allah, and there is no might and no power except with Allah.", "source": "Sunan Abi Dawud 5095; Jami' at-Tirmidhi 3426", "tags": ["leaving", "home", "house", "going out", "work", "trust", "tawakkul"]}, {"id": "after-eating", "title": "After eating", "cat": "daily", "count": 1, "arabic": "الْحَمْدُ لِلَّهِ الَّذِي أَطْعَمَنِي هَٰذَا وَرَزَقَنِيهِ مِنْ غَيْرِ حَوْلٍ مِنِّي وَلَا قُوَّةٍ", "translit": "Alhamdu lillahil-ladhi at'amani hadha wa razaqanihi min ghayri hawlin minni wa la quwwah", "meaning": "All praise is for Allah who fed me this and provided it for me without any might or power from myself.", "source": "Sunan Abi Dawud 4023; Jami' at-Tirmidhi 3458", "tags": ["eating", "food", "meal", "after eating", "gratitude"]}, {"id": "travel", "title": "Dua for travel", "cat": "daily", "count": 1, "arabic": "سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَٰذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ وَإِنَّا إِلَىٰ رَبِّنَا لَمُنْقَلِبُونَ", "translit": "Subhanal-ladhi sakhkhara lana hadha wa ma kunna lahu muqrinin, wa inna ila Rabbina lamunqalibun", "meaning": "Glory be to Him who has subjected this to us, and we could never have done it ourselves. And to our Lord we will surely return.", "source": "Quran 43:13–14; Sahih Muslim 1342", "tags": ["travel", "journey", "car", "plane", "flight", "vehicle", "trip", "riding"]}, {"id": "masjid", "title": "Entering the masjid", "cat": "daily", "count": 1, "arabic": "اللَّهُمَّ افْتَحْ لِي أَبْوَابَ رَحْمَتِكَ", "translit": "Allahummaf-tah li abwaba rahmatik", "meaning": "O Allah, open for me the doors of Your mercy.", "source": "Sahih Muslim 713", "tags": ["masjid", "mosque", "entering", "mercy"]}, {"id": "visiting-sick", "title": "Visiting the sick", "cat": "daily", "count": 1, "arabic": "لَا بَأْسَ طَهُورٌ إِنْ شَاءَ اللَّهُ", "translit": "La ba'sa tahurun in sha' Allah", "meaning": "No harm — it is a purification, if Allah wills.", "source": "Sahih al-Bukhari 3616", "tags": ["sick", "sickness", "illness", "visiting", "hospital", "health"]}, {"id": "rain", "title": "When it rains", "cat": "daily", "count": 1, "arabic": "اللَّهُمَّ صَيِّبًا نَافِعًا", "translit": "Allahumma sayyiban nafi'a", "meaning": "O Allah, (make it) a beneficial rain.", "source": "Sahih al-Bukhari 1032", "tags": ["rain", "weather", "storm"]}], "names": [{"id": "name-1", "title": "1. Ar-Rahman", "cat": "names", "count": 33, "arabic": "الرَّحْمَٰنُ", "translit": "Ar-Rahman", "meaning": "The Most Merciful", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-2", "title": "2. Ar-Rahim", "cat": "names", "count": 33, "arabic": "الرَّحِيمُ", "translit": "Ar-Rahim", "meaning": "The Especially Merciful", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-3", "title": "3. Al-Malik", "cat": "names", "count": 33, "arabic": "الْمَلِكُ", "translit": "Al-Malik", "meaning": "The King", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-4", "title": "4. Al-Quddus", "cat": "names", "count": 33, "arabic": "الْقُدُّوسُ", "translit": "Al-Quddus", "meaning": "The Most Holy", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-5", "title": "5. As-Salam", "cat": "names", "count": 33, "arabic": "السَّلَامُ", "translit": "As-Salam", "meaning": "The Source of Peace", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-6", "title": "6. Al-Mu'min", "cat": "names", "count": 33, "arabic": "الْمُؤْمِنُ", "translit": "Al-Mu'min", "meaning": "The Giver of Security", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-7", "title": "7. Al-Muhaymin", "cat": "names", "count": 33, "arabic": "الْمُهَيْمِنُ", "translit": "Al-Muhaymin", "meaning": "The Guardian", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-8", "title": "8. Al-'Aziz", "cat": "names", "count": 33, "arabic": "الْعَزِيزُ", "translit": "Al-'Aziz", "meaning": "The Almighty", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-9", "title": "9. Al-Jabbar", "cat": "names", "count": 33, "arabic": "الْجَبَّارُ", "translit": "Al-Jabbar", "meaning": "The Compeller", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-10", "title": "10. Al-Mutakabbir", "cat": "names", "count": 33, "arabic": "الْمُتَكَبِّرُ", "translit": "Al-Mutakabbir", "meaning": "The Supreme in Greatness", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-11", "title": "11. Al-Khaliq", "cat": "names", "count": 33, "arabic": "الْخَالِقُ", "translit": "Al-Khaliq", "meaning": "The Creator", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-12", "title": "12. Al-Bari'", "cat": "names", "count": 33, "arabic": "الْبَارِئُ", "translit": "Al-Bari'", "meaning": "The Maker", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-13", "title": "13. Al-Musawwir", "cat": "names", "count": 33, "arabic": "الْمُصَوِّرُ", "translit": "Al-Musawwir", "meaning": "The Fashioner", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-14", "title": "14. Al-Ghaffar", "cat": "names", "count": 33, "arabic": "الْغَفَّارُ", "translit": "Al-Ghaffar", "meaning": "The Ever-Forgiving", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-15", "title": "15. Al-Qahhar", "cat": "names", "count": 33, "arabic": "الْقَهَّارُ", "translit": "Al-Qahhar", "meaning": "The Subduer", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-16", "title": "16. Al-Wahhab", "cat": "names", "count": 33, "arabic": "الْوَهَّابُ", "translit": "Al-Wahhab", "meaning": "The Bestower", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-17", "title": "17. Ar-Razzaq", "cat": "names", "count": 33, "arabic": "الرَّزَّاقُ", "translit": "Ar-Razzaq", "meaning": "The Provider", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-18", "title": "18. Al-Fattah", "cat": "names", "count": 33, "arabic": "الْفَتَّاحُ", "translit": "Al-Fattah", "meaning": "The Opener", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-19", "title": "19. Al-'Alim", "cat": "names", "count": 33, "arabic": "الْعَلِيمُ", "translit": "Al-'Alim", "meaning": "The All-Knowing", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-20", "title": "20. Al-Qabid", "cat": "names", "count": 33, "arabic": "الْقَابِضُ", "translit": "Al-Qabid", "meaning": "The Withholder", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-21", "title": "21. Al-Basit", "cat": "names", "count": 33, "arabic": "الْبَاسِطُ", "translit": "Al-Basit", "meaning": "The Extender", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-22", "title": "22. Al-Khafid", "cat": "names", "count": 33, "arabic": "الْخَافِضُ", "translit": "Al-Khafid", "meaning": "The Abaser", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-23", "title": "23. Ar-Rafi'", "cat": "names", "count": 33, "arabic": "الرَّافِعُ", "translit": "Ar-Rafi'", "meaning": "The Exalter", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-24", "title": "24. Al-Mu'izz", "cat": "names", "count": 33, "arabic": "الْمُعِزُّ", "translit": "Al-Mu'izz", "meaning": "The Giver of Honour", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-25", "title": "25. Al-Mudhill", "cat": "names", "count": 33, "arabic": "الْمُذِلُّ", "translit": "Al-Mudhill", "meaning": "The Giver of Dishonour", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-26", "title": "26. As-Sami'", "cat": "names", "count": 33, "arabic": "السَّمِيعُ", "translit": "As-Sami'", "meaning": "The All-Hearing", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-27", "title": "27. Al-Basir", "cat": "names", "count": 33, "arabic": "الْبَصِيرُ", "translit": "Al-Basir", "meaning": "The All-Seeing", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-28", "title": "28. Al-Hakam", "cat": "names", "count": 33, "arabic": "الْحَكَمُ", "translit": "Al-Hakam", "meaning": "The Judge", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-29", "title": "29. Al-'Adl", "cat": "names", "count": 33, "arabic": "الْعَدْلُ", "translit": "Al-'Adl", "meaning": "The Just", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-30", "title": "30. Al-Latif", "cat": "names", "count": 33, "arabic": "اللَّطِيفُ", "translit": "Al-Latif", "meaning": "The Subtle, the Kind", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-31", "title": "31. Al-Khabir", "cat": "names", "count": 33, "arabic": "الْخَبِيرُ", "translit": "Al-Khabir", "meaning": "The All-Aware", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-32", "title": "32. Al-Halim", "cat": "names", "count": 33, "arabic": "الْحَلِيمُ", "translit": "Al-Halim", "meaning": "The Forbearing", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-33", "title": "33. Al-'Azim", "cat": "names", "count": 33, "arabic": "الْعَظِيمُ", "translit": "Al-'Azim", "meaning": "The Magnificent", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-34", "title": "34. Al-Ghafur", "cat": "names", "count": 33, "arabic": "الْغَفُورُ", "translit": "Al-Ghafur", "meaning": "The All-Forgiving", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-35", "title": "35. Ash-Shakur", "cat": "names", "count": 33, "arabic": "الشَّكُورُ", "translit": "Ash-Shakur", "meaning": "The Most Appreciative", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-36", "title": "36. Al-'Aliyy", "cat": "names", "count": 33, "arabic": "الْعَلِيُّ", "translit": "Al-'Aliyy", "meaning": "The Most High", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-37", "title": "37. Al-Kabir", "cat": "names", "count": 33, "arabic": "الْكَبِيرُ", "translit": "Al-Kabir", "meaning": "The Most Great", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-38", "title": "38. Al-Hafiz", "cat": "names", "count": 33, "arabic": "الْحَفِيظُ", "translit": "Al-Hafiz", "meaning": "The Preserver", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-39", "title": "39. Al-Muqit", "cat": "names", "count": 33, "arabic": "الْمُقِيتُ", "translit": "Al-Muqit", "meaning": "The Nourisher", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-40", "title": "40. Al-Hasib", "cat": "names", "count": 33, "arabic": "الْحَسِيبُ", "translit": "Al-Hasib", "meaning": "The Reckoner", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-41", "title": "41. Al-Jalil", "cat": "names", "count": 33, "arabic": "الْجَلِيلُ", "translit": "Al-Jalil", "meaning": "The Majestic", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-42", "title": "42. Al-Karim", "cat": "names", "count": 33, "arabic": "الْكَرِيمُ", "translit": "Al-Karim", "meaning": "The Most Generous", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-43", "title": "43. Ar-Raqib", "cat": "names", "count": 33, "arabic": "الرَّقِيبُ", "translit": "Ar-Raqib", "meaning": "The Watchful", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-44", "title": "44. Al-Mujib", "cat": "names", "count": 33, "arabic": "الْمُجِيبُ", "translit": "Al-Mujib", "meaning": "The Responsive", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-45", "title": "45. Al-Wasi'", "cat": "names", "count": 33, "arabic": "الْوَاسِعُ", "translit": "Al-Wasi'", "meaning": "The All-Encompassing", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-46", "title": "46. Al-Hakim", "cat": "names", "count": 33, "arabic": "الْحَكِيمُ", "translit": "Al-Hakim", "meaning": "The All-Wise", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-47", "title": "47. Al-Wadud", "cat": "names", "count": 33, "arabic": "الْوَدُودُ", "translit": "Al-Wadud", "meaning": "The Most Loving", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-48", "title": "48. Al-Majid", "cat": "names", "count": 33, "arabic": "الْمَجِيدُ", "translit": "Al-Majid", "meaning": "The Most Glorious", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-49", "title": "49. Al-Ba'ith", "cat": "names", "count": 33, "arabic": "الْبَاعِثُ", "translit": "Al-Ba'ith", "meaning": "The Resurrector", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-50", "title": "50. Ash-Shahid", "cat": "names", "count": 33, "arabic": "الشَّهِيدُ", "translit": "Ash-Shahid", "meaning": "The Witness", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-51", "title": "51. Al-Haqq", "cat": "names", "count": 33, "arabic": "الْحَقُّ", "translit": "Al-Haqq", "meaning": "The Truth", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-52", "title": "52. Al-Wakil", "cat": "names", "count": 33, "arabic": "الْوَكِيلُ", "translit": "Al-Wakil", "meaning": "The Trustee", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-53", "title": "53. Al-Qawiyy", "cat": "names", "count": 33, "arabic": "الْقَوِيُّ", "translit": "Al-Qawiyy", "meaning": "The All-Strong", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-54", "title": "54. Al-Matin", "cat": "names", "count": 33, "arabic": "الْمَتِينُ", "translit": "Al-Matin", "meaning": "The Firm", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-55", "title": "55. Al-Waliyy", "cat": "names", "count": 33, "arabic": "الْوَلِيُّ", "translit": "Al-Waliyy", "meaning": "The Protecting Friend", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-56", "title": "56. Al-Hamid", "cat": "names", "count": 33, "arabic": "الْحَمِيدُ", "translit": "Al-Hamid", "meaning": "The Praiseworthy", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-57", "title": "57. Al-Muhsi", "cat": "names", "count": 33, "arabic": "الْمُحْصِي", "translit": "Al-Muhsi", "meaning": "The Accounter", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-58", "title": "58. Al-Mubdi'", "cat": "names", "count": 33, "arabic": "الْمُبْدِئُ", "translit": "Al-Mubdi'", "meaning": "The Originator", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-59", "title": "59. Al-Mu'id", "cat": "names", "count": 33, "arabic": "الْمُعِيدُ", "translit": "Al-Mu'id", "meaning": "The Restorer", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-60", "title": "60. Al-Muhyi", "cat": "names", "count": 33, "arabic": "الْمُحْيِي", "translit": "Al-Muhyi", "meaning": "The Giver of Life", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-61", "title": "61. Al-Mumit", "cat": "names", "count": 33, "arabic": "الْمُمِيتُ", "translit": "Al-Mumit", "meaning": "The Bringer of Death", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-62", "title": "62. Al-Hayy", "cat": "names", "count": 33, "arabic": "الْحَيُّ", "translit": "Al-Hayy", "meaning": "The Ever-Living", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-63", "title": "63. Al-Qayyum", "cat": "names", "count": 33, "arabic": "الْقَيُّومُ", "translit": "Al-Qayyum", "meaning": "The Self-Sustaining", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-64", "title": "64. Al-Wajid", "cat": "names", "count": 33, "arabic": "الْوَاجِدُ", "translit": "Al-Wajid", "meaning": "The Finder", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-65", "title": "65. Al-Majid", "cat": "names", "count": 33, "arabic": "الْمَاجِدُ", "translit": "Al-Majid", "meaning": "The Noble", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-66", "title": "66. Al-Wahid", "cat": "names", "count": 33, "arabic": "الْوَاحِدُ", "translit": "Al-Wahid", "meaning": "The One", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-67", "title": "67. Al-Ahad", "cat": "names", "count": 33, "arabic": "الْأَحَدُ", "translit": "Al-Ahad", "meaning": "The Unique", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-68", "title": "68. As-Samad", "cat": "names", "count": 33, "arabic": "الصَّمَدُ", "translit": "As-Samad", "meaning": "The Eternal Refuge", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-69", "title": "69. Al-Qadir", "cat": "names", "count": 33, "arabic": "الْقَادِرُ", "translit": "Al-Qadir", "meaning": "The All-Capable", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-70", "title": "70. Al-Muqtadir", "cat": "names", "count": 33, "arabic": "الْمُقْتَدِرُ", "translit": "Al-Muqtadir", "meaning": "The All-Powerful", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-71", "title": "71. Al-Muqaddim", "cat": "names", "count": 33, "arabic": "الْمُقَدِّمُ", "translit": "Al-Muqaddim", "meaning": "The Expediter", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-72", "title": "72. Al-Mu'akhkhir", "cat": "names", "count": 33, "arabic": "الْمُؤَخِّرُ", "translit": "Al-Mu'akhkhir", "meaning": "The Delayer", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-73", "title": "73. Al-Awwal", "cat": "names", "count": 33, "arabic": "الْأَوَّلُ", "translit": "Al-Awwal", "meaning": "The First", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-74", "title": "74. Al-Akhir", "cat": "names", "count": 33, "arabic": "الْآخِرُ", "translit": "Al-Akhir", "meaning": "The Last", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-75", "title": "75. Az-Zahir", "cat": "names", "count": 33, "arabic": "الظَّاهِرُ", "translit": "Az-Zahir", "meaning": "The Manifest", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-76", "title": "76. Al-Batin", "cat": "names", "count": 33, "arabic": "الْبَاطِنُ", "translit": "Al-Batin", "meaning": "The Hidden", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-77", "title": "77. Al-Wali", "cat": "names", "count": 33, "arabic": "الْوَالِي", "translit": "Al-Wali", "meaning": "The Governor", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-78", "title": "78. Al-Muta'ali", "cat": "names", "count": 33, "arabic": "الْمُتَعَالِي", "translit": "Al-Muta'ali", "meaning": "The Most Exalted", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-79", "title": "79. Al-Barr", "cat": "names", "count": 33, "arabic": "الْبَرُّ", "translit": "Al-Barr", "meaning": "The Source of Goodness", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-80", "title": "80. At-Tawwab", "cat": "names", "count": 33, "arabic": "التَّوَّابُ", "translit": "At-Tawwab", "meaning": "The Ever-Accepting of Repentance", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-81", "title": "81. Al-Muntaqim", "cat": "names", "count": 33, "arabic": "الْمُنْتَقِمُ", "translit": "Al-Muntaqim", "meaning": "The Avenger", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-82", "title": "82. Al-'Afuww", "cat": "names", "count": 33, "arabic": "الْعَفُوُّ", "translit": "Al-'Afuww", "meaning": "The Pardoner", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-83", "title": "83. Ar-Ra'uf", "cat": "names", "count": 33, "arabic": "الرَّءُوفُ", "translit": "Ar-Ra'uf", "meaning": "The Most Kind", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-84", "title": "84. Malik al-Mulk", "cat": "names", "count": 33, "arabic": "مَالِكُ الْمُلْكِ", "translit": "Malik al-Mulk", "meaning": "Owner of All Sovereignty", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-85", "title": "85. Dhul-Jalali wal-Ikram", "cat": "names", "count": 33, "arabic": "ذُو الْجَلَالِ وَالْإِكْرَامِ", "translit": "Dhul-Jalali wal-Ikram", "meaning": "Lord of Majesty and Honour", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-86", "title": "86. Al-Muqsit", "cat": "names", "count": 33, "arabic": "الْمُقْسِطُ", "translit": "Al-Muqsit", "meaning": "The Equitable", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-87", "title": "87. Al-Jami'", "cat": "names", "count": 33, "arabic": "الْجَامِعُ", "translit": "Al-Jami'", "meaning": "The Gatherer", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-88", "title": "88. Al-Ghaniyy", "cat": "names", "count": 33, "arabic": "الْغَنِيُّ", "translit": "Al-Ghaniyy", "meaning": "The Self-Sufficient", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-89", "title": "89. Al-Mughni", "cat": "names", "count": 33, "arabic": "الْمُغْنِي", "translit": "Al-Mughni", "meaning": "The Enricher", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-90", "title": "90. Al-Mani'", "cat": "names", "count": 33, "arabic": "الْمَانِعُ", "translit": "Al-Mani'", "meaning": "The Preventer of Harm", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-91", "title": "91. Ad-Darr", "cat": "names", "count": 33, "arabic": "الضَّارُّ", "translit": "Ad-Darr", "meaning": "The Distresser", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-92", "title": "92. An-Nafi'", "cat": "names", "count": 33, "arabic": "النَّافِعُ", "translit": "An-Nafi'", "meaning": "The Benefactor", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-93", "title": "93. An-Nur", "cat": "names", "count": 33, "arabic": "النُّورُ", "translit": "An-Nur", "meaning": "The Light", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-94", "title": "94. Al-Hadi", "cat": "names", "count": 33, "arabic": "الْهَادِي", "translit": "Al-Hadi", "meaning": "The Guide", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-95", "title": "95. Al-Badi'", "cat": "names", "count": 33, "arabic": "الْبَدِيعُ", "translit": "Al-Badi'", "meaning": "The Incomparable Originator", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-96", "title": "96. Al-Baqi", "cat": "names", "count": 33, "arabic": "الْبَاقِي", "translit": "Al-Baqi", "meaning": "The Everlasting", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-97", "title": "97. Al-Warith", "cat": "names", "count": 33, "arabic": "الْوَارِثُ", "translit": "Al-Warith", "meaning": "The Inheritor", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-98", "title": "98. Ar-Rashid", "cat": "names", "count": 33, "arabic": "الرَّشِيدُ", "translit": "Ar-Rashid", "meaning": "The Guide to the Right Path", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}, {"id": "name-99", "title": "99. As-Sabur", "cat": "names", "count": 33, "arabic": "الصَّبُورُ", "translit": "As-Sabur", "meaning": "The Most Patient", "source": "Quran 7:180 · Jami' at-Tirmidhi 3507", "tags": ["names of allah"]}]};
+
+/* ================= Data ================= */
+const LIB = DATA.duas, NAMES = DATA.names, ALL = LIB.concat(NAMES);
+const BY_ID = Object.fromEntries(ALL.map(d => [d.id, d]));
+const SECTIONS = [
+  { id: "dhikrs", title: "Dhikrs", quote: "“Remember Allah much, so that you may be successful.” – Quran 8:45", cats: ["tasbih", "forgiveness", "salawat"], icon: "leaf" },
+  { id: "duas", title: "Duas", quote: "“And your Lord says: Call upon Me; I will respond to you.” – Quran 40:60", cats: ["morningEvening", "protection", "hardship", "daily"], icon: "book" },
+  { id: "quranic", title: "Duas from the Quran", quote: "Duas of the prophets and believers, Ayat al-Kursi and the Quls", cats: ["quranic", "quran"], icon: "book" },
+];
+const ICONS = {
+  leaf: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4C10 4 4 9 4 16c0 1.4.3 2.6.8 3.6C7 13 11 10 16 8c-4 3-7 6.5-8.6 12 1 .3 2 .4 3 .4C17 20.4 20 14 20 4z"/></svg>',
+  book: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.5C5.5 4 8.5 4 11 5.5V20c-2.5-1.5-5.5-1.5-8 0zM13 5.5C15.5 4 18.5 4 21 5.5V20c-2.5-1.5-5.5-1.5-8 0z"/></svg>',
+  star: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>',
+  chev: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>',
+  down: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>',
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 6l-6 6 6 6"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>',
+  target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg>',
+  trophy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 20h8"/></svg>',
+  soundOn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10v4h4l5 4V6L8 10zM16.5 9a4 4 0 0 1 0 6M19 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
+  soundOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10v4h4l5 4V6L8 10zM17 9l5 6M22 9l-5 6"/></svg>',
+  more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/></svg>',
+  stack: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="8" width="14" height="12" rx="2"/><path d="M8 4h8"/></svg>',
+  repeat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3l3 3-3 3M4 11V9a3 3 0 0 1 3-3h13M7 21l-3-3 3-3M20 13v2a3 3 0 0 1-3 3H4"/></svg>',
+  spark: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8z"/></svg>',
+  search: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>',
+};
+
+/* ================= Storage (this browser only) ================= */
+const STORE_KEY = "zikr-web-v1";
+const pad = n => String(n).padStart(2, "0");
+const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
+
+function itemFrom(d, target) {
+  return { id: uid(), title: d.title, arabic: d.arabic, translit: d.translit, translation: d.meaning, source: d.source,
+    target: target ?? d.count, count: 0, rounds: 0, total: 0, libraryID: d.id, createdAt: Date.now() };
+}
+function seed() {
+  // Starter counters so the app opens ready to use.
+  return { items: ["subhanallah", "alhamdulillah", "allahuakbar"].map((id, i) => ({ ...itemFrom(BY_ID[id]), createdAt: Date.now() + i })),
+    days: {}, itemDays: {}, unlocks: {}, mode: "feed", sound: false };
+}
+let S;
+try { S = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) { S = null; }
+if (!S || !Array.isArray(S.items)) S = seed();
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) {} }
+const sortedItems = () => S.items.slice().sort((a, b) => a.createdAt - b.createdAt);
+function findOrCreate(d) {
+  let it = S.items.find(i => i.libraryID === d.id);
+  if (!it) { it = itemFrom(d); S.items.push(it); save(); }
+  return it;
+}
+
+/* ================= Counting ================= */
+function bumpDay(it, delta) {
+  const k = dayKey();
+  S.days[k] = Math.max(0, (S.days[k] || 0) + delta);
+  const ik = it.id + "|" + k;
+  S.itemDays[ik] = Math.max(0, (S.itemDays[ik] || 0) + delta);
+}
+function increment(it) {
+  const res = { round: false, unlocked: null };
+  it.count++; it.total++;
+  bumpDay(it, 1);
+  if (it.total % PER_COLOR === 0) {
+    const tier = it.total / PER_COLOR, key = it.id + "|" + tier;
+    if (!S.unlocks[key]) { S.unlocks[key] = new Date().toISOString(); res.unlocked = { tier, title: it.title }; }
+  }
+  if (it.target > 0 && it.count >= it.target) { it.rounds++; it.count = 0; res.round = true; }
+  save();
+  return res;
+}
+function undo(it) {
+  if (it.total <= 0) return;
+  if (it.count > 0) it.count--; else if (it.rounds > 0) { it.rounds--; it.count = Math.max(0, it.target - 1); }
+  it.total--; bumpDay(it, -1); save();
+}
+
+/* ================= Color journey ================= */
+const PER_COLOR = 100;
+const STOPS = [
+  ["Mint", "First Step", "Every journey begins with one recitation.", 150, .50, .80],
+  ["Teal", "Steady Heart", "A hundred times — the start of a habit.", 172, .58, .74],
+  ["Sky", "Open Sky", "Your remembrance is becoming part of your day.", 198, .55, .82],
+  ["Sapphire", "Deep Calm", "Steady and unhurried, like deep water.", 220, .58, .80],
+  ["Indigo", "Quiet Night", "Remembering when the world is still.", 242, .50, .78],
+  ["Violet", "Soft Light", "Five hundred — a light that keeps growing.", 266, .45, .80],
+  ["Orchid", "In Bloom", "What you plant with patience begins to flower.", 292, .42, .80],
+  ["Rose", "Tender Heart", "A softened heart, turned toward its Lord.", 334, .45, .85],
+  ["Coral", "Warm Glow", "Warmth that others can feel around you.", 10, .52, .90],
+  ["Amber", "Golden Hour", "The light of a day well spent.", 32, .62, .92],
+  ["Gold", "The Thousand", "One thousand recitations. A true companion of this dhikr.", 46, .62, .90],
+  ["Olive", "Deep Roots", "Roots that hold firm in every season.", 75, .45, .74],
+  ["Emerald", "Evergreen", "Lasting, like a tree that never loses its leaves.", 135, .55, .70],
+].map(([name, title, flavor, h, s, b]) => ({ name, title, flavor, h, s, b }));
+function roman(n) { const t = [[10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]]; let o = ""; for (const [v, s] of t) while (n >= v) { o += s; n -= v; } return o; }
+function stopFor(tier) {
+  if (tier < STOPS.length) return STOPS[tier];
+  const len = STOPS.length - 1, base = STOPS[(tier - 1) % len + 1];
+  return { ...base, name: base.name + " " + roman(Math.floor((tier - 1) / len) + 2) };
+}
+function hsb(h, s, v, a = 1) {
+  const l = v * (1 - s / 2), sl = (l === 0 || l === 1) ? 0 : (v - l) / Math.min(l, 1 - l);
+  return `hsl(${h.toFixed(1)} ${(sl * 100).toFixed(1)}% ${(l * 100).toFixed(1)}% / ${a})`;
+}
+function hueOf(total) {
+  const tier = Math.floor(Math.max(0, total) / PER_COLOR), f = (Math.max(0, total) % PER_COLOR) / PER_COLOR;
+  const a = stopFor(tier), b = stopFor(tier + 1);
+  let d = b.h - a.h; if (d > 180) d -= 360; if (d < -180) d += 360;
+  return { h: (a.h + d * f + 360) % 360, s: a.s + (b.s - a.s) * f, b: a.b + (b.b - a.b) * f };
+}
+const colorOf = (total, alpha = 1) => { const c = hueOf(total); return hsb(c.h, c.s, c.b, alpha); };
+const gradientOf = total => { const c = hueOf(total); return `linear-gradient(135deg, ${hsb(c.h, c.s, c.b)}, ${hsb(c.h, Math.min(1, c.s + .08), c.b * .86)})`; };
+const stopColor = st => hsb(st.h, st.s, st.b);
+
+/* ================= Live English search ================= */
+function searchKey(text) {
+  let t = text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z]/g, "");
+  for (const [a, b] of [["gh", "g"], ["kh", "k"], ["dh", "d"], ["th", "t"], ["sh", "s"], ["q", "k"], ["h", ""], ["e", "i"], ["o", "u"], ["y", "i"]]) t = t.split(a).join(b);
+  return t.replace(/(.)\1+/g, "$1");
+}
+const INDEX = ALL.map(d => ({ d, tk: searchKey(d.translit), ti: searchKey(d.title) }));
+const STOP_WORDS = new Set("dua duas doa dhikr zikr the for and with when what give show find want need please some about times time can you that this say read recite prayer add from how after before".split(" "));
+const ALIASES = [
+  [/kursi|throne verse/, "quran-2:255"], [/ikhlas|qul huwa/, "quran-112"], [/falaq/, "quran-113"],
+  [/\bnas\b|an nas|surah nas/, "quran-114"],
+];
+function search(q, limit = 6) {
+  q = q.trim(); if (q.length < 2) return [];
+  const lower = q.toLowerCase(), keys = [searchKey(q)];
+  if (lower.startsWith("ya ")) keys.push(searchKey(q.slice(3)));
+  const scored = new Map();
+  const add = (d, s) => { if ((scored.get(d.id) || 0) < s) scored.set(d.id, s); };
+  for (const [re, id] of ALIASES) if (re.test(lower)) add(BY_ID[id], 120);
+  for (const { d, tk, ti } of INDEX) {
+    for (const k of keys) {
+      if (k.length < 2) continue;
+      if (tk.startsWith(k) || ti.startsWith(k)) add(d, 100 - (d.cat === "names" ? 5 : 0) - Math.min(20, tk.length / 10));
+      else if (k.length >= 3 && (tk.includes(k) || ti.includes(k))) add(d, 60 - (d.cat === "names" ? 5 : 0));
+    }
+  }
+  // Meaning words like "parents", "anxiety", "exam".
+  const words = lower.split(/[^a-z]+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
+  for (const d of LIB) {
+    let s = 0;
+    for (const w of words) {
+      if (d.tags.some(t => t === w || (t.length >= 4 && w.length >= 4 && (t.startsWith(w) || w.startsWith(t))))) s += 3;
+      if (d.title.toLowerCase().includes(w)) s += 2;
+      if (d.meaning.toLowerCase().includes(w)) s += 1;
+    }
+    for (const t of d.tags) if (t.includes(" ") && lower.includes(t)) s += 5;
+    if (s > 0) add(d, 20 + s);
+  }
+  return [...scored.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([id]) => BY_ID[id]);
+}
+
+/* ================= Stats helpers ================= */
+const PERIODS = [["today", "Today", "Today"], ["week", "Week", "This week"], ["month", "Month", "This month"], ["year", "Year", "This year"], ["all", "All time", "All time"]];
+function periodRange(p) {
+  const now = new Date();
+  if (p === "today") { const k = dayKey(now); return [k, k]; }
+  if (p === "week") { const s = new Date(now); s.setDate(s.getDate() - ((s.getDay() + 6) % 7)); const e = new Date(s); e.setDate(s.getDate() + 6); return [dayKey(s), dayKey(e)]; }
+  if (p === "month") return [dayKey(new Date(now.getFullYear(), now.getMonth(), 1)), dayKey(new Date(now.getFullYear(), now.getMonth() + 1, 0))];
+  if (p === "year") return [`${now.getFullYear()}-01-01`, `${now.getFullYear()}-12-31`];
+  return null;
+}
+function totalFor(byDay, allTime, p) {
+  const r = periodRange(p); if (!r) return allTime;
+  let t = 0; for (const k in byDay) if (k >= r[0] && k <= r[1]) t += byDay[k]; return t;
+}
+function buckets(byDay, p) {
+  const now = new Date(), out = [];
+  if (p === "week" || p === "month") {
+    const [a, b] = periodRange(p); const d = new Date(a + "T12:00:00");
+    while (dayKey(d) <= b) {
+      out.push({ label: p === "week" ? d.toLocaleDateString(undefined, { weekday: "short" }) : (d.getDate() % 5 === 1 ? String(d.getDate()) : ""), v: byDay[dayKey(d)] || 0 });
+      d.setDate(d.getDate() + 1);
+    }
+  } else if (p === "year") {
+    for (let m = 0; m < 12; m++) {
+      const pre = `${now.getFullYear()}-${pad(m + 1)}`; let v = 0;
+      for (const k in byDay) if (k.startsWith(pre)) v += byDay[k];
+      out.push({ label: new Date(now.getFullYear(), m, 1).toLocaleDateString(undefined, { month: "narrow" }), v });
+    }
+  } else if (p === "all") {
+    const years = Object.keys(byDay).map(k => +k.slice(0, 4)); const cur = now.getFullYear(); const first = Math.min(cur, ...years);
+    for (let y = first; y <= cur; y++) { let v = 0; for (const k in byDay) if (k.startsWith(String(y))) v += byDay[k]; out.push({ label: String(y), v }); }
+  }
+  return out;
+}
+const itemDays = it => { const o = {}; const pre = it.id + "|"; for (const k in S.itemDays) if (k.startsWith(pre)) o[k.slice(pre.length)] = S.itemDays[k]; return o; };
+function streak() {
+  let d = new Date(), n = 0;
+  if (!S.days[dayKey(d)]) d.setDate(d.getDate() - 1);
+  while (S.days[dayKey(d)]) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+const fmt = n => n.toLocaleString();
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* ================= Feedback: sound + vibration ================= */
+let audio;
+function tick(strong) {
+  if (navigator.vibrate) try { navigator.vibrate(strong ? 30 : 8); } catch (e) {}
+  if (!S.sound) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime;
+    o.frequency.setValueAtTime(strong ? 880 : 1400, t); o.frequency.exponentialRampToValueAtTime(strong ? 440 : 700, t + 0.05);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.25, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+    o.connect(g).connect(audio.destination); o.start(t); o.stop(t + 0.1);
+  } catch (e) {}
+}
+let wakeLock;
+async function keepAwake(on) {
+  try { if (on && navigator.wakeLock) wakeLock = await navigator.wakeLock.request("screen"); else if (wakeLock) { await wakeLock.release(); wakeLock = null; } } catch (e) {}
+}
+
+/* ================= UI state + rendering ================= */
+const ui = { tab: "home", sub: null, open: { dhikrs: true }, period: "week", counterId: null, achievementsFor: null };
+const $screen = document.getElementById("screen"), $layer = document.getElementById("layer");
+
+function render() {
+  document.querySelectorAll("#tabbar button").forEach(b => b.setAttribute("aria-current", b.dataset.tab === ui.tab ? "page" : "false"));
+  if (ui.achievementsFor) $screen.innerHTML = achievementsHTML(S.items.find(i => i.id === ui.achievementsFor));
+  else if (ui.tab === "stats") $screen.innerHTML = statsHTML();
+  else if (ui.sub === "names") $screen.innerHTML = namesHTML();
+  else $screen.innerHTML = homeHTML();
+}
+
+function homeHTML() {
+  const today = S.days[dayKey()] || 0, week = totalFor(S.days, 0, "week");
+  const items = S.items.slice().sort((a, b) => (b.updated || b.createdAt) - (a.updated || a.createdAt));
+  let h = `<div class="wrap">
+    <div class="topbar"><h1>Zikr</h1><button class="icon-btn" data-act="add" aria-label="New zikr">${ICONS.plus}</button></div>
+    <button class="ask" data-act="add"><span class="dot">${ICONS.search}</span><span><b>Find a dua in English</b><span class="muted">Type “rabbana atina” or “dua for anxiety” and start counting</span></span></button>
+    <button class="stats" data-act="tab" data-tab="stats" aria-label="Open stats">
+      <span class="stat"><small>Today</small><b>${fmt(today)}</b></span>
+      <span class="stat"><small>This week</small><b>${fmt(week)}</b></span>
+      <span class="stat"><small>Streak</small><b>${streak()}d</b></span>
+    </button>`;
+  if (items.length) {
+    h += `<h2 class="section">My counters</h2>`;
+    for (const it of items.slice(0, 8)) {
+      const p = it.target > 0 ? Math.min(1, it.count / it.target) : 0;
+      h += `<button class="mycounter" data-act="open" data-id="${it.id}">
+        <span class="row1"><span class="t">${esc(it.title)}</span>${it.arabic ? `<span class="a ar">${esc(it.arabic)}</span>` : ""}</span>
+        <span class="row2"><span style="color:${colorOf(it.total)}">${it.rounds ? `${it.rounds} round${it.rounds === 1 ? "" : "s"} done` : "In progress"}</span><span class="muted num">${it.target ? `${it.count} / ${it.target}` : it.count}</span></span>
+        <span class="bar"><i style="width:${(p * 100).toFixed(1)}%;background:${colorOf(it.total)}"></i></span>
+      </button>`;
+    }
+  }
+  h += `<h2 class="section">Dhikr &amp; duas</h2>
+    <button class="sec" data-act="names"><span class="ico">${ICONS.star}</span><span class="body"><b>99 Names of Allah</b><span>“And to Allah belong the best names, so invoke Him by them.” – Quran 7:180</span></span><span class="badge">99</span><span class="chev">${ICONS.chev}</span></button>`;
+  for (const s of SECTIONS) {
+    const list = LIB.filter(d => s.cats.includes(d.cat)), open = !!ui.open[s.id];
+    h += `<button class="sec" data-act="toggle" data-sec="${s.id}" aria-expanded="${open}"><span class="ico">${ICONS[s.icon]}</span><span class="body"><b>${s.title}</b><span>${esc(s.quote)}</span></span><span class="badge">${list.length}</span><span class="chev">${ICONS.down}</span></button>`;
+    if (open) h += `<div class="list">${list.map(d => `<button class="bullet" data-act="lib" data-id="${d.id}"><span class="bt">${esc(d.title)}</span><span class="chev">${ICONS.chev}</span></button>`).join("")}</div>`;
+  }
+  h += `<p class="note">Web preview of the Zikr iPhone app. Your counts are saved in this browser only. The iPhone app adds the on-device AI, all 114 surahs and collections.</p></div>`;
+  return h;
+}
+
+function namesHTML() {
+  return `<div class="wrap">
+    <div class="topbar"><button class="icon-btn" data-act="home" aria-label="Back">${ICONS.back}</button><h1 style="font-size:24px;flex:1">99 Names of Allah</h1></div>
+    <div class="list">${NAMES.map(n => `<button class="bullet" data-act="lib" data-id="${n.id}"><span class="bt">${esc(n.title)}<small>${esc(n.meaning)}</small></span><span class="bar-ar ar">${esc(n.arabic)}</span></button>`).join("")}</div>
+  </div>`;
+}
+
+function statsHTML() {
+  const all = Math.max(Object.values(S.days).reduce((a, b) => a + b, 0), S.items.reduce((a, i) => a + i.total, 0));
+  const p = ui.period, label = PERIODS.find(x => x[0] === p)[2];
+  let h = `<div class="wrap"><div class="topbar"><h1>Stats</h1></div>` + panelHTML(S.days, all, "All zikrs");
+  const items = sortedItems();
+  if (items.length) {
+    h += `<h2 class="section">Achievements</h2><div class="chips">` + items.slice().sort((a, b) => b.total - a.total).map(it => {
+      const n = Math.floor(it.total / PER_COLOR);
+      return `<button class="chip" data-act="ach" data-id="${it.id}"><span class="sw" style="background:${gradientOf(it.total)}">${ICONS.trophy.replace('<svg', '<svg width="20" height="20"')}</span><b>${esc(it.title)}</b><small>${n} color${n === 1 ? "" : "s"} unlocked</small></button>`;
+    }).join("") + `</div>`;
+  }
+  const ranked = items.map(it => ({ it, v: totalFor(itemDays(it), it.total, p) })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+  h += `<h2 class="section">By zikr · ${label.toLowerCase()}</h2>`;
+  if (!ranked.length) h += `<div class="panel muted">Nothing counted ${p === "all" ? "yet" : label.toLowerCase()}. Open a counter and swipe to start.</div>`;
+  const top = ranked[0]?.v || 1;
+  for (const { it, v } of ranked) {
+    h += `<button class="share" data-act="ach" data-id="${it.id}"><span class="r"><b>${esc(it.title)}</b><em>${fmt(v)}</em></span><span class="bar"><i style="width:${Math.max(2, v / top * 100)}%;background:${colorOf(it.total)}"></i></span></button>`;
+  }
+  return h + `</div>`;
+}
+
+function panelHTML(byDay, allTime, title) {
+  const p = ui.period, label = PERIODS.find(x => x[0] === p)[2], total = totalFor(byDay, allTime, p), bs = buckets(byDay, p);
+  const max = Math.max(1, ...bs.map(b => b.v));
+  return `<div class="seg" role="group" aria-label="Period">${PERIODS.map(([id, short]) => `<button data-act="period" data-p="${id}" aria-pressed="${id === p}">${short}</button>`).join("")}</div>
+    <div class="panel"><span class="muted">${esc(title)} · ${label}</span><span class="big">${fmt(total)}</span>
+    ${bs.length ? `<div class="chart" aria-label="Chart of ${label.toLowerCase()}">${bs.map(b => `<span class="col" title="${fmt(b.v)}"><i style="height:${(b.v / max * 100).toFixed(1)}%"></i><span>${b.label}</span></span>`).join("")}</div>` : ""}</div>
+    <div class="tiles">${PERIODS.map(([id, , long]) => `<button class="tile" data-act="period" data-p="${id}" aria-pressed="${id === p}"><small>${long}</small><b>${fmt(totalFor(byDay, allTime, id))}</b></button>`).join("")}</div>`;
+}
+
+function achievementsHTML(it) {
+  if (!it) { ui.achievementsFor = null; return homeHTML(); }
+  const unlocked = Math.floor(it.total / PER_COLOR), toNext = PER_COLOR - it.total % PER_COLOR, next = stopFor(unlocked + 1);
+  const shown = Math.max(12, unlocked + 3);
+  let medals = "";
+  for (let t = 1; t <= shown; t++) {
+    const st = stopFor(t), on = t <= unlocked, c = stopColor(st);
+    medals += `<button class="medal ${on ? "" : "locked"}" data-act="medal" data-id="${it.id}" data-tier="${t}">
+      <span class="m" style="border-color:${c};background:${on ? `linear-gradient(135deg, ${c}, ${hsb(st.h, st.s, st.b * .82)})` : "rgba(255,255,255,0.06)"};${on ? `box-shadow:0 0 18px ${hsb(st.h, st.s, st.b, .45)}` : `color:${c}`}">${on ? fmt(t * PER_COLOR) : "🔒"}</span>
+      <b>${esc(st.name)}</b><small>${on ? esc(st.title) : "at " + fmt(t * PER_COLOR)}</small></button>`;
+  }
+  const saved = ui.period;
+  const panel = panelHTML(itemDays(it), it.total, it.title);
+  ui.period = saved;
+  return `<div class="wrap">
+    <div class="topbar"><button class="icon-btn" data-act="closeach" aria-label="Back">${ICONS.back}</button><h1 style="font-size:24px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.title)}</h1><button class="icon-btn" data-act="open" data-id="${it.id}" aria-label="Open counter">${ICONS.target}</button></div>
+    <div class="ahead"><span class="orb" style="background:${gradientOf(it.total)};box-shadow:0 0 40px ${colorOf(it.total, .5)}">${fmt(it.total)}</span>
+      <b>${toNext} more to reach ${esc(next.name)}</b>
+      <span class="bar" style="width:70%"><i style="width:${(PER_COLOR - toNext)}%;background:${colorOf(it.total)}"></i></span></div>
+    <h2 class="section">Achievements · ${unlocked} of ${shown} colors</h2>
+    <div class="medals">${medals}</div>
+    <h2 class="section">Totals</h2>${panel}
+  </div>`;
+}
+
+/* ================= Counter screen ================= */
+let $counter = null, animating = false, menuOpen = false;
+const counterItems = () => sortedItems();
+function curIndex() { const its = counterItems(); return Math.max(0, its.findIndex(i => i.id === ui.counterId)); }
+function current() { return counterItems()[curIndex()]; }
+function nextItem() { const its = counterItems(); return S.mode === "single" ? current() : its[(curIndex() + 1) % its.length]; }
+
+function openCounter(id) {
+  ui.counterId = id;
+  $counter = document.createElement("section");
+  $counter.className = "counter"; $counter.setAttribute("aria-label", "Counter");
+  $layer.appendChild($counter);
+  drawCounter(); keepAwake(true);
+}
+function closeCounter() { $counter?.remove(); $counter = null; menuOpen = false; keepAwake(false); render(); }
+
+function cardHTML(it, role, preview = 0) {
+  const total = it.total + preview, count = it.count + preview >= it.target && it.target > 0 ? 0 : it.count + preview;
+  const p = it.target > 0 ? Math.min(1, count / it.target) : 0, len = it.arabic.length;
+  const arSize = len > 600 ? 17 : len > 300 ? 21 : len > 120 ? 27 : len > 40 ? 33 : 40;
+  const cap = (it.target ? `of ${it.target}` : "no target") + (it.rounds ? ` · ${it.rounds} round${it.rounds === 1 ? "" : "s"}` : "");
+  return `<div class="card ${role} ${S.mode === "single" ? "focus" : ""}" style="box-shadow:0 18px 50px ${colorOf(total, .16)}, inset 0 0 0 1px ${colorOf(total, .22)}">
+    <div class="txt">
+      <span class="lbl" style="color:${colorOf(total)}">${esc(it.title)}</span>
+      <div class="mid">
+        ${it.arabic ? `<div class="arb ar" style="font-size:${arSize}px">${esc(it.arabic)}</div>` : `<div style="font-size:30px;font-weight:700">${esc(it.title)}</div>`}
+        ${it.translit && len < 400 ? `<div class="tl" style="font-size:${len > 150 ? 13 : 16}px">${esc(it.translit)}</div>` : ""}
+        ${it.translation && S.mode !== "single" && len < 300 ? `<div class="tr" style="font-size:${len > 150 ? 13 : 15}px">${esc(it.translation)}</div>` : ""}
+      </div>
+      ${it.source ? `<span class="src">✓ ${esc(it.source)}</span>` : ""}
+    </div>
+    <div class="foot" style="background:${gradientOf(total)}">
+      <span class="cnt" data-f="cnt">${count}</span>
+      <span class="cap" data-f="cap">${cap}</span>
+      ${it.target ? `<span class="pbar"><i data-f="bar" style="width:${(p * 100).toFixed(1)}%"></i></span>` : ""}
+    </div>
+  </div>`;
+}
+
+function drawCounter() {
+  if (!$counter) return;
+  const its = counterItems(), it = current();
+  if (!it) return closeCounter();
+  const left = it.target ? `${it.target - it.count} left` : `${fmt(it.total)} total`;
+  $counter.innerHTML = `
+    <div class="chead" style="position:relative">
+      <button class="icon-btn" data-act="close" aria-label="Close">${ICONS.back}</button>
+      <div class="grow"><span class="pill num" data-act="target" role="button" tabindex="0">${ICONS.target}<span data-f="left">${left}</span></span></div>
+      <button class="icon-btn" data-act="ach" data-id="${it.id}" aria-label="Achievements">${ICONS.trophy}</button>
+      <button class="icon-btn" data-act="sound" aria-label="${S.sound ? "Sound on" : "Sound off"}">${S.sound ? ICONS.soundOn : ICONS.soundOff}</button>
+      <button class="icon-btn" data-act="menu" aria-label="More">${ICONS.more}</button>
+      ${menuOpen ? `<div class="menu"><button data-act="undo">Undo last count</button><button data-act="target">Change target</button><button data-act="resetround">Reset current round</button><button data-act="delete" style="color:#ff8a80">Remove this counter</button></div>` : ""}
+    </div>
+    <div class="modes" role="group" aria-label="Swipe mode">
+      <span class="thumb"></span>
+      <button data-act="mode" data-mode="feed" aria-pressed="${S.mode === "feed"}">${ICONS.stack}Zikr feed</button>
+      <button data-act="mode" data-mode="single" aria-pressed="${S.mode === "single"}">${ICONS.repeat}Single zikr</button>
+    </div>
+    <div class="deck" id="deck">
+      ${cardHTML(nextItem(), "back", S.mode === "single" ? 1 : 0)}
+      ${cardHTML(it, "top")}
+      ${S.mode === "feed" && its.length > 1 ? `<div class="dots">${its.map((x, i) => `<i class="${i === curIndex() ? "on" : ""}"></i>`).join("")}</div>` : ""}
+    </div>
+    <div class="hint">${S.mode === "feed" ? "Read, then swipe up — each swipe counts and brings your next zikr" : "Swipe up or tap to count"}</div>`;
+  placeThumb();
+  setBack(0);
+  bindDeck();
+}
+function placeThumb() {
+  const m = $counter.querySelector(".modes"), on = m.querySelector('[aria-pressed="true"]'), th = m.querySelector(".thumb");
+  th.style.left = on.offsetLeft + "px"; th.style.width = on.offsetWidth + "px";
+}
+function setBack(progress, animate) {
+  const back = $counter.querySelector(".card.back"); if (!back) return;
+  back.style.transition = animate ? `transform ${animate}ms ease-out, opacity ${animate}ms ease-out` : "none";
+  back.style.transform = `translateY(${26 * (1 - progress)}px) scale(${0.92 + 0.08 * progress})`;
+  back.style.opacity = 0.45 + 0.55 * progress;
+}
+function updateTop() {
+  const it = current(), top = $counter.querySelector(".card.top");
+  const cnt = top.querySelector('[data-f="cnt"]');
+  cnt.textContent = it.count; cnt.classList.remove("bump"); void cnt.offsetWidth; cnt.classList.add("bump");
+  top.querySelector('[data-f="cap"]').textContent = (it.target ? `of ${it.target}` : "no target") + (it.rounds ? ` · ${it.rounds} round${it.rounds === 1 ? "" : "s"}` : "");
+  const bar = top.querySelector('[data-f="bar"]'); if (bar) bar.style.width = (it.target ? Math.min(1, it.count / it.target) * 100 : 0) + "%";
+  top.querySelector(".foot").style.background = gradientOf(it.total);
+  top.querySelector(".lbl").style.color = colorOf(it.total);
+  $counter.querySelector('[data-f="left"]').textContent = it.target ? `${it.target - it.count} left` : `${fmt(it.total)} total`;
+}
+
+function countCurrent() {
+  const it = current(); it.updated = Date.now();
+  const res = increment(it);
+  tick(res.unlocked || res.round || it.total % 33 === 0);
+  if (res.unlocked) celebrate(res.unlocked);
+  else if (res.round) roundToast(it);
+}
+function plusOne() {
+  const d = $counter.querySelector("#deck"), el = document.createElement("span");
+  el.className = "plus1"; el.textContent = "+1"; d.appendChild(el); setTimeout(() => el.remove(), 900);
+}
+function ripple(e) {
+  const foot = $counter.querySelector(".card.top .foot"), r = foot.getBoundingClientRect(), el = document.createElement("span");
+  el.className = "ripple"; el.style.left = (e.clientX - r.left) + "px"; el.style.top = Math.min(r.height - 20, Math.max(20, e.clientY - r.top)) + "px";
+  foot.appendChild(el); setTimeout(() => el.remove(), 650);
+}
+
+function bindDeck() {
+  const deck = $counter.querySelector("#deck");
+  let drag = null;
+  deck.onpointerdown = e => {
+    if (animating) return;
+    drag = { y: e.clientY, t: performance.now(), dy: 0, moved: false, armed: false, samples: [[e.clientY, performance.now()]] };
+    deck.setPointerCapture(e.pointerId);
+    const top = deck.querySelector(".card.top"); top.style.transition = "none";
+  };
+  deck.onpointermove = e => {
+    if (!drag || animating) return;
+    const dy = e.clientY - drag.y; drag.dy = dy;
+    if (Math.abs(dy) > 8) drag.moved = true;
+    drag.samples.push([e.clientY, performance.now()]); if (drag.samples.length > 5) drag.samples.shift();
+    if (!drag.moved) return;
+    const h = deck.clientHeight, canBack = S.mode === "feed" && counterItems().length > 1;
+    const off = dy > 0 ? dy * (canBack ? 0.6 : 0.15) : dy, prog = Math.min(1, Math.max(0, -off / h));
+    const top = deck.querySelector(".card.top");
+    top.style.transform = `translateY(${off}px) rotateX(${(off / h) * 18}deg) scale(${1 - 0.04 * prog})`;
+    setBack(prog);
+    const armed = dy < -90;
+    if (armed !== drag.armed) { drag.armed = armed; if (armed && navigator.vibrate) try { navigator.vibrate(4); } catch (e2) {} }
+  };
+  deck.onpointerup = deck.onpointercancel = e => {
+    if (!drag || animating) return;
+    const d = drag; drag = null;
+    if (!d.moved) { // tap
+      countCurrent(); ripple(e); plusOne(); updateTop(); return;
+    }
+    const s0 = d.samples[0], s1 = d.samples[d.samples.length - 1];
+    const v = (s1[0] - s0[0]) / Math.max(1, s1[1] - s0[1]); // px per ms
+    const h = deck.clientHeight, canBack = S.mode === "feed" && counterItems().length > 1;
+    if (d.dy < -90 || v < -0.7) commitUp(h, Math.max(140, 260 - Math.abs(v) * 60));
+    else if (canBack && (d.dy > 110 || v > 0.9)) commitDown(h);
+    else snapBack();
+  };
+}
+function snapBack() {
+  const top = $counter.querySelector(".card.top");
+  top.style.transition = "transform 0.45s cubic-bezier(.2,1.4,.4,1)"; top.style.transform = "none";
+  setBack(0, 450);
+}
+function commitUp(h, dur) {
+  animating = true;
+  const top = $counter.querySelector(".card.top");
+  top.style.transition = `transform ${dur}ms cubic-bezier(.35,0,.75,.4), opacity ${dur}ms`;
+  top.style.transform = `translateY(${-h * 1.15}px) rotateX(-14deg) scale(.94)`;
+  setBack(1, dur);
+  setTimeout(() => {
+    countCurrent();
+    if (S.mode === "feed") { const its = counterItems(); ui.counterId = its[(curIndex() + 1) % its.length].id; }
+    animating = false; drawCounter(); plusOne();
+  }, dur);
+}
+function commitDown(h) {
+  animating = true;
+  const its = counterItems(); ui.counterId = its[(curIndex() - 1 + its.length) % its.length].id;
+  drawCounter();
+  const top = $counter.querySelector(".card.top");
+  top.style.transition = "none"; top.style.transform = `translateY(${-h}px)`; void top.offsetWidth;
+  top.style.transition = "transform 0.5s cubic-bezier(.2,1,.3,1)"; top.style.transform = "none";
+  setTimeout(() => { animating = false; }, 500);
+}
+
+/* ================= Celebrations ================= */
+function showToast(html, color, ms = 3200) {
+  document.querySelectorAll(".toast").forEach(t => t.remove());
+  const t = document.createElement("div"); t.className = "toast"; t.setAttribute("role", "status");
+  t.style.boxShadow = `0 0 0 1px ${color}, 0 20px 50px rgba(0,0,0,.5)`; t.innerHTML = html;
+  document.body.appendChild(t);
+  setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 400); }, ms);
+}
+function celebrate({ tier, title }) {
+  const st = stopFor(tier), c = stopColor(st);
+  showToast(`<span class="sw" style="background:linear-gradient(135deg, ${c}, ${hsb(st.h, st.s, st.b * .8)})">${ICONS.spark}</span>
+    <span><small style="color:${c}">New color unlocked</small><b>${esc(st.name)} · ${esc(st.title)}</b><span>${fmt(tier * PER_COLOR)} × ${esc(title)}. ${esc(st.flavor)}</span></span>`, c);
+  const cx = innerWidth / 2, cy = 110 + (parseFloat(getComputedStyle(document.documentElement).paddingTop) || 0);
+  for (let i = 0; i < 28; i++) {
+    const s = document.createElement("span"), a = Math.random() * Math.PI * 2, r = 90 + Math.random() * 110, size = 5 + Math.random() * 6;
+    s.className = "spark"; s.style.left = cx + "px"; s.style.top = cy + "px"; s.style.width = s.style.height = size + "px";
+    s.style.background = i % 3 === 0 ? "#fff" : c; s.style.setProperty("--dx", Math.cos(a) * r + "px"); s.style.setProperty("--dy", Math.sin(a) * r + "px");
+    document.body.appendChild(s); setTimeout(() => s.remove(), 1200);
+  }
+}
+function roundToast(it) {
+  showToast(`<span class="sw" style="background:${gradientOf(it.total)}">✓</span><span><b>Round complete</b><span>${esc(it.title)} · ${it.rounds} round${it.rounds === 1 ? "" : "s"} done</span></span>`, colorOf(it.total), 1800);
+}
+
+/* ================= Add sheet ================= */
+const form = { kind: "zikr", title: "", arabic: "", translit: "", translation: "", target: 33, filled: null };
+function openAdd() {
+  Object.assign(form, { kind: "zikr", title: "", arabic: "", translit: "", translation: "", target: 33, filled: null });
+  $layer.insertAdjacentHTML("beforeend", `<div class="scrim" data-act="closeadd"></div><div class="sheet" role="dialog" aria-label="Add new zikr"><div class="in" id="addin"></div></div>`);
+  drawAdd(); setTimeout(() => document.getElementById("f-title")?.focus(), 350);
+}
+function closeAdd() { $layer.querySelectorAll(".scrim, .sheet").forEach(e => e.remove()); }
+function unchanged() { return form.filled && form.filled.arabic === form.arabic && form.filled.title === form.title; }
+function drawAdd(keepFocus) {
+  const el = document.getElementById("addin"); if (!el) return;
+  const can = form.title.trim().length > 0;
+  el.innerHTML = `
+    <div class="bar-top"><button class="textbtn" data-act="closeadd" style="color:var(--muted);font-weight:600">Cancel</button><b>Add new zikr</b><button class="textbtn" data-act="save" ${can ? "" : "disabled"}>Add</button></div>
+    <div class="seg" role="group" aria-label="Type">${["zikr", "dua"].map(k => `<button data-act="kind" data-kind="${k}" aria-pressed="${form.kind === k}">${k === "zikr" ? "Zikr" : "Dua"}</button>`).join("")}</div>
+    <label class="field">${ICONS.search}<input id="f-title" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Title — type to search, e.g. “rabbana atina”" value="${esc(form.title)}"></label>
+    <div id="results"></div>
+    <label class="field"><textarea id="f-arabic" class="ar" rows="2" placeholder="Arabic text" dir="rtl">${esc(form.arabic)}</textarea></label>
+    <label class="field"><textarea id="f-translit" rows="2" placeholder="Transcription">${esc(form.translit)}</textarea></label>
+    <label class="field"><textarea id="f-translation" rows="2" placeholder="Translation">${esc(form.translation)}</textarea></label>
+    ${form.filled ? `<div class="verified">${unchanged() ? "✓ From " + esc(form.filled.source) : "Edited by you · originally from " + esc(form.filled.source)}</div>` : ""}
+    <div class="lbl2">Count per round</div>
+    <div class="presets">${[1, 3, 7, 33, 99, 100, 1000].map(n => `<button data-act="preset" data-n="${n}" aria-pressed="${form.target === n}">${n}</button>`).join("")}</div>`;
+  const t = document.getElementById("f-title");
+  t.oninput = () => { form.title = t.value; drawResults(); el.querySelector('[data-act="save"]').disabled = !form.title.trim(); };
+  t.onkeydown = e => { if (e.key === "Enter") { const r = search(form.title)[0]; if (r) fill(r); } };
+  for (const [id, key] of [["f-arabic", "arabic"], ["f-translit", "translit"], ["f-translation", "translation"]]) {
+    const f = document.getElementById(id); f.oninput = () => { form[key] = f.value; };
+  }
+  drawResults();
+  if (keepFocus) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
+}
+function drawResults() {
+  const box = document.getElementById("results"); if (!box) return;
+  const show = form.title.trim().length >= 2 && (!form.filled || form.filled.title !== form.title);
+  const res = show ? search(form.title) : [];
+  box.innerHTML = show ? `<div class="results">${res.length ? res.map(d => `<button class="res" data-act="pick" data-id="${d.id}"><span class="rb"><b>${esc(d.title)}</b><span class="ar">${esc(d.arabic)}</span><small>${esc(d.source)}</small></span><span class="muted">↖</span></button>`).join("") : `<div class="res muted">No verified match yet. Keep typing, or fill in the fields yourself.</div>`}</div>` : "";
+}
+function fill(d) {
+  Object.assign(form, { title: d.title, arabic: d.arabic, translit: d.translit, translation: d.meaning, target: d.count, filled: d });
+  drawAdd();
+}
+function saveAdd() {
+  if (!form.title.trim()) return;
+  let it;
+  if (unchanged()) {
+    it = findOrCreate(form.filled); it.target = form.target;
+  } else {
+    it = { id: uid(), title: form.title.trim(), arabic: form.arabic.trim(), translit: form.translit.trim(), translation: form.translation.trim(), source: "", target: form.target, count: 0, rounds: 0, total: 0, libraryID: null, createdAt: Date.now() };
+    S.items.push(it);
+  }
+  it.updated = Date.now(); save(); closeAdd(); ui.tab = "home"; render(); openCounter(it.id);
+}
+
+/* ================= Events ================= */
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const act = b.dataset.act, id = b.dataset.id;
+  switch (act) {
+    case "tab": ui.tab = b.dataset.tab; ui.sub = null; ui.achievementsFor = null; render(); $screen.scrollTop = 0; break;
+    case "home": ui.sub = null; render(); break;
+    case "names": ui.sub = "names"; render(); $screen.scrollTop = 0; break;
+    case "toggle": ui.open[b.dataset.sec] = !ui.open[b.dataset.sec]; render(); break;
+    case "open": if ($counter) closeCounter(); ui.achievementsFor = null; render(); openCounter(id); break;
+    case "lib": { const it = findOrCreate(BY_ID[id]); openCounter(it.id); break; }
+    case "period": ui.period = b.dataset.p; render(); break;
+    case "ach": if ($counter) closeCounter(); ui.achievementsFor = id; render(); $screen.scrollTop = 0; break;
+    case "closeach": ui.achievementsFor = null; render(); break;
+    case "medal": {
+      const it = S.items.find(i => i.id === id), t = +b.dataset.tier, st = stopFor(t), on = t <= Math.floor(it.total / PER_COLOR);
+      const date = S.unlocks[it.id + "|" + t];
+      showToast(`<span class="sw" style="background:${on ? stopColor(st) : "rgba(255,255,255,.08)"}">${on ? ICONS.spark : "🔒"}</span><span><b>${esc(st.name)} · ${esc(st.title)}</b><span>${fmt(t * PER_COLOR)} × ${esc(it.title)}. ${esc(st.flavor)}${on ? (date ? " Unlocked " + new Date(date).toLocaleDateString() + "." : "") : " " + fmt(t * PER_COLOR - it.total) + " more to unlock."}</span></span>`, stopColor(st), 4200);
+      break;
+    }
+    case "add": openAdd(); break;
+    case "closeadd": closeAdd(); break;
+    case "kind": form.kind = b.dataset.kind; if (!form.filled) form.target = form.kind === "dua" ? 1 : 33; drawAdd(); break;
+    case "pick": fill(BY_ID[id]); break;
+    case "preset": form.target = +b.dataset.n; drawAdd(); break;
+    case "save": saveAdd(); break;
+    case "close": closeCounter(); break;
+    case "sound": S.sound = !S.sound; save(); if (S.sound) tick(false); drawCounter(); break;
+    case "menu": menuOpen = !menuOpen; drawCounter(); break;
+    case "mode": S.mode = b.dataset.mode; save(); drawCounter(); break;
+    case "undo": menuOpen = false; undo(current()); drawCounter(); break;
+    case "resetround": menuOpen = false; current().count = 0; save(); drawCounter(); break;
+    case "target": {
+      menuOpen = false; const it = current(), opts = [1, 3, 7, 33, 99, 100, 1000];
+      const i = opts.indexOf(it.target); it.target = opts[(i + 1) % opts.length]; if (it.count >= it.target) it.count = 0; save(); drawCounter();
+      showToast(`<span class="sw" style="background:${gradientOf(it.total)}">${ICONS.target}</span><span><b>Target: ${it.target} per round</b><span>Tap the pill again to change it.</span></span>`, colorOf(it.total), 1600);
+      break;
+    }
+    case "delete": {
+      menuOpen = false; const it = current(), its = counterItems();
+      if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = "Tap again to remove"; return; }
+      S.items = S.items.filter(x => x.id !== it.id); save();
+      if (its.length > 1) { ui.counterId = its[(curIndex() + 1) % its.length].id; drawCounter(); } else closeCounter();
+      break;
+    }
+  }
+});
+document.addEventListener("keydown", e => {
+  if (!$counter || e.target.closest("input, textarea")) return;
+  if (e.key === " " || e.key === "ArrowUp") { e.preventDefault(); if (!animating) commitUp($counter.querySelector("#deck").clientHeight, 220); }
+  if (e.key === "Escape") closeCounter();
+});
+document.addEventListener("visibilitychange", () => { if ($counter && document.visibilityState === "visible") keepAwake(true); });
+render();
+</script>
