@@ -90,8 +90,22 @@ h2.sec-title small { font-family: var(--font-ui); font-size: 12px; color: var(--
 .teaser .lock { width: 64px; height: 64px; border-radius: 32px 32px 10px 10px; flex: none; background-image: var(--star); background-size: 22px; background-color: var(--panel-2); opacity: 0.8; }
 .note { font-size: 12.5px; color: var(--faint); line-height: 1.55; }
 
+.mygrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.mygrid .mini { width: auto; }
+.moment { display: flex; flex-direction: column; gap: 8px; padding: 18px; border-radius: 26px; background: linear-gradient(160deg, var(--panel-2), var(--panel)); border: 1px solid rgba(216, 182, 115, 0.3); }
+.feature { display: flex; flex-direction: column; gap: 10px; padding: 20px; border-radius: 140px 140px 24px 24px; text-align: center; align-items: center;
+  background: radial-gradient(100% 70% at 50% 0%, rgba(216, 182, 115, 0.18), var(--panel) 70%); border: 1px solid var(--line); padding-top: 34px; }
+.feature .fa { font-size: 30px; line-height: 2; color: #fff; }
+.feature .ftl { font-style: italic; color: var(--gold); line-height: 1.5; }
+.feature .fen { color: var(--ivory); line-height: 1.6; }
+.feature .fsrc { font-size: 12px; color: var(--faint); }
+.feature .btn-row { justify-content: center !important; }
+.btn.small { padding: 10px 16px; font-size: 14px; }
+.row .rowmain { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; text-align: left; }
+.addbtn { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(216, 182, 115, 0.5); color: var(--gold); font-size: 20px; font-weight: 600; display: grid; place-items: center; }
+.addbtn.on { background: var(--gold); color: var(--ink); border-color: var(--gold); font-size: 16px; }
 /* list rows (sub views) */
-.row { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 14px 16px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); }
+.row { box-sizing: border-box; display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 14px 16px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); }
 .row .rt { flex: 1; min-width: 0; }
 .row .rt b { display: block; font-weight: 600; }
 .row .rt small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
@@ -305,7 +319,8 @@ h2.sec-title small { font-family: var(--font-ui); font-size: 12px; color: var(--
 <div id="app">
   <main class="screen" id="screen"></main>
   <nav class="tabbar" id="tabbar" aria-label="Sections">
-    <button data-act="tab" data-tab="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.6 3.4 4.2-.4-.4 4.2L21 12l-3.4 2.6.4 4.2-4.2-.4L12 21l-2.6-3.4-4.2.4.4-4.2L3 12l3.4-2.6-.4-4.2 4.2.4z"/><circle cx="12" cy="12" r="3"/></svg>Home</button>
+    <button data-act="tab" data-tab="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.6 3.4 4.2-.4-.4 4.2L21 12l-3.4 2.6.4 4.2-4.2-.4L12 21l-2.6-3.4-4.2.4.4-4.2L3 12l3.4-2.6-.4-4.2 4.2.4z"/><circle cx="12" cy="12" r="3"/></svg>My Zikr</button>
+    <button data-act="tab" data-tab="discover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>Discover</button>
     <button data-act="tab" data-tab="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 20V12M12 20V5M19 20v-6"/></svg>Stats</button>
     <button data-act="add" data-tab="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Add</button>
   </nav>
@@ -487,7 +502,7 @@ function render() {
   ART_N = 0;
   if (ui.achFor) $screen.innerHTML = achievementsHTML(itemById(ui.achFor));
   else if (ui.tab === "stats") $screen.innerHTML = statsHTML();
-  else if (ui.sub) $screen.innerHTML = subHTML(ui.sub);
+  else if (ui.tab === "discover") $screen.innerHTML = ui.sub ? subHTML(ui.sub) : discoverHTML();
   else $screen.innerHTML = homeHTML();
 }
 
@@ -504,24 +519,24 @@ function homeHTML() {
   const refl = unlockedReflections();
   const best = S.items.slice().sort((a, b) => (b.total % PER_COLOR) - (a.total % PER_COLOR))[0];
   let h = `<div class="wrap">
-    <div class="head"><div><h1>Zikr</h1><div class="sub">${esc(hijri())}</div></div><button class="round-btn" data-act="add" aria-label="Add a zikr">${ICONS.plus}</button></div>
+    <div class="head"><div><h1>My Zikr</h1><div class="sub">${esc(hijri())}</div></div><button class="round-btn" data-act="add" aria-label="Add a zikr">${ICONS.plus}</button></div>
     <button class="today" data-act="tab" data-tab="stats" aria-label="Open stats">
       <span><span class="eyebrow">Today</span><span class="big" style="display:block;margin-top:6px">${fmt(today)}</span><span class="muted" style="font-size:13px">recitations</span></span>
       <span class="side"><span><b>${fmt(totalFor(S.days, 0, "week"))}</b><span>this week</span></span><span><b>${streak()} day${streak() === 1 ? "" : "s"}</b><span>streak</span></span></span>
     </button>
-    <button class="searchbar" data-act="add">${ICONS.search}<span>Find any dua in English, e.g. “rabbana atina”</span></button>`;
+    <button class="searchbar" data-act="add">${ICONS.search}<span>Search a dua in English to add it here</span></button>
+    <h2 class="sec-title">Your zikrs <small>${items.length}</small></h2>`;
   if (items.length) {
-    h += `<h2 class="sec-title">Your counters <small>${items.length}</small></h2><div class="carousel">` + items.map(it => {
+    h += `<div class="mygrid">` + items.map(it => {
       const c = colorOf(it.total);
       return `<button class="mini" data-act="open" data-id="${it.id}" style="--c:${c}">
         <span class="arch"><span class="ar">${esc(it.arabic || it.title)}</span></span>
         ${ringSVG(it.count, it.target, c, 56, 3.2)}
         <b>${esc(it.title)}</b><small>${it.target ? `${it.count} / ${it.target}` : it.count} · ${fmt(it.total)} total</small></button>`;
     }).join("") + `</div>`;
+  } else {
+    h += `<div class="teaser"><span class="lock"></span><span><b>Nothing here yet</b><br><span class="muted" style="font-size:13px">Search above, or open Discover and tap + on any dua.</span></span></div>`;
   }
-  h += `<h2 class="sec-title">Remember</h2><div class="grid2">
-    <button class="tile" data-act="sub" data-sub="names"><span class="ic">${ICONS.star8}</span><b>99 Names of Allah</b><span>“And to Allah belong the best names, so invoke Him by them.” 7:180</span><span class="count">99</span></button>` +
-    GROUPS.map(g => `<button class="tile" data-act="sub" data-sub="${g.id}"><span class="ic">${ICONS[g.icon]}</span><b>${g.title}</b><span>${g.note}</span><span class="count">${LIB.filter(d => g.cats.some(c => c[0] === d.cat)).length}</span></button>`).join("") + `</div>`;
   h += `<h2 class="sec-title">Reflections <small>${refl.length} of ${REFLECTIONS.length}</small></h2>`;
   if (refl.length) h += `<div class="refl-row">${refl.map(({ r, tier, it }) => `<button class="refl-thumb" data-act="reflect" data-id="${it.id}" data-tier="${tier}">${artSVG(r.key, hueOf(tier * PER_COLOR))}<b>${esc(r.title)}</b></button>`).join("")}</div>`;
   const nextNeed = best ? PER_COLOR - (best.total % PER_COLOR) : PER_COLOR;
@@ -530,15 +545,55 @@ function homeHTML() {
   return h;
 }
 
+/* ---------- Discover: daily suggestions and the full library ---------- */
+const DAY_INDEX = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000);
+function momentSuggestion() {
+  const now = new Date(), hr = now.getHours(), friday = now.getDay() === 5;
+  const pick = ids => ids.map(id => BY_ID[id]).filter(Boolean);
+  if (friday && hr >= 9 && hr < 16) return { title: "Jumu‘ah blessings", note: "Send abundant salawat on the Prophet ﷺ this Friday.", items: pick(["salawat", "astaghfirullah", "quran-112"]) };
+  if (hr >= 4 && hr < 11) return { title: "Morning adhkar", note: "Start the day under Allah's protection.", items: pick(["quran-2:255", "quran-112", "quran-113", "quran-114", "sayyid-istighfar", "bismillah-la-yadurr", "raditu", "hasbiyallah", "adada-khalqihi"]) };
+  if (hr >= 11 && hr < 16) return { title: "A midday pause", note: "A few words between tasks, light on the tongue and heavy on the scale.", items: pick(["subhanallahil-azim", "hawqala", "salawat", "afiyah"]) };
+  if (hr >= 16 && hr < 21) return { title: "Evening adhkar", note: "Close the day remembering Him.", items: pick(["quran-2:255", "quran-112", "quran-113", "quran-114", "sayyid-istighfar", "auzu-bikalimat", "bismillah-la-yadurr", "hasbiyallah"]) };
+  return { title: "Before you sleep", note: "End the night with the Quls, Ayat al-Kursi and the dua of sleep.", items: pick(["quran-112", "quran-113", "quran-114", "quran-2:255", "sleep", "dhun-nun"]) };
+}
+const added = d => S.items.some(i => i.libraryID === d.id);
+function libRow(d, sub) {
+  const on = added(d);
+  return `<div class="row"><button class="rowmain" data-act="lib" data-id="${d.id}"><span class="rt"><b>${esc(d.title)}</b><small>${esc(sub ?? `×${d.count} · ${d.source.split(/[(·;]/)[0].trim()}`)}</small></span><span class="rar ar">${esc(d.arabic)}</span></button>
+    <button class="addbtn ${on ? "on" : ""}" data-act="quickadd" data-id="${d.id}" aria-label="${on ? "In My Zikr" : "Add to My Zikr"}">${on ? "✓" : "+"}</button></div>`;
+}
+function featureCard(eyebrow, d, extra = "") {
+  const on = added(d);
+  return `<div class="feature"><span class="eyebrow">${eyebrow}</span><div class="ar fa">${esc(d.arabic)}</div><div class="ftl">${esc(d.translit)}</div><div class="fen">${esc(d.meaning)}</div>
+    <div class="fsrc">${esc(d.source)}${extra}</div>
+    <div class="btn-row" style="justify-content:flex-start"><button class="btn small" data-act="lib" data-id="${d.id}">Count now</button><button class="btn ghost small" data-act="quickadd" data-id="${d.id}">${on ? "✓ In My Zikr" : "+ Add to My Zikr"}</button></div></div>`;
+}
+function discoverHTML() {
+  const m = momentSuggestion();
+  const pool = LIB.filter(d => d.cat !== "quran" && d.arabic.length < 260);
+  const duaOfDay = pool[DAY_INDEX % pool.length], nameOfDay = NAMES[DAY_INDEX % NAMES.length];
+  return `<div class="wrap">
+    <div class="head"><div><h1>Discover</h1><div class="sub">Suggestions for today and the full library</div></div></div>
+    <div class="moment"><span class="eyebrow">For this moment</span><h2 class="display" style="margin:4px 0 2px;font-size:26px">${m.title}</h2><p class="muted" style="margin:0 0 6px">${m.note}</p>
+      <div class="list">${m.items.map(d => libRow(d)).join("")}</div>
+      <button class="btn ghost small" style="align-self:flex-start;margin-top:4px" data-act="addall">+ Add all to My Zikr</button></div>
+    ${featureCard("Dua of the day", duaOfDay)}
+    ${featureCard("Name of the day", nameOfDay)}
+    <h2 class="sec-title">Browse the library</h2><div class="grid2">
+    <button class="tile" data-act="sub" data-sub="names"><span class="ic">${ICONS.star8}</span><b>99 Names of Allah</b><span>“And to Allah belong the best names, so invoke Him by them.” 7:180</span><span class="count">99</span></button>` +
+    GROUPS.map(g => `<button class="tile" data-act="sub" data-sub="${g.id}"><span class="ic">${ICONS[g.icon]}</span><b>${g.title}</b><span>${g.note}</span><span class="count">${LIB.filter(d => g.cats.some(c => c[0] === d.cat)).length}</span></button>`).join("") + `</div>
+    <p class="note">Tap a dua to start counting it, or + to save it to My Zikr.</p></div>`;
+}
+
 function subHTML(sub) {
-  const back = `<div class="head"><button class="round-btn" data-act="home" aria-label="Back">${ICONS.back}</button></div>`;
+  const back = `<div class="head"><button class="round-btn" data-act="tab" data-tab="discover" aria-label="Back">${ICONS.back}</button></div>`;
   if (sub === "names") {
-    return `<div class="wrap">${back}<h1 class="display" style="font-size:34px;margin:0">99 Names of Allah</h1><p class="muted" style="margin:0">Tap a name to remember Allah by it.</p>
-      <div class="list">${NAMES.map(n => `<button class="row" data-act="lib" data-id="${n.id}"><span class="rt"><b>${esc(n.title)}</b><small>${esc(n.meaning)}</small></span><span class="rar ar">${esc(n.arabic)}</span></button>`).join("")}</div></div>`;
+    return `<div class="wrap">${back}<h1 class="display" style="font-size:34px;margin:0">99 Names of Allah</h1><p class="muted" style="margin:0">Tap a name to remember Allah by it, or + to save it.</p>
+      <div class="list">${NAMES.map(n => libRow(n, n.meaning)).join("")}</div></div>`;
   }
   const g = GROUPS.find(x => x.id === sub);
-  return `<div class="wrap">${back}<h1 class="display" style="font-size:34px;margin:0">${g.title}</h1><p class="muted" style="margin:0">${g.note}. Tap one to start counting.</p>` +
-    g.cats.map(([cat, label]) => `<div class="eyebrow group-label">${label}</div><div class="list">${LIB.filter(d => d.cat === cat).map(d => `<button class="row" data-act="lib" data-id="${d.id}"><span class="rt"><b>${esc(d.title)}</b><small>×${d.count} · ${esc(d.source.split("(")[0])}</small></span><span class="rar ar">${esc(d.arabic)}</span></button>`).join("")}</div>`).join("") + `</div>`;
+  return `<div class="wrap">${back}<h1 class="display" style="font-size:34px;margin:0">${g.title}</h1><p class="muted" style="margin:0">${g.note}. Tap one to count it, or + to save it.</p>` +
+    g.cats.map(([cat, label]) => `<div class="eyebrow group-label">${label}</div><div class="list">${LIB.filter(d => d.cat === cat).map(d => libRow(d)).join("")}</div>`).join("") + `</div>`;
 }
 
 function panelHTML(byDay, allTime, title) {
@@ -817,7 +872,18 @@ document.addEventListener("click", e => {
   switch (act) {
     case "tab": ui.tab = b.dataset.tab; ui.sub = null; ui.achFor = null; render(); $screen.scrollTop = 0; break;
     case "home": ui.sub = null; render(); $screen.scrollTop = 0; break;
-    case "sub": ui.sub = b.dataset.sub; render(); $screen.scrollTop = 0; break;
+    case "quickadd": {
+      const d = BY_ID[id], existing = S.items.find(i => i.libraryID === d.id);
+      if (existing) { toast("Already in My Zikr", d.title, colorOf(existing.total)); }
+      else { const it = findOrCreate(d); it.updated = Date.now(); save(); toast("Added to My Zikr", d.title, colorOf(0)); }
+      const y = $screen.scrollTop; render(); $screen.scrollTop = y; break;
+    }
+    case "addall": {
+      let n = 0; for (const d of momentSuggestion().items) if (!added(d)) { findOrCreate(d).updated = Date.now(); n++; }
+      save(); toast(n ? `Added ${n} to My Zikr` : "All already in My Zikr", momentSuggestion().title, colorOf(0));
+      const y = $screen.scrollTop; render(); $screen.scrollTop = y; break;
+    }
+    case "sub": ui.tab = "discover"; ui.sub = b.dataset.sub; render(); $screen.scrollTop = 0; break;
     case "open": document.querySelectorAll(".reflect").forEach(x => x.remove()); ui.achFor = null; render(); openCounter(id); break;
     case "lib": openCounter(findOrCreate(BY_ID[id]).id); break;
     case "period": ui.period = b.dataset.p; render(); break;
