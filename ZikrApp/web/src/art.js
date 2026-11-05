@@ -3,6 +3,13 @@
 let ART_N = 0;
 function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function palette(c) {
+  // The light look paints the same scenes at dusk instead of deep night, with brighter colour.
+  if (typeof isLight === "function" && isLight()) return {
+    main: hsb(c.h, Math.min(1, c.s * 1.1), Math.min(1, c.b * 1.08)), light: hsb(c.h, c.s * 0.4, 1),
+    soft: hsb(c.h, c.s * 0.6, c.b, 0.35), deep: hsb(c.h, Math.min(1, c.s * 0.9), c.b * 0.6),
+    night: hsb(c.h, 0.55, 0.36), ivory: "#fff8ec", warm: hsb((c.h + 40) % 360, 0.6, 1),
+    sun: "#ffcf6e", honey: "#f5ad3c", wheat: "#f0c879",
+  };
   return {
     main: hsb(c.h, c.s, c.b), light: hsb(c.h, c.s * 0.45, Math.min(1, c.b * 1.12)),
     soft: hsb(c.h, c.s * 0.6, c.b, 0.35), deep: hsb(c.h, Math.min(1, c.s * 0.9), c.b * 0.34),
