@@ -134,7 +134,7 @@ const REFLECTIONS = [
    99 Names list), a hadith, a prompt, and its own colour theme. */
 const TOPIC = {
   family: { hue: 18, hue2: 340, names: [47, 2, 87], noun: "the love in your home",
-    hadith: { ref: "Jami‘ at-Tirmidhi 3895", text: "The best of you are those who are best to their families, and I am the best of you to my family." },
+    hadith: { ref: "Sunan Ibn Majah 1977", text: "The best of you is the one who is best to his wife, and I am the best of you to my wives." },
     prompts: ["Tell someone at home today that you are grateful for them.", "Think of one quiet kindness your family shows you that you rarely thank them for.", "Make dua by name for each person in your home tonight."] },
   mother: { hue: 340, hue2: 20, names: [1, 30, 38], noun: "a mother's care",
     hadith: { ref: "Sahih al-Bukhari 5971", text: "A man asked: Who most deserves my good company? The Prophet ﷺ said: Your mother. He asked: Then who? Your mother. Then who? Your mother. Then who? Your father." },
