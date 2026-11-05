@@ -289,7 +289,7 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .presets button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 
 /* ---------- Art motion ---------- */
-.art * { transform-box: fill-box; transform-origin: center; }
+.art [class^="a-"], .art [class*=" a-"] { transform-box: fill-box; transform-origin: center; }
 .art .a-orbit, .art .a-spin, .art .a-expand, .art .a-kite { transform-box: view-box; }
 .a-float { animation: float 6s ease-in-out infinite; } @keyframes float { 50% { transform: translateY(-5px); } }
 .a-tw { animation: tw 3.4s ease-in-out infinite; } @keyframes tw { 50% { opacity: 0.25; } }
@@ -313,6 +313,16 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .a-kite { animation: kite 6s ease-in-out infinite; } @keyframes kite { 50% { transform: rotate(6deg) translateY(-6px); } }
 .a-openL { animation: openL 5s ease-in-out infinite alternate; transform-origin: bottom right; } .a-openR { animation: openR 5s ease-in-out infinite alternate; transform-origin: bottom left; }
 @keyframes openL { to { transform: rotate(-16deg); } } @keyframes openR { to { transform: rotate(16deg); } }
+.ornament { display: flex; align-items: center; gap: 12px; color: var(--accent); opacity: 0.7; }
+.ornament::before, .ornament::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, currentColor, transparent); }
+.ornament svg { width: 22px; height: 22px; animation: spin 40s linear infinite; }
+.a-swing { animation: swing 6s ease-in-out infinite; } @keyframes swing { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+.art .a-swing, .art .a-breathe, .art .a-write { transform-box: view-box; }
+.a-bob { animation: bob 4s ease-in-out infinite; } @keyframes bob { 50% { transform: translateY(5px) rotate(1.5deg); } }
+.a-march { animation: march 16s linear infinite; } @keyframes march { from { transform: translateX(-40px); } to { transform: translateX(40px); } }
+.a-breathe { animation: breathe 7s ease-in-out infinite; } @keyframes breathe { 50% { transform: scale(1.03); } }
+.a-draw { animation: draw 6s ease-in-out infinite alternate; } @keyframes draw { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+.a-write { animation: write 6s ease-in-out infinite alternate; } @keyframes write { from { transform: translate(-150px, 50px) rotate(-6deg); } to { transform: translate(0, 0) rotate(4deg); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }
 </style>
 
@@ -330,6 +340,7 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 <script>
 const DATA = /*DATA*/;
 /*REFLECTIONS*/
+/*MORE*/
 /*HADITH*/
 /*ART*/
 
@@ -382,6 +393,8 @@ S.unlocks = S.unlocks || {}; S.days = S.days || {}; S.itemDays = S.itemDays || {
   entries.sort((a, b) => (a[1].n || 1e9) - (b[1].n || 1e9) || String(a[1].date).localeCompare(String(b[1].date)));
   let n = 0; for (const [k, v] of entries) { n = v.n || n + 1; v.n = n; S.unlocks[k] = v; }
   S.reflectN = Math.max(S.reflectN || 0, n);
+  // Reflections used to open every 100; they now open every 50, so old milestones double.
+  if (S.scale !== 50) { const out = {}; for (const [k, v] of Object.entries(S.unlocks)) { const [id, t] = k.split("|"); out[id + "|" + (+t * 2)] = v; } S.unlocks = out; S.scale = 50; }
 })();
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) {} }
 const sortedItems = () => S.items.slice().sort((a, b) => a.createdAt - b.createdAt);
@@ -399,13 +412,14 @@ function applyTheme() {
 const isLight = () => document.body.dataset.look === "light";
 
 /* ================= Counting ================= */
-const PER_COLOR = 100;
+const PER_COLOR = 100;   // one full colour every 100
+const REFLECT_EVERY = 50; // a new reflection every 50
 function bumpDay(it, delta) { const k = dayKey(); S.days[k] = Math.max(0, (S.days[k] || 0) + delta); const ik = it.id + "|" + k; S.itemDays[ik] = Math.max(0, (S.itemDays[ik] || 0) + delta); }
 function increment(it) {
   const res = { round: false, unlocked: null };
   it.count++; it.total++; it.updated = Date.now(); bumpDay(it, 1);
-  if (it.total % PER_COLOR === 0) {
-    const tier = it.total / PER_COLOR, key = it.id + "|" + tier;
+  if (it.total % REFLECT_EVERY === 0) {
+    const tier = it.total / REFLECT_EVERY, key = it.id + "|" + tier;
     if (!S.unlocks[key]) { S.reflectN = (S.reflectN || 0) + 1; S.unlocks[key] = { date: new Date().toISOString(), n: S.reflectN }; res.unlocked = { n: S.reflectN, itemId: it.id, tier }; }
   }
   if (it.target > 0 && it.count >= it.target) { it.rounds++; it.count = 0; res.round = true; }
@@ -428,6 +442,7 @@ function auroraVars(h, h2) {
   const second = h2 ?? h + 55;
   return `--a1:${hsb(h, s, v)};--a2:${hsb(second, s * 0.9, v)};--a3:${hsb(h - 70, s * 0.85, v)};--c:${hsb(h, 0.6, L ? 0.75 : 0.85)}`;
 }
+const ORNAMENT = `<div class="ornament" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="6" y="6" width="12" height="12"/><rect x="6" y="6" width="12" height="12" transform="rotate(45 12 12)"/><circle cx="12" cy="12" r="2"/></svg></div>`;
 const auroraHTML = '<span class="aurora" aria-hidden="true"><i></i><i></i><i></i></span>';
 const colorOf = total => hsb(hueOf(total).h, 0.6, isLight() ? 0.75 : 0.85);
 
@@ -436,17 +451,30 @@ const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 const lowFirst = s => s.charAt(0).toLowerCase() + s.slice(1);
 const bareName = t => t.replace(/^(Al|Ar|As|At|Ash|Ad|Az|An|Adh)-/, "").replace(/^Dhul-/, "Dhal-");
 function roman(n) { const t = [[10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]]; let o = ""; for (const [v, s] of t) while (n >= v) { o += s; n -= v; } return o; }
+/* Every reflection is a different topic: 60 Quran topics woven with the 99 Names (159 in all).
+   Only after all of them does a topic return, with a new Name, prompt and colours. */
+const CREATION = REFLECTIONS.map(b => ({ ...b, art: b.key, ...TOPIC[b.key] })).concat(MORE_TOPICS);
+const ORDER = (() => { const o = []; let c = 0, m = 0; while (c < CREATION.length || m < NAMES.length) { for (let k = 0; k < 2 && c < CREATION.length; k++) o.push({ c: c++ }); if (m < NAMES.length) o.push({ m: m++ }); } return o; })();
 function reflection(n) {
-  const base = REFLECTIONS[(n - 1) % REFLECTIONS.length], cycle = Math.floor((n - 1) / REFLECTIONS.length), t = TOPIC[base.key];
-  const name = NAMES[t.names[cycle % t.names.length] - 1], meaning = lowFirst(name.meaning);
-  const ties = [
-    `${cap(t.noun)} is one sign of Him being ${meaning}.`,
-    `When you think of ${t.noun}, call on Him: “Ya ${bareName(name.translit)}.”`,
-    `Allah is ${name.translit}, ${meaning}. ${cap(t.noun)} is a small glimpse of that.`,
-  ];
-  return { n, ...base, cycle, name, tie: ties[cycle % ties.length], prompt: t.prompts[cycle % t.prompts.length], topicHadith: t.hadith,
-    hue: (t.hue + cycle * 31) % 360, hue2: (t.hue2 + cycle * 31) % 360, label: cycle ? `${base.title} ${roman(cycle + 1)}` : base.title };
+  const slot = ORDER[(n - 1) % ORDER.length], cycle = Math.floor((n - 1) / ORDER.length), shift = cycle * 31;
+  if (slot.c !== undefined) {
+    const t = CREATION[slot.c], name = NAMES[t.names[cycle % t.names.length] - 1], meaning = lowFirst(name.meaning);
+    const ties = [
+      `${cap(t.noun)} is one sign of Him being ${meaning}.`,
+      `When you think of ${t.noun}, call on Him: “Ya ${bareName(name.translit)}.”`,
+      `Allah is ${name.translit}, ${meaning}. ${cap(t.noun)} is a small glimpse of that.`,
+    ];
+    return { n, isName: false, art: t.art, label: cycle ? `${t.title} ${roman(cycle + 1)}` : t.title, ref: t.ref, ar: t.ar, tl: t.tl, en: t.en,
+      reflect: t.reflect, wonder: t.wonder, prompt: t.prompts[cycle % t.prompts.length], name, tie: ties[(slot.c + cycle) % ties.length],
+      topicHadith: t.hadith, hue: (t.hue + shift) % 360, hue2: (t.hue2 + shift) % 360 };
+  }
+  const name = NAMES[slot.m], meaning = lowFirst(name.meaning), k = slot.m + cycle;
+  return { n, isName: true, art: "rosette", nameText: name.arabic, label: cycle ? `${name.translit} ${roman(cycle + 1)}` : name.translit, subtitle: name.meaning,
+    ref: NAMES_VERSE.ref, ar: NAMES_VERSE.ar, tl: NAMES_VERSE.tl, en: NAMES_VERSE.en,
+    reflect: NAME_REFLECTIONS[k % NAME_REFLECTIONS.length](meaning), prompt: NAME_PROMPTS[k % NAME_PROMPTS.length](bareName(name.translit)),
+    name, tie: "", topicHadith: NAMES_HADITH, hue: (slot.m * 37 + shift) % 360, hue2: (slot.m * 37 + 130 + shift) % 360 };
 }
+const reflectArt = r => artSVG(r.art, reflectColor(r), r.nameText);
 const reflectColor = r => ({ h: r.hue, s: 0.6, b: 0.86 });
 function allUnlocks() {
   return Object.entries(S.unlocks).map(([k, v]) => { const [itemId, tier] = k.split("|"); return { itemId, tier: +tier, n: v.n, date: v.date }; }).sort((a, b) => b.n - a.n);
@@ -622,18 +650,18 @@ function subHTML(sub) {
 /* ---------- Reflections ---------- */
 function reflectionsHTML() {
   const list = allUnlocks();
-  const best = S.items.slice().sort((a, b) => (b.total % PER_COLOR) - (a.total % PER_COLOR))[0];
-  const next = reflection((S.reflectN || 0) + 1), need = best ? PER_COLOR - (best.total % PER_COLOR) : PER_COLOR;
+  const best = S.items.slice().sort((a, b) => (b.total % REFLECT_EVERY) - (a.total % REFLECT_EVERY))[0];
+  const next = reflection((S.reflectN || 0) + 1), need = best ? REFLECT_EVERY - (best.total % REFLECT_EVERY) : REFLECT_EVERY;
   let h = `<div class="wrap">${topBar("Reflections")}
     <div class="next-up" style="${auroraVars(next.hue, next.hue2)}">${auroraHTML}<span class="eyebrow">Next reflection</span>
       <b class="display" style="font-size:20px">${esc(next.label)}</b>
-      <span class="muted" style="font-size:13.5px">${best ? `${need} more ${esc(best.title)} to open it.` : "Reach 100 on any zikr to open it."}</span>
-      ${best ? `<span class="prog"><i style="width:${PER_COLOR - need}%"></i></span>` : ""}</div>`;
-  if (!list.length) return h + `<div class="empty">Every 100 recitations of a zikr opens a new blessing to reflect on: a verse, a hadith, a Name of Allah and something to do today. They gather here.</div></div>`;
+      <span class="muted" style="font-size:13.5px">${best ? `${need} more ${esc(best.title)} to open it.` : "Reach 50 on any zikr to open it."}</span>
+      ${best ? `<span class="prog"><i style="width:${(REFLECT_EVERY - need) / REFLECT_EVERY * 100}%"></i></span>` : ""}</div>`;
+  if (!list.length) return h + `<div class="empty">Every 50 recitations of a zikr opens a new blessing to reflect on: a verse, a hadith, a Name of Allah and something to do today. They gather here.</div></div>`;
   h += `<h2 class="sec">Collected <small>${list.length}</small></h2><div class="rgrid">` + list.map(u => {
     const r = reflection(u.n), it = itemById(u.itemId);
-    return `<button class="rcard" data-act="reflect" data-n="${u.n}" data-id="${u.itemId}" data-tier="${u.tier}" style="${auroraVars(r.hue, r.hue2)}">${artSVG(r.key, reflectColor(r))}${auroraHTML}
-      <span class="rt2"><b>${esc(r.label)}</b><small>#${u.n} · ${fmt(u.tier * PER_COLOR)} × ${esc(it ? it.title : "zikr")}</small></span></button>`;
+    return `<button class="rcard" data-act="reflect" data-n="${u.n}" data-id="${u.itemId}" data-tier="${u.tier}" style="${auroraVars(r.hue, r.hue2)}">${reflectArt(r)}${auroraHTML}
+      <span class="rt2"><b>${esc(r.label)}</b><small>#${u.n} · ${fmt(u.tier * REFLECT_EVERY)} × ${esc(it ? it.title : "zikr")}</small></span></button>`;
   }).join("") + `</div>`;
   return h + `</div>`;
 }
@@ -657,7 +685,7 @@ function statsHTML() {
   h += items.map(it => {
     const days = itemDays(it), c = colorOf(it.total), open = ui.statOpen === it.id;
     return `<button class="zstat" data-act="statopen" data-id="${it.id}" style="--c:${c}" aria-expanded="${open}">
-      <span class="top"><span class="dot"></span><b>${esc(it.title)}</b><small>next reflection in ${PER_COLOR - it.total % PER_COLOR}</small></span>
+      <span class="top"><span class="dot"></span><b>${esc(it.title)}</b><small>next reflection in ${REFLECT_EVERY - it.total % REFLECT_EVERY}</small></span>
       <span class="five">${PERIODS.map(([id, s]) => `<span class="${id === p ? "sel" : ""}"><small>${s}</small><b>${short(totalFor(days, it.total, id))}</b></span>`).join("")}</span>
       ${open ? panelHTML(days, it.total, it.title, c) : ""}</button>`;
   }).join("");
@@ -702,10 +730,10 @@ function cardHTML(it, role, preview = 0) {
 function reflectCardHTML(p) {
   const r = reflection(p.n), it = itemById(p.itemId);
   return `<div class="card top rcard-deck enter-r" style="${auroraVars(r.hue, r.hue2)}">${auroraHTML}
-    <div class="rart">${artSVG(r.key, reflectColor(r))}</div>
-    <div class="rbody"><span class="pill"><i></i>${fmt(p.tier * PER_COLOR)} × ${esc(it ? it.title : "")}</span>
+    <div class="rart">${reflectArt(r)}</div>
+    <div class="rbody"><span class="pill"><i></i>${fmt(p.tier * REFLECT_EVERY)} × ${esc(it ? it.title : "")}</span>
       <span class="eyebrow">A new blessing to reflect on</span><h3>${esc(r.label)}</h3>
-      <div class="nm ar">${esc(r.name.arabic)}</div><span class="muted" style="font-size:13px">${esc(r.name.translit)} · ${esc(r.name.meaning)}</span>
+      ${r.isName ? `<span class="muted" style="font-size:14px">${esc(r.subtitle)} · one of the 99 Names</span>` : `<div class="nm ar">${esc(r.name.arabic)}</div><span class="muted" style="font-size:13px">${esc(r.name.translit)} · ${esc(r.name.meaning)}</span>`}
       <span class="rhint">Tap to read · swipe up to collect</span></div></div>`;
 }
 function drawCounter() {
@@ -833,20 +861,22 @@ function collectPending() {
 /* ================= Overlays ================= */
 function closeOverlay(el) { if (!el) return; el.classList.add("out"); setTimeout(() => el.remove(), 280); }
 function openReflectionOverlay(n, itemId, tier) {
-  const r = reflection(n), it = itemById(itemId), link = sourceLink(r.ref), hlink = sourceLink(r.topicHadith.ref);
+  const r = reflection(n), it = itemById(itemId), link = sourceLink(r.ref), hlink = sourceLink(r.topicHadith?.ref);
   const el = document.createElement("section"); el.className = "overlay"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", r.label);
   el.setAttribute("style", auroraVars(r.hue, r.hue2));
   el.innerHTML = `<button class="icon-btn close" data-act="closeov" aria-label="Close">${ICONS.close}</button>
     <div class="inner">
-      <div class="artbox">${artSVG(r.key, reflectColor(r))}</div>
-      <span class="pill"><i></i>Reflection #${n}${it ? ` · ${fmt(tier * PER_COLOR)} × ${esc(it.title)}` : ""}</span>
-      <h1>${esc(r.label)}</h1>
+      <div class="artbox">${reflectArt(r)}</div>
+      <span class="pill"><i></i>Reflection #${n}${it ? ` · ${fmt(tier * REFLECT_EVERY)} × ${esc(it.title)}` : ""}</span>
+      <h1>${esc(r.label)}</h1>${r.isName ? `<p class="muted" style="text-align:center;margin:-6px 0 0">${esc(r.subtitle)}</p>` : ""}
       <div class="block">${auroraHTML}<span class="eyebrow">From the Quran</span><div class="ar">${esc(r.ar)}</div><div class="tl">${esc(r.tl)}</div><div class="en">${esc(r.en)}</div>
         <a class="ref" href="${link.url}" target="_blank" rel="noopener">${esc(r.ref)} ↗</a></div>
-      <div class="block"><span class="eyebrow">Name of Allah</span><div class="name-ar ar">${esc(r.name.arabic)}</div><b>${esc(r.name.translit)} · ${esc(r.name.meaning)}</b><p class="para muted">${esc(r.tie)}</p></div>
+      ${ORNAMENT}
+      <div class="block">${r.isName ? "" : auroraHTML}<span class="eyebrow">${r.isName ? "The Name" : "Name of Allah"}</span><div class="name-ar ar">${esc(r.name.arabic)}</div><b>${esc(r.name.translit)} · ${esc(r.name.meaning)}</b>${r.tie ? `<p class="para muted">${esc(r.tie)}</p>` : ""}</div>
       <div class="block left"><span class="eyebrow">Reflect</span><p class="para">${esc(r.reflect)}</p><p class="para"><b>Today:</b> ${esc(r.prompt)}</p></div>
-      <div class="block left"><span class="eyebrow">Hadith</span><p class="para">${esc(r.topicHadith.text)}</p><a class="ref" href="${hlink.url}" target="_blank" rel="noopener">${esc(r.topicHadith.ref)} ↗</a></div>
-      <div class="block left">${auroraHTML}<span class="eyebrow">A wonder</span><p class="para">${esc(r.wonder)}</p></div>
+      ${r.topicHadith ? `<div class="block left"><span class="eyebrow">Hadith</span><p class="para">${esc(r.topicHadith.text)}</p><a class="ref" href="${hlink.url}" target="_blank" rel="noopener">${esc(r.topicHadith.ref)} ↗</a></div>` : ""}
+      ${r.wonder ? `<div class="block left">${auroraHTML}<span class="eyebrow">A wonder</span><p class="para">${esc(r.wonder)}</p></div>` : ""}
+      ${ORNAMENT}
       <div class="btn-row"><button class="btn" data-act="closeov">Alhamdulillah</button></div>
     </div>`;
   document.body.appendChild(el);

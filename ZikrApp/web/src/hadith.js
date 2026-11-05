@@ -41,7 +41,8 @@ const HADITH = {
 const NAMES_HADITH = { ref: "Sahih al-Bukhari 2736", text: "The Prophet ﷺ said: Allah has ninety-nine names, one hundred less one. Whoever enumerates them will enter Paradise." };
 /* A link to check a source: Quran verses open quran.com, hadith search sunnah.com. */
 function sourceLink(ref) {
-  const q = /Quran (\d+):(\d+)/.exec(ref || "");
+  if (!ref) return { label: "", url: "#" };
+  const q = /(?:Quran|[A-Z][\w‘’' -]*) (\d+):(\d+)/.exec(ref || "");
   if (q) return { label: "Open on quran.com", url: `https://quran.com/${q[1]}/${q[2]}` };
   return { label: "Check on sunnah.com", url: "https://sunnah.com/search?q=" + encodeURIComponent((ref || "").replace(/Sahih |Sunan |Jami‘ /, "")) };
 }

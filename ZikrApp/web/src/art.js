@@ -204,8 +204,73 @@ const SCENES = {
     }
     return sky(id, P, 200, 150) + stars(90, 71, P) + `<g class="a-expand" style="transform-origin:200px 150px">${g}</g><circle class="a-pulse" cx="200" cy="150" r="14" fill="${P.ivory}" opacity=".8"/>`;
   },
+
+  rosette(id, P, text) {
+    const petals = (n, r1, r2, fill, op) => Array.from({ length: n }, (_, k) => `<path d="M200 ${150 - r1}Q${200 + r2 * 0.5} ${150 - (r1 + r2) / 2} 200 ${150 - r2}Q${200 - r2 * 0.5} ${150 - (r1 + r2) / 2} 200 ${150 - r1}Z" fill="${fill}" opacity="${op}" transform="rotate(${(360 / n) * k} 200 150)"/>`).join("");
+    const star = (r, rot, stroke) => `<g transform="rotate(${rot} 200 150)" fill="none" stroke="${stroke}" stroke-width="1.4"><rect x="${200 - r}" y="${150 - r}" width="${2 * r}" height="${2 * r}"/><rect x="${200 - r}" y="${150 - r}" width="${2 * r}" height="${2 * r}" transform="rotate(45 200 150)"/></g>`;
+    return sky(id, P, 200, 150) + stars(40, 81, P) +
+      `<g class="a-spin" style="transform-origin:200px 150px;animation-duration:120s">${petals(16, 40, 128, P.main, 0.35)}${star(96, 0, P.light)}</g>
+       <g class="a-spin" style="transform-origin:200px 150px;animation-duration:80s;animation-direction:reverse">${petals(12, 30, 92, P.warm, 0.45)}${star(64, 22.5, P.ivory)}</g>
+       <circle class="a-pulse" cx="200" cy="150" r="46" fill="${P.night}" opacity=".75"/><circle cx="200" cy="150" r="46" fill="none" stroke="${P.light}" stroke-width="1.5"/>` +
+      (text ? `<text x="200" y="${text.length > 12 ? 158 : 164}" text-anchor="middle" font-family="Scheherazade New, Amiri, serif" font-size="${text.length > 12 ? 20 : 34}" fill="${P.ivory}" direction="rtl">${text}</text>` : `<circle cx="200" cy="150" r="8" fill="${P.ivory}"/>`);
+  },
+  lanterns(id, P) {
+    const lamp = (x, len, s, d) => `<g class="a-swing" style="transform-origin:${x}px 0px;animation-delay:-${d}s"><line x1="${x}" y1="0" x2="${x}" y2="${len}" stroke="${P.light}" stroke-opacity=".6"/>
+      <g transform="translate(${x} ${len}) scale(${s})"><circle class="a-pulse" cx="0" cy="34" r="34" fill="${P.warm}" opacity=".22"/>
+      <path d="M-6 0h12l4 8h-20z" fill="${P.light}"/><path d="M-14 8h28l-4 46h-20z" fill="${P.sun}" opacity=".9"/><path d="M-14 8h28l-4 46h-20z" fill="none" stroke="${P.light}" stroke-width="1.5"/>
+      <path d="M-8 14v34M0 12v40M8 14v34" stroke="${P.night}" stroke-opacity=".35"/><path d="M-10 54h20l-6 8h-8z" fill="${P.light}"/></g></g>`;
+    return sky(id, P, 200, 120) + stars(50, 91, P, 260) + lamp(110, 70, 1, 0) + lamp(200, 110, 1.3, 1.5) + lamp(290, 60, 0.9, 3) + lamp(340, 140, 0.7, 2) + lamp(60, 150, 0.6, 4) +
+      `<path d="M0 270Q200 252 400 270V300H0Z" fill="${P.night}"/>`;
+  },
+  tree(id, P) {
+    const r = rng(101); let leaves = "", fall = "";
+    for (let i = 0; i < 26; i++) { const a = r() * Math.PI * 2, d = r() * 70; leaves += `<circle cx="${(200 + Math.cos(a) * d * 1.3).toFixed(0)}" cy="${(110 + Math.sin(a) * d * 0.7).toFixed(0)}" r="${(16 + r() * 18).toFixed(0)}" fill="${i % 3 ? P.main : P.light}" opacity="${(0.55 + r() * 0.35).toFixed(2)}"/>`; }
+    for (let i = 0; i < 6; i++) fall += `<ellipse class="a-fall" style="animation-delay:-${(r() * 4).toFixed(1)}s;animation-duration:${(3 + r() * 2).toFixed(1)}s" cx="${(130 + r() * 140).toFixed(0)}" cy="150" rx="4" ry="2.5" fill="${P.warm}"/>`;
+    return sky(id, P, 200, 110) + stars(30, 103, P, 100) +
+      `<path d="M0 232Q200 214 400 232V300H0Z" fill="${P.deep}"/>
+       <g stroke="${P.light}" stroke-opacity=".35" stroke-width="2" fill="none"><path d="M200 236Q180 262 150 284M200 236Q222 264 256 286M200 236V296"/></g>
+       <path d="M192 236Q196 180 182 150M208 236Q204 180 220 140M200 236V140" stroke="${P.night}" stroke-width="14" stroke-linecap="round" fill="none"/>
+       <g class="a-sway" style="animation-duration:7s;transform-origin:200px 236px;transform-box:view-box">${leaves}</g>` + fall;
+  },
+  ship(id, P) {
+    const wave = (y, c, o, d) => `<path class="a-wave" style="animation-delay:-${d}s" d="M-100 ${y}${Array.from({ length: 7 }, () => "q25 -8 50 0t50 0").join("")}V300H-100Z" fill="${c}" opacity="${o}"/>`;
+    return sky(id, P, 290, 90) + stars(50, 111, P, 170) + `<circle cx="300" cy="80" r="22" fill="${P.ivory}" opacity=".9"/>` +
+      wave(214, P.main, 0.5, 1) +
+      `<g class="a-bob"><path d="M140 206h120l-18 26h-84z" fill="${P.night}"/><line x1="200" y1="206" x2="200" y2="110" stroke="${P.night}" stroke-width="3"/>
+        <path d="M204 116Q246 160 204 200Z" fill="${P.ivory}" opacity=".92"/><path d="M196 124Q166 162 196 198Z" fill="${P.light}" opacity=".85"/></g>` +
+      wave(230, P.deep, 0.9, 3) + wave(252, P.night, 1, 2);
+  },
+  ants(id, P) {
+    const ant = (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})" fill="${P.night}"><ellipse cx="-9" cy="0" rx="6" ry="4.5"/><ellipse cx="0" cy="-1" rx="4" ry="3.2"/><circle cx="7" cy="-2" r="3.2"/>
+      <path d="M-4 1l-5 6M0 2l0 7M3 1l5 6M-4 -2l-5 -5M3 -2l5 -5M8 -4l4 -5" stroke="${P.night}" stroke-width="1" fill="none"/></g>`;
+    let line = ""; for (let i = 0; i < 9; i++) line += ant(-30 + i * 36, 238 + (i % 2) * 3, 1.1);
+    return sky(id, P, 290, 110) + `<circle cx="290" cy="110" r="44" fill="${P.sun}" opacity=".7"/>` +
+      `<path d="M0 248Q200 232 400 248V300H0Z" fill="${P.deep}"/><path d="M300 248Q340 196 380 248Z" fill="${P.main}" opacity=".7"/>` +
+      `<g class="a-march">${line}</g>` +
+      [262, 282, 388].map((x, i) => `<path class="a-sway" style="animation-delay:-${i}s" d="M${x} 262Q${x + 5} 240 ${x + 12} 226" stroke="${P.main}" stroke-width="3" fill="none" stroke-linecap="round"/>`).join("");
+  },
+  web(id, P) {
+    const cx = 210, cy = 130, spokes = 12; let s = "", rings = "", drops = "";
+    for (let k = 0; k < spokes; k++) { const a = k * Math.PI * 2 / spokes; s += `<line x1="${cx}" y1="${cy}" x2="${(cx + Math.cos(a) * 240).toFixed(0)}" y2="${(cy + Math.sin(a) * 240).toFixed(0)}"/>`; }
+    for (let r = 18; r < 170; r += 18) rings += `<polygon points="${Array.from({ length: spokes }, (_, k) => { const a = k * Math.PI * 2 / spokes; return `${(cx + Math.cos(a) * r).toFixed(1)},${(cy + Math.sin(a) * r).toFixed(1)}`; }).join(" ")}"/>`;
+    const rr = rng(121); for (let i = 0; i < 16; i++) { const a = Math.floor(rr() * spokes) * Math.PI * 2 / spokes, d = 18 * (1 + Math.floor(rr() * 8)); drops += `<circle class="a-tw" style="animation-delay:-${(rr() * 3).toFixed(1)}s" cx="${(cx + Math.cos(a) * d).toFixed(1)}" cy="${(cy + Math.sin(a) * d).toFixed(1)}" r="2.6" fill="${P.ivory}"/>`; }
+    return sky(id, P, 210, 130) + `<circle cx="80" cy="70" r="26" fill="${P.ivory}" opacity=".85"/>` +
+      `<g class="a-breathe" style="transform-origin:${cx}px ${cy}px;transform-box:view-box" stroke="${P.light}" stroke-opacity=".55" stroke-width="1" fill="none">${s}${rings}</g>` + drops;
+  },
+  ink(id, P) {
+    return sky(id, P, 200, 140) + stars(30, 131, P, 120) +
+      `<path class="a-draw" d="M70 190C110 120 150 230 190 160S260 100 290 170S340 210 350 150" stroke="${P.light}" stroke-width="7" stroke-linecap="round" fill="none" pathLength="100" stroke-dasharray="100" />
+       <path class="a-draw" style="animation-delay:-2s" d="M90 230C140 210 200 250 250 222S320 200 340 226" stroke="${P.warm}" stroke-width="3" stroke-linecap="round" fill="none" pathLength="100" stroke-dasharray="100"/>
+       <g class="a-write" style="transform-origin:300px 120px;transform-box:view-box"><rect x="296" y="40" width="10" height="90" rx="3" fill="${P.ivory}" transform="rotate(28 300 120)"/><path d="M296 128l5 16 5-16z" fill="${P.night}" transform="rotate(28 300 120)"/></g>
+       ${[0, 1, 2].map(i => `<circle class="a-tw" style="animation-delay:-${i}s" cx="${120 + i * 70}" cy="${250 - i * 6}" r="3" fill="${P.light}"/>`).join("")}`;
+  },
+  fingerprint(id, P) {
+    let arcs = "";
+    for (let i = 1; i <= 13; i++) { const rx = i * 9, ry = i * 11; arcs += `<ellipse class="a-dash" style="animation-duration:${8 + i}s" cx="200" cy="${150 + i * 0.8}" rx="${rx}" ry="${ry}" fill="none" stroke="${i % 2 ? P.light : P.main}" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="${(i * 9).toFixed(0)} ${(6 + i).toFixed(0)}" transform="rotate(${-8 + i} 200 150)"/>`; }
+    return sky(id, P, 200, 150) + `<g class="a-pulse" style="animation-duration:8s">${arcs}</g><circle cx="200" cy="150" r="5" fill="${P.ivory}"/>`;
+  },
 };
-function artSVG(key, color) {
+function artSVG(key, color, text) {
   const id = "a" + (++ART_N), P = palette(color);
-  return `<svg class="art" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" role="img" aria-hidden="true">${(SCENES[key] || SCENES.stars)(id, P)}</svg>`;
+  return `<svg class="art" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" role="img" aria-hidden="true">${(SCENES[key] || SCENES.stars)(id, P, text)}</svg>`;
 }
