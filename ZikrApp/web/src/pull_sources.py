@@ -13,13 +13,16 @@ def surah(n):
     return chap[n]
 verse_keys = set(f"{s}:{a}" + (f"-{b}" if b else "") for s, a, b in re.findall(r'ref: "[^"]*?(\d+):(\d+)(?:[–-](\d+))?', texts))
 verse_keys |= {"2:255", "112:1-4", "113:1-5", "114:1-6", "7:180"}
+# QuranEnc text is encoded for the King Fahd Complex font, which puts the "open" (mutatabi')
+# tanween on other code points. Map them to the standard Unicode marks so any Arabic font shows them.
+KFGQPC_FIX = str.maketrans({"\u0657": "\u08F0", "\u065E": "\u08F1", "\u0656": "\u08F2"})
 QURAN = {}
 for key in sorted(verse_keys):
     s, rng = key.split(":"); a, _, b = rng.partition("-"); s, a = int(s), int(a); b = int(b) if b else a
     d = surah(s); vs = [v for v in d["verses"] if a <= v["id"] <= b]
     multi = len(vs) > 1
     QURAN[key] = {
-        "ar": " ".join(v["text"] + (f" ﴿{v['id']}﴾" if multi else "") for v in vs),
+        "ar": " ".join(v["text"].translate(KFGQPC_FIX) + (f" ﴿{v['id']}﴾" if multi else "") for v in vs),
         "en": " ".join((f"({v['id']}) " if multi else "") + v["translation"] for v in vs),
         "tl": " ".join(v["transliteration"] for v in vs),
         "surah": d["transliteration"], "ref": f"{d['transliteration']} {s}:{a}" + (f"–{b}" if b != a else ""),
