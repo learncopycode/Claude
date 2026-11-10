@@ -243,6 +243,14 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .card.enter-r { animation: rIn 0.6s cubic-bezier(.2, 1.1, .3, 1); }
 @keyframes rIn { from { transform: scale(0.85) translateY(30px); opacity: 0; } }
 
+/* ---------- Quran reader ---------- */
+.reader .bism { font-size: 24px; color: var(--accent); line-height: 1.9; padding-bottom: 4px; }
+.reader .ayno { color: var(--accent); font-size: 0.8em; white-space: nowrap; }
+.surah-pick { padding: 9px 16px; border-radius: 99px; background: var(--card); border: 1px solid var(--line); font-weight: 700; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.quran-pct { font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.quran-card { width: 100%; box-sizing: border-box; }
+.quran-card > *:not(.aurora) { position: relative; }
+.quran-card .qmeta { font-size: 13px; color: var(--muted); }
 /* ---------- Overlays ---------- */
 .overlay { position: fixed; inset: 0; z-index: 50; overflow-y: auto; background: var(--bg); animation: ovIn 0.5s cubic-bezier(.2, .8, .2, 1); }
 .overlay.out { animation: ovOut 0.28s ease forwards; }
@@ -361,6 +369,7 @@ const DATA = /*DATA*/;
 /*MORE*/
 /*HADITH*/
 /*SOURCES*/
+/*QURAN*/
 /*ART*/
 
 /* ================= Library ================= */
@@ -654,6 +663,7 @@ function homeHTML() {
       <div class="row1"><span><span class="eyebrow">Today's zikr</span><br><b>${m.title}</b></span><button class="btn ghost small" data-act="addall">Add all</button></div>
       <div class="chips">${m.items.map(d => `<button class="chip ${added(d) ? "on" : ""}" data-act="lib" data-id="${d.id}"><b>${esc(d.title)}</b><span class="ar">${esc(d.arabic)}</span></button>`).join("")}</div>
     </section>
+    ${quranCardHTML()}
     <h2 class="sec">My zikr <small>${items.length}</small></h2>`;
   if (items.length) {
     h += `<div class="zlist">` + items.map(it => {
@@ -684,6 +694,7 @@ function discoverHTML() {
     ${featureCard("Dua of the day", dua, (DAY_INDEX * 47) % 360)}
     ${featureCard("Name of Allah for today", name, (DAY_INDEX * 47 + 140) % 360)}
     <h2 class="sec">Library</h2><div class="grid2">
+    <button class="tile" data-act="reader" style="grid-column:1 / -1;min-height:auto"><span class="ic">${ICONS.book}</span><b>Read the Quran</b><span>Ayah by ayah, Uthmani text with translation. Picks up where you left off.</span><span class="count">6,236</span></button>
     <button class="tile" data-act="sub" data-sub="names"><span class="ic">${ICONS.star8}</span><b>99 Names of Allah</b><span>Invoke Him by His beautiful names</span><span class="count">99</span></button>` +
     GROUPS.map(g => `<button class="tile" data-act="sub" data-sub="${g.id}"><span class="ic">${ICONS[g.icon]}</span><b>${g.title}</b><span>${g.note}</span><span class="count">${LIB.filter(d => g.cats.some(c => c[0] === d.cat)).length}</span></button>`).join("") + `</div>
     <p class="note">Tap a dua to count it now, or + to keep it in My Zikr.</p></div>`;
@@ -933,6 +944,136 @@ function collectPending() {
   }, 760);
 }
 
+/* ================= Quran reader: one ayah per card ================= */
+let $reader = null, rAnimating = false;
+const BISMILLAH = QURAN_TEXT[0][0][0];
+const arNum = n => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+const QURAN_START = QURAN_META.reduce((acc, m, i) => (acc.push(i ? acc[i - 1] + QURAN_META[i - 1][3] : 0), acc), []);
+const quranPos = () => S.quranPos || { s: 1, a: 1 };
+const ayahIndex = p => QURAN_START[p.s - 1] + p.a;            // 1…6236
+const ayahsReadToday = () => (S.quranDays || {})[dayKey()] || 0;
+function stepAyah(p, dir) {
+  let { s, a } = p; a += dir;
+  if (a < 1) { if (s === 1) return null; s--; a = QURAN_META[s - 1][3]; }
+  else if (a > QURAN_META[s - 1][3]) { if (s === 114) return null; s++; a = 1; }
+  return { s, a };
+}
+function openReader(p) {
+  S.quranPos = p || quranPos(); save();
+  if (!$reader) { $reader = document.createElement("section"); $reader.className = "counter reader"; $reader.setAttribute("aria-label", "Quran reader"); $layer.appendChild($reader); }
+  drawReader(); keepAwake(true);
+}
+function closeReader() {
+  if (!$reader) return; const el = $reader; $reader = null; keepAwake(false);
+  el.classList.add("out"); setTimeout(() => el.remove(), 280); render();
+}
+function ayahCardHTML(p, role) {
+  const [ar, en, tl] = QURAN_TEXT[p.s - 1][p.a - 1], m = QURAN_META[p.s - 1], len = ar.length;
+  const size = len > 400 ? 26 : len > 200 ? 30 : len > 90 ? 34 : 42;
+  // A slow hue drift through each surah, continuous from ayah to ayah.
+  const h = (p.s * 37 + p.a * 3) % 360;
+  const bism = p.a === 1 && p.s !== 1 && p.s !== 9 ? `<div class="bism ar">${BISMILLAH}</div>` : "";
+  return `<div class="card ${role}" style="${auroraVars(h)}">${aurora()}
+    <div class="ctop"><span class="lbl">${esc(m[1])} · ${p.s}:${p.a}</span><span class="srcchip ar" style="font-size:15px">${esc(m[0])}</span></div>
+    <div class="ctext">${bism}<div class="arb ar" style="font-size:${size}px">${ar} <span class="ayno">﴿${arNum(p.a)}﴾</span></div>
+      <div class="tl" style="font-size:15.5px">${esc(tl)}</div><div class="en" style="font-size:15px">${esc(en)}</div></div>
+    <div class="longhint">Hold to read and scroll · swipe for the next ayah</div>
+    <div class="cband"><span class="meta"><b>Ayah ${p.a} of ${m[3]}</b><span>${esc(m[2])} · ${m[4] === "meccan" ? "Makki" : "Madani"}</span></span>
+      <span class="today"><b>${fmt(ayahsReadToday())}</b>read today</span><span class="pbar"><i style="width:${(p.a / m[3] * 100).toFixed(1)}%"></i></span></div></div>`;
+}
+function drawReader() {
+  if (!$reader) return;
+  const p = quranPos(), next = stepAyah(p, 1);
+  $reader.innerHTML = `
+    <div class="chead">
+      <button class="icon-btn" data-act="closereader" aria-label="Close">${ICONS.back}</button>
+      <div class="grow"><button class="surah-pick" data-act="surahs">${esc(QURAN_META[p.s - 1][1])} <span class="muted">· ${p.s}</span> ▾</button></div>
+      <span class="icon-btn quran-pct" title="Through the Quran">${Math.floor(ayahIndex(p) / 6236 * 100)}%</span>
+    </div>
+    <div class="deck" id="rdeck">${next ? ayahCardHTML(next, "back") : ""}${ayahCardHTML(p, "top")}</div>
+    <div class="hint">Swipe up for the next ayah · down to go back</div>`;
+  rSetBack(0); bindReader();
+  $reader.querySelectorAll(".card").forEach(fitCard);
+}
+function rSetBack(progress, ms) {
+  const back = $reader?.querySelector(".card.back"); if (!back) return;
+  back.style.transition = ms ? `transform ${ms}ms ease-out, opacity ${ms}ms ease-out` : "none";
+  back.style.transform = `translateY(${18 * (1 - progress)}px) scale(${0.94 + 0.06 * progress})`;
+  back.style.opacity = 0.5 + 0.5 * progress;
+}
+function readerGo(dir) {
+  const next = stepAyah(quranPos(), dir); if (!next) return toast(dir > 0 ? "Sadaqallahul-‘Azim" : "This is the first ayah", dir > 0 ? "You have reached the end of the Quran." : "Al-Fatihah 1:1", 150);
+  if (dir > 0) { S.quranDays = S.quranDays || {}; S.quranDays[dayKey()] = ayahsReadToday() + 1; if (navigator.vibrate) try { navigator.vibrate(6); } catch (e) {} }
+  S.quranPos = next; save();
+  if (dir > 0 && next.a === 1) toast(`Surah ${QURAN_META[next.s - 1][1]}`, QURAN_META[next.s - 1][2], (next.s * 37) % 360);
+}
+function bindReader() {
+  const deck = $reader.querySelector("#rdeck"); let drag = null;
+  const topCard = () => deck.querySelector(".card.top");
+  function startReading() {
+    if (!drag || drag.moved) return;
+    const top = topCard(), box = top.querySelector(".ctext");
+    drag.reading = { box, lastY: drag.lastY, wasLong: top.classList.contains("long") };
+    top.classList.add("reading"); $reader.classList.add("reading");
+    if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) {}
+  }
+  deck.onpointerdown = e => {
+    if (rAnimating || e.target.closest("[data-act]")) return;
+    drag = { y: e.clientY, lastY: e.clientY, dy: 0, moved: false, reading: null, samples: [[e.clientY, performance.now()]] };
+    drag.timer = setTimeout(startReading, HOLD_MS);
+    deck.setPointerCapture(e.pointerId); topCard().style.transition = "none";
+  };
+  deck.onpointermove = e => {
+    if (!drag || rAnimating) return;
+    if (drag.reading) { const r = drag.reading; r.box.scrollTop -= e.clientY - r.lastY; r.lastY = e.clientY; return; }
+    const dy = e.clientY - drag.y; drag.dy = dy; drag.lastY = e.clientY;
+    if (Math.abs(dy) > 8 && !drag.moved) { drag.moved = true; clearTimeout(drag.timer); }
+    drag.samples.push([e.clientY, performance.now()]); if (drag.samples.length > 5) drag.samples.shift();
+    if (!drag.moved) return;
+    const h = deck.clientHeight, off = dy > 0 ? dy * 0.6 : dy, prog = Math.min(1, Math.max(0, -off / h));
+    topCard().style.transform = `translateY(${off}px) rotateX(${(off / h) * 14}deg) scale(${1 - 0.04 * prog})`;
+    rSetBack(prog);
+  };
+  deck.onpointerup = deck.onpointercancel = () => {
+    if (!drag || rAnimating) return; const d = drag; drag = null; clearTimeout(d.timer);
+    const top = topCard();
+    if (d.reading) { top.classList.remove("reading"); $reader.classList.remove("reading"); if (!d.reading.wasLong) d.reading.box.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    if (!d.moved) return;
+    const s0 = d.samples[0], s1 = d.samples[d.samples.length - 1], v = (s1[0] - s0[0]) / Math.max(1, s1[1] - s0[1]), h = deck.clientHeight;
+    if ((d.dy < -90 || v < -0.7) && stepAyah(quranPos(), 1)) {
+      rAnimating = true; const dur = Math.max(150, 280 - Math.abs(v) * 60);
+      top.style.transition = `transform ${dur}ms cubic-bezier(.35,0,.75,.4), opacity ${dur}ms`;
+      top.style.transform = `translateY(${-h * 1.15}px) rotateX(-12deg) scale(.94)`; top.style.opacity = "0.5"; rSetBack(1, dur);
+      setTimeout(() => { readerGo(1); rAnimating = false; drawReader(); }, dur);
+    } else if ((d.dy > 110 || v > 0.9) && stepAyah(quranPos(), -1)) {
+      rAnimating = true; readerGo(-1); drawReader();
+      const t = topCard(); t.style.transition = "none"; t.style.transform = `translateY(${-h}px)`; void t.offsetWidth;
+      t.style.transition = "transform 0.55s cubic-bezier(.2,1,.3,1)"; t.style.transform = "none"; setTimeout(() => { rAnimating = false; }, 550);
+    } else { top.style.transition = "transform 0.5s cubic-bezier(.2,1.4,.4,1)"; top.style.transform = "none"; rSetBack(0, 450); }
+  };
+}
+function openSurahs() {
+  const p = quranPos();
+  $layer.insertAdjacentHTML("beforeend", `<div class="scrim" data-act="closesurahs" style="z-index:40"></div><div class="sheet" style="z-index:41" role="dialog" aria-label="Surahs"><div class="in">
+    <div class="top"><span></span><b>The Quran</b><button class="textbtn" data-act="closesurahs">Done</button></div>
+    <label class="field">${ICONS.search}<input id="surah-q" autocomplete="off" placeholder="Surah name or number"></label>
+    <div class="list" id="surah-list" style="margin-top:8px"></div></div></div>`);
+  const draw = q => {
+    const key = searchKey(q || ""), num = parseInt(q, 10);
+    document.getElementById("surah-list").innerHTML = QURAN_META.map((m, i) => [m, i + 1]).filter(([m, n]) => !q || n === num || searchKey(m[1]).includes(key) || m[2].toLowerCase().includes(q.toLowerCase()))
+      .map(([m, n]) => `<button class="row" data-act="picksurah" data-s="${n}" style="text-align:left${n === p.s ? ";border-color:var(--accent)" : ""}"><span class="rt"><b>${n}. ${esc(m[1])}</b><small>${esc(m[2])} · ${m[3]} ayahs${n === p.s ? ` · you are at ayah ${p.a}` : ""}</small></span><span class="rar ar">${esc(m[0])}</span></button>`).join("");
+  };
+  draw(""); const inp = document.getElementById("surah-q"); inp.oninput = () => draw(inp.value.trim());
+}
+function closeSurahs() { $layer.querySelectorAll('.sheet[aria-label="Surahs"], .scrim[data-act="closesurahs"]').forEach(e => e.remove()); }
+function quranCardHTML() {
+  const started = !!S.quranPos, p = quranPos(), m = QURAN_META[p.s - 1], pct = ayahIndex(p) / 6236 * 100;
+  return `<button class="today-z quran-card" data-act="reader" style="${auroraVars((p.s * 37 + p.a * 3) % 360)};text-align:left">${aurora()}
+    <span class="row1"><span><span class="eyebrow">The Quran</span><br><b>${started ? "Continue reading" : "Read ayah by ayah"}</b></span><span class="ar" style="font-size:22px">${esc(m[0])}</span></span>
+    <span class="qmeta">${esc(m[1])} · ayah ${p.a} of ${m[3]}${ayahsReadToday() ? ` · ${ayahsReadToday()} read today` : ""}</span>
+    <span class="prog"><i style="width:${pct.toFixed(2)}%"></i></span></button>`;
+}
+
 /* ================= Overlays ================= */
 function closeOverlay(el) { if (!el) return; el.classList.add("out"); setTimeout(() => el.remove(), 280); }
 function openReflectionOverlay(n, itemId, tier) {
@@ -1056,6 +1197,11 @@ document.addEventListener("click", e => {
     case "preset": form.target = +b.dataset.n; drawAdd(); break;
     case "save": saveAdd(); break;
     case "close": closeCounter(); break;
+    case "reader": openReader(); break;
+    case "closereader": closeReader(); break;
+    case "surahs": openSurahs(); break;
+    case "closesurahs": closeSurahs(); break;
+    case "picksurah": closeSurahs(); openReader({ s: +b.dataset.s, a: 1 }); break;
     case "sound": S.sound = !S.sound; save(); if (S.sound) tick(false); drawCounter(); break;
     case "menu": menuOpen = !menuOpen; drawCounter(); break;
     case "mode": S.mode = b.dataset.mode; save(); drawCounter(); break;
@@ -1075,7 +1221,12 @@ document.addEventListener("click", e => {
   }
 });
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape") { const o = [...document.querySelectorAll(".overlay")].pop(); if (o) return closeOverlay(o); if ($counter) closeCounter(); return; }
+  if (e.key === "Escape") { const o = [...document.querySelectorAll(".overlay")].pop(); if (o) return closeOverlay(o); if ($reader) return closeReader(); if ($counter) closeCounter(); return; }
+  if ($reader && !e.target.closest("input, textarea") && !rAnimating) {
+    if (e.key === "ArrowDown" || e.key === " ") { e.preventDefault(); readerGo(1); drawReader(); }
+    if (e.key === "ArrowUp") { e.preventDefault(); readerGo(-1); drawReader(); }
+    return;
+  }
   if (!$counter || document.querySelector(".overlay") || e.target.closest("input, textarea")) return;
   if (e.key === " " || e.key === "ArrowUp") { e.preventDefault(); if (animating) return; if (ui.pending) collectPending(); else commitUp($counter.querySelector("#deck").clientHeight, 240); }
 });
