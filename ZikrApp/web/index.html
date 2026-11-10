@@ -67,7 +67,10 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 @keyframes pulseTab { 30% { transform: scale(1.25); } }
 
 /* ---------- Roaming colour (aurora) ---------- */
-.aurora { position: absolute; inset: 0; overflow: hidden; pointer-events: none; border-radius: inherit; }
+@property --a1 { syntax: "<color>"; inherits: true; initial-value: transparent; }
+@property --a2 { syntax: "<color>"; inherits: true; initial-value: transparent; }
+@property --a3 { syntax: "<color>"; inherits: true; initial-value: transparent; }
+.aurora { position: absolute; inset: 0; overflow: hidden; pointer-events: none; border-radius: inherit; transition: --a1 0.7s ease, --a2 0.7s ease, --a3 0.7s ease; }
 .aurora i { position: absolute; width: 90%; aspect-ratio: 1; border-radius: 50%; opacity: var(--aurora-op); transition: background 1.2s ease; }
 .aurora i:nth-child(1) { left: -30%; top: -30%; background: radial-gradient(circle, var(--a1) 0%, transparent 62%); animation: roam1 19s ease-in-out infinite alternate; }
 .aurora i:nth-child(2) { right: -35%; top: 15%; background: radial-gradient(circle, var(--a2) 0%, transparent 62%); animation: roam2 23s ease-in-out infinite alternate; }
@@ -1215,7 +1218,7 @@ function applyTheme() {
 const isLight = () => document.body.dataset.look === "light";
 
 /* ================= Counting ================= */
-const PER_COLOR = 100;   // one full colour every 100
+const PER_COLOR = 10;    // one full colour every 10 recitations
 const REFLECT_EVERY = 50; // a new reflection every 50
 function bumpDay(it, delta) { const k = dayKey(); S.days[k] = Math.max(0, (S.days[k] || 0) + delta); const ik = it.id + "|" + k; S.itemDays[ik] = Math.max(0, (S.itemDays[ik] || 0) + delta); }
 function increment(it) {
@@ -1255,6 +1258,9 @@ function aurora() {
   const delays = AURORA_DURATIONS.map(d => -(t % (2 * d))).map(s => `animation-delay:${s.toFixed(2)}s`);
   return `<span class="aurora" aria-hidden="true"><i style="${delays[0]}"></i><i style="${delays[1]}"></i><i style="${delays[2]}"></i></span>`;
 }
+/* The swipe cards share one colour flow driven by all recitations together, so each
+   new card continues exactly where the previous one ended. */
+const flowTotal = () => S.items.reduce((a, i) => a + i.total, 0);
 const colorOf = total => hsb(hueOf(total).h, 0.6, isLight() ? 0.75 : 0.85);
 
 /* ================= Reflections (endless) ================= */
@@ -1527,8 +1533,8 @@ function closeCounter() {
   if (!$counter) return; const el = $counter; $counter = null; menuOpen = false; keepAwake(false);
   el.classList.add("out"); setTimeout(() => el.remove(), 280); render();
 }
-function cardHTML(it, role, preview = 0) {
-  const total = it.total + preview, raw = it.count + preview, count = it.target > 0 && raw >= it.target ? 0 : raw, h = hueOf(total).h;
+function cardHTML(it, role, preview = 0, huePreview = preview) {
+  const raw = it.count + preview, count = it.target > 0 && raw >= it.target ? 0 : raw, h = hueOf(flowTotal() + huePreview).h;
   const len = it.arabic.length, focus = S.mode === "single", src = sourceFor(it.libraryID);
   const arSize = len > 400 ? 26 : len > 200 ? 30 : len > 90 ? 34 : len > 40 ? 42 : 54;
   const pct = it.target ? Math.min(100, count / it.target * 100) : 0;
@@ -1568,7 +1574,7 @@ function drawCounter() {
       <button class="icon-btn" data-act="menu" aria-label="More">${ICONS.more}</button>
       ${menuOpen ? `<div class="menu"><button data-act="undo">Undo last count</button><button data-act="target">Change target (now ${it.target})</button><button data-act="resetround">Reset current round</button><button data-act="openrefl">Open Reflections</button><button data-act="delete" style="color:#d9796b">Remove from My Zikr</button></div>` : ""}
     </div>
-    <div class="deck" id="deck">${cardHTML(ui.pending ? it : nextItem(), "back", !ui.pending && S.mode === "single" ? 1 : 0)}${ui.pending ? reflectCardHTML(ui.pending) : cardHTML(it, "top")}
+    <div class="deck" id="deck">${cardHTML(ui.pending ? it : nextItem(), "back", !ui.pending && S.mode === "single" ? 1 : 0, ui.pending ? 0 : 1)}${ui.pending ? reflectCardHTML(ui.pending) : cardHTML(it, "top")}
       ${S.mode === "feed" && its.length > 1 && !ui.pending ? `<div class="dots">${its.map((x, i) => `<i class="${i === curIndex() ? "on" : ""}"></i>`).join("")}</div>` : ""}</div>
     <div class="hint">${ui.pending ? "" : S.mode === "feed" ? "Read, then swipe up · each swipe counts" : "Swipe up or tap to count"}</div>`;
   const m = $counter.querySelector(".modes"), on = m.querySelector('[aria-pressed="true"]'), th = m.querySelector(".thumb");
@@ -1595,7 +1601,7 @@ function setBack(progress, ms) {
 }
 function updateTop() {
   const it = current(), top = $counter.querySelector(".card.top"); if (!top || ui.pending) return drawCounter();
-  top.setAttribute("style", auroraVars(hueOf(it.total).h));
+  top.setAttribute("style", auroraVars(hueOf(flowTotal()).h));
   const cnt = top.querySelector('[data-f="cnt"]'); cnt.textContent = it.count; cnt.classList.remove("bump"); void cnt.offsetWidth; cnt.classList.add("bump");
   top.querySelector('[data-f="rounds"]').textContent = it.rounds ? `${it.rounds} round${it.rounds === 1 ? "" : "s"} done` : "round 1";
   top.querySelector('[data-f="today"]').textContent = fmt(todayOf(it));
