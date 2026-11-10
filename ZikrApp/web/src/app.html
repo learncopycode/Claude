@@ -200,6 +200,9 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 /* Hold-to-read: the counter and hints step aside and the text fills the card. */
 .card.reading { box-shadow: var(--shadow), 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); }
 .card.reading > .aurora { opacity: 0; }
+.card > .readback.readback { position: absolute; top: 12px; left: 12px; z-index: 6; display: flex; align-items: center; gap: 2px; padding: 7px 14px 7px 8px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--text); font: 600 14px/1 inherit; font-family: inherit; box-shadow: var(--shadow); animation: rbIn .3s ease both; }
+.readback svg { width: 18px; height: 18px; }
+@keyframes rbIn { from { opacity: 0; transform: translateY(-6px); } }
 .card .cband, .card .longhint, .card .ctop { transition: max-height 0.32s ease, opacity 0.25s ease, padding 0.32s ease, border-color 0.32s ease; }
 .card .cband { max-height: 220px; overflow: hidden; }
 .card .longhint { max-height: 30px; overflow: hidden; }
@@ -207,7 +210,7 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .card.reading .longhint { max-height: 0; opacity: 0; padding: 0; }
 .card .ctop { max-height: 70px; overflow: hidden; }
 .card.reading .ctop { max-height: 0; opacity: 0; padding-top: 0; }
-.card.reading .ctext { justify-content: flex-start; overflow-y: auto; padding-top: 18px; padding-bottom: 40px; -webkit-mask-image: linear-gradient(transparent 0, #000 16px, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(transparent 0, #000 16px, #000 calc(100% - 30px), transparent); }
+.card.reading .ctext { justify-content: flex-start; overflow-y: auto; padding-top: 62px; padding-bottom: 40px; -webkit-mask-image: linear-gradient(transparent 40px, #000 60px, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(transparent 40px, #000 60px, #000 calc(100% - 30px), transparent); }
 .counter .hint, .counter .dots, .counter .chead { transition: opacity 0.25s ease; }
 .counter.reading .hint, .counter.reading .dots { opacity: 0; }
 .counter.reading .chead { opacity: 0.35; pointer-events: none; }
@@ -966,6 +969,22 @@ function countCurrent() {
 function plusOne() { const d = $counter?.querySelector("#deck"); if (!d) return; const el = document.createElement("span"); el.className = "plus1"; el.textContent = "+1"; d.appendChild(el); setTimeout(() => el.remove(), 950); }
 function glowAt(e) { const top = $counter.querySelector(".card.top"), r = top.getBoundingClientRect(), el = document.createElement("span"); el.className = "glow"; el.style.left = (e.clientX - r.left) + "px"; el.style.top = (e.clientY - r.top) + "px"; top.appendChild(el); setTimeout(() => el.remove(), 750); }
 const HOLD_MS = 320;
+/* Hold a card to enter reading mode; it stays until Back is tapped. */
+function enterReading(top, host) {
+  top.classList.add("reading"); host.classList.add("reading");
+  if (!top.querySelector(".readback")) top.insertAdjacentHTML("beforeend", `<button class="readback" data-act="exitread" aria-label="Leave reading mode">${ICONS.back}<span>Back</span></button>`);
+  if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) {}
+}
+function exitReading() {
+  for (const host of [$counter, $reader]) {
+    if (!host || !host.isConnected) continue;
+    host.classList.remove("reading");
+    host.querySelectorAll(".card.reading").forEach(top => {
+      top.classList.remove("reading"); top.style.transform = ""; top.querySelector(".readback")?.remove();
+      if (!top.classList.contains("long")) top.querySelector(".ctext")?.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+}
 function bindDeck() {
   const deck = $counter.querySelector("#deck"); let drag = null;
   const topCard = () => deck.querySelector(".card.top");
@@ -973,9 +992,8 @@ function bindDeck() {
   function startReading() {
     if (!drag || drag.moved || ui.pending) return;
     const top = topCard(), box = top.querySelector(".ctext"); if (!box) return;
-    drag.reading = { box, lastY: drag.lastY, samples: [], wasLong: top.classList.contains("long") };
-    top.classList.add("reading"); $counter.classList.add("reading");
-    if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) {}
+    drag.reading = { box, lastY: drag.lastY, samples: [] };
+    enterReading(top, $counter);
   }
   function glide(box, v) { // gentle momentum after letting go, in px per ms
     let last = performance.now();
@@ -987,6 +1005,7 @@ function bindDeck() {
   }
   deck.onpointerdown = e => {
     if (animating || e.target.closest("[data-act]")) return;
+    const rt = topCard(); if (rt.classList.contains("reading")) { drag = { reading: { box: rt.querySelector(".ctext"), lastY: e.clientY, samples: [] } }; deck.setPointerCapture(e.pointerId); return; }
     drag = { y: e.clientY, lastY: e.clientY, dy: 0, moved: false, armed: false, reading: null, samples: [[e.clientY, performance.now()]] };
     drag.timer = setTimeout(startReading, HOLD_MS);
     deck.setPointerCapture(e.pointerId); topCard().style.transition = "none";
@@ -1010,9 +1029,8 @@ function bindDeck() {
   };
   deck.onpointerup = deck.onpointercancel = e => {
     if (!drag || animating) return; const d = drag; drag = null; clearTimeout(d.timer);
-    if (d.reading) {
-      const top = topCard(); top.classList.remove("reading"); $counter.classList.remove("reading"); top.style.transform = "";
-      if (!d.reading.wasLong) d.reading.box.scrollTo({ top: 0, behavior: "smooth" });
+    if (d.reading) { // stay in reading mode; Back leaves it
+      const sm = d.reading.samples; if (sm.length > 1) { const a = sm[0], b = sm[sm.length - 1]; glide(d.reading.box, (b[0] - a[0]) / Math.max(1, b[1] - a[1])); }
       return;
     }
     if (!d.moved) {
@@ -1141,13 +1159,13 @@ function bindReader() {
   function startReading() {
     if (!drag || drag.moved) return;
     const top = topCard(), box = top.querySelector(".ctext");
-    drag.reading = { box, lastY: drag.lastY, wasLong: top.classList.contains("long") };
-    top.classList.add("reading"); $reader.classList.add("reading");
-    if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) {}
+    drag.reading = { box, lastY: drag.lastY };
+    enterReading(top, $reader);
   }
   let taps = [];
   deck.onpointerdown = e => {
     if (rAnimating || e.target.closest("[data-act]") || $reader.classList.contains("tafsir")) return;
+    const rt = topCard(); if (rt.classList.contains("reading")) { drag = { reading: { box: rt.querySelector(".ctext"), lastY: e.clientY } }; deck.setPointerCapture(e.pointerId); return; }
     drag = { y: e.clientY, lastY: e.clientY, dy: 0, moved: false, reading: null, samples: [[e.clientY, performance.now()]] };
     drag.timer = setTimeout(startReading, HOLD_MS);
     deck.setPointerCapture(e.pointerId); topCard().style.transition = "none";
@@ -1166,7 +1184,7 @@ function bindReader() {
   deck.onpointerup = deck.onpointercancel = () => {
     if (!drag || rAnimating) return; const d = drag; drag = null; clearTimeout(d.timer);
     const top = topCard();
-    if (d.reading) { top.classList.remove("reading"); $reader.classList.remove("reading"); if (!d.reading.wasLong) d.reading.box.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    if (d.reading) return;   // stay in reading mode; Back leaves it
     if (!d.moved) { // three quick taps open the tafsir
       const now = performance.now(); taps = taps.filter(t => now - t < 650); taps.push(now);
       if (taps.length >= 3) { taps = []; openTafsir(); }
@@ -1461,6 +1479,7 @@ document.addEventListener("click", e => {
     case "statopen": ui.statOpen = ui.statOpen === id ? null : id; rerenderKeepScroll(); break;
     case "reflect": openReflectionOverlay(+b.dataset.n, id, +b.dataset.tier); break;
     case "closeov": closeOverlay(b.closest(".overlay")); break;
+    case "exitread": exitReading(); break;
     case "rewrite": writeReflection(+b.dataset.n); break;
     case "source": openSource(b.dataset.lib); break;
     case "closesrc": $layer.querySelectorAll(".sheet-src").forEach(x => x.remove()); $layer.querySelectorAll('.scrim[data-act="closesrc"]').forEach(x => x.remove()); break;
