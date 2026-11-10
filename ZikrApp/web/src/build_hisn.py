@@ -40,12 +40,13 @@ def split(en):
     elif not tl and tr and is_translit_word(tr.split()[0]): tl, tr = word_split(tr)
     return tl, tr, ref
 def count_of(ar, tr):
+    ar = re.sub(r"[\u064b-\u065f\u0670]", "", ar)   # ignore harakat when reading "three times" etc.
     m = re.search(r"(\d+|one hundred|three|seven|ten|four|thirty-three)\s+times", tr, re.I)
     words = {"one hundred": 100, "three": 3, "seven": 7, "ten": 10, "four": 4, "thirty-three": 33}
     if m: v = m.group(1).lower(); return int(v) if v.isdigit() else words[v]
     if "مائة" in ar or "مئة" in ar: return 100
     if "ثلاثاً" in ar or "ثلاثا" in ar or "ثلاث مرات" in ar: return 3
-    if "سبع" in ar: return 7
+    if re.search(r"سبع(ا|اً)?\s*مرات|\(سبعا", ar): return 7
     return 1
 NARRATIVE = set("the you your said says whoever messenger prophet who will him his for planted paradise most beloved words excellent invocation deeds which endure accepted islam".split())
 key = lambda r: (int(re.match(r"\d+", r[1]).group()), r[1])

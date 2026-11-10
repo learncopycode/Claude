@@ -191,6 +191,7 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .ctext .arb { color: var(--strong); line-height: 1.95; }
 .ctext .tl { font-style: italic; color: var(--accent); line-height: 1.5; }
 .ctext .en { color: var(--text); line-height: 1.55; opacity: 0.85; }
+.ctext .arb, .ctext .tl, .ctext .en { white-space: pre-line; }
 .ctext .src { font-size: 11.5px; color: var(--faint); }
 .card.long .ctext { justify-content: flex-start; overflow-y: auto; touch-action: none; -webkit-mask-image: linear-gradient(transparent 0, #000 14px, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(transparent 0, #000 14px, #000 calc(100% - 26px), transparent); padding-bottom: 30px; }
 .longhint { display: none; text-align: center; font-size: 11.5px; color: var(--faint); padding: 0 0 4px; }
@@ -423,9 +424,14 @@ const NAMES_HADITH = { ref: "Sahih al-Bukhari 2736" };
 const quranAyahs = key => { const m = /^(\d+):(\d+)(?:-(\d+))?$/.exec(key); return QURAN_TEXT[m[1] - 1].slice(m[2] - 1, +(m[3] || m[2])); };
 const surahName = key => QURAN_META[+String(key).split(":")[0] - 1][1];
 const brief = (t, n = 5) => { const w = String(t || "").replace(/\s*\([^)]*\)\s*/g, " ").trim().split(/\s+/); return w.length > n ? w.slice(0, n).join(" ").replace(/[,.;:]$/, "") + "…" : w.join(" ").replace(/[.!]$/, ""); };
+// A surah recited from its start begins with the Basmalah (as in Hisn al-Muslim); its text is Al-Fatihah 1:1.
+const startsSurah = k => { const [s, a] = k.split(/[:-]/).map(Number); return a === 1 && s !== 1 && s !== 9; };
 function quranText(keys) {
-  const parts = keys.map(quranAyahs);
-  return { arabic: parts.map(v => v.map(x => x[0]).join(" ")).join("\n\n"), translit: keys.map(quranTl).join("\n\n"), meaning: parts.map(v => v.map(x => x[1]).join(" ")).join("\n\n") };
+  const B = QURAN_TEXT[0][0], parts = keys.map(quranAyahs);
+  const join = (k, txt, i) => startsSurah(k) ? `${B[i]}\n${txt}` : txt;
+  return { arabic: keys.map((k, j) => join(k, parts[j].map(x => x[0]).join(" "), 0)).join("\n\n"),
+    translit: keys.map(k => join(k, quranTl(k), 2)).join("\n\n"),
+    meaning: keys.map((k, j) => join(k, parts[j].map(x => x[1]).join(" "), 1)).join("\n\n") };
 }
 const quranTitle = keys => keys.length > 1 ? keys.map(surahName).join(", ") : `${surahName(keys[0])} ${keys[0]}`;
 const QULS = ["112:1-4", "113:1-5", "114:1-6"];
@@ -1188,6 +1194,14 @@ const tafsirCache = {};
 /* Al-Mukhtasar is built into the page. Ibn Kathir loads per surah: first the copy published with
    the page, then (if that can't be reached) the same data straight from spa5k/tafsir_api. */
 const TAFSIR_MX = /*TAFSIR_MX*/;
+// Ibn Kathir is built in too, gzipped per surah (base64), and unpacked only when a surah is opened.
+const TAFSIR_IK_GZ = /*TAFSIR_IK*/;
+async function unpackIK(s) {
+  const b64 = TAFSIR_IK_GZ[s]; if (!b64 || typeof DecompressionStream === "undefined") throw new Error("no built-in copy");
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const text = await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+  return JSON.parse(text);
+}
 const TAFSIR_RAW = { ik: "en-tafisr-ibn-kathir", mx: "en-tafsir-al-mukhtasar" };
 function packTafsir(ayahs) {
   const p = [], idx = new Map(), m = [];
@@ -1198,7 +1212,8 @@ const getJSON = url => fetch(url).then(r => { if (!r.ok) throw new Error(r.statu
 function loadTafsir(ed, s) {
   const key = ed + s;
   if (ed === "mx" && TAFSIR_MX[s]) return Promise.resolve(TAFSIR_MX[s]);
-  if (!tafsirCache[key]) tafsirCache[key] = getJSON(`tafsir/${ed}/${s}.json`)
+  if (!tafsirCache[key]) tafsirCache[key] = (ed === "ik" ? unpackIK(s) : Promise.reject())
+    .catch(() => getJSON(`tafsir/${ed}/${s}.json`))
     .catch(() => getJSON(new URL(`tafsir/${ed}/${s}.json`, location.href).href))
     .catch(() => getJSON(`https://raw.githubusercontent.com/spa5k/tafsir_api/main/tafsir/${TAFSIR_RAW[ed]}/${s}.json`).then(packTafsir))
     .catch(e => { delete tafsirCache[key]; throw e; });
