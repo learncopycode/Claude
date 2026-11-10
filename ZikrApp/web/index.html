@@ -206,7 +206,6 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .card .ctop { max-height: 70px; overflow: hidden; }
 .card.reading .ctop { max-height: 0; opacity: 0; padding-top: 0; }
 .card.reading .ctext { justify-content: flex-start; overflow-y: auto; padding-top: 18px; padding-bottom: 40px; -webkit-mask-image: linear-gradient(transparent 0, #000 16px, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(transparent 0, #000 16px, #000 calc(100% - 30px), transparent); }
-.card .ctext .arb, .card .ctext .tl, .card .ctext .en { transition: font-size 0.3s ease; }
 .counter .hint, .counter .dots, .counter .chead { transition: opacity 0.25s ease; }
 .counter.reading .hint, .counter.reading .dots { opacity: 0; }
 .counter.reading .chead { opacity: 0.35; pointer-events: none; }
@@ -1639,11 +1638,8 @@ function bindDeck() {
   function startReading() {
     if (!drag || drag.moved || ui.pending) return;
     const top = topCard(), box = top.querySelector(".ctext"); if (!box) return;
-    // Remember sizes, then show the text a little larger while reading.
-    const parts = [...box.querySelectorAll(".arb, .tl, .en")].map(el => [el, el.style.fontSize || getComputedStyle(el).fontSize]);
-    drag.reading = { box, lastY: drag.lastY, samples: [], parts, wasLong: top.classList.contains("long") };
+    drag.reading = { box, lastY: drag.lastY, samples: [], wasLong: top.classList.contains("long") };
     top.classList.add("reading"); $counter.classList.add("reading");
-    for (const [el, size] of parts) el.style.fontSize = (parseFloat(size) * (el.classList.contains("arb") ? 1.2 : 1.1)).toFixed(1) + "px";
     if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) {}
   }
   function glide(box, v) { // gentle momentum after letting go, in px per ms
@@ -1681,7 +1677,6 @@ function bindDeck() {
     if (!drag || animating) return; const d = drag; drag = null; clearTimeout(d.timer);
     if (d.reading) {
       const top = topCard(); top.classList.remove("reading"); $counter.classList.remove("reading"); top.style.transform = "";
-      for (const [el, size] of d.reading.parts) el.style.fontSize = size;
       if (!d.reading.wasLong) d.reading.box.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
