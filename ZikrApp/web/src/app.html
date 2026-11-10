@@ -70,7 +70,7 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 @property --a1 { syntax: "<color>"; inherits: true; initial-value: transparent; }
 @property --a2 { syntax: "<color>"; inherits: true; initial-value: transparent; }
 @property --a3 { syntax: "<color>"; inherits: true; initial-value: transparent; }
-.aurora { position: absolute; inset: 0; overflow: hidden; pointer-events: none; border-radius: inherit; transition: --a1 0.7s ease, --a2 0.7s ease, --a3 0.7s ease; }
+.aurora { position: absolute; inset: 0; overflow: hidden; pointer-events: none; border-radius: inherit; transition: --a1 0.7s ease, --a2 0.7s ease, --a3 0.7s ease, opacity 0.45s ease; }
 .aurora i { position: absolute; width: 90%; aspect-ratio: 1; border-radius: 50%; opacity: var(--aurora-op); transition: background 1.2s ease; }
 .aurora i:nth-child(1) { left: -30%; top: -30%; background: radial-gradient(circle, var(--a1) 0%, transparent 62%); animation: roam1 19s ease-in-out infinite alternate; }
 .aurora i:nth-child(2) { right: -35%; top: 15%; background: radial-gradient(circle, var(--a2) 0%, transparent 62%); animation: roam2 23s ease-in-out infinite alternate; }
@@ -199,6 +199,7 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 /* Hold-to-read: the card lifts slightly while its text is being scrolled. */
 /* Hold-to-read: the counter and hints step aside and the text fills the card. */
 .card.reading { box-shadow: var(--shadow), 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); }
+.card.reading > .aurora { opacity: 0; }
 .card .cband, .card .longhint, .card .ctop { transition: max-height 0.32s ease, opacity 0.25s ease, padding 0.32s ease, border-color 0.32s ease; }
 .card .cband { max-height: 220px; overflow: hidden; }
 .card .longhint { max-height: 30px; overflow: hidden; }
