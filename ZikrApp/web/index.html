@@ -196,8 +196,20 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .longhint { display: none; text-align: center; font-size: 11.5px; color: var(--faint); padding: 0 0 4px; }
 .card.long .longhint { display: block; }
 /* Hold-to-read: the card lifts slightly while its text is being scrolled. */
-.card.reading { box-shadow: var(--shadow), 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); transform: scale(0.99); transition: transform 0.2s ease, box-shadow 0.2s ease; }
-.card.reading .longhint { color: var(--accent); }
+/* Hold-to-read: the counter and hints step aside and the text fills the card. */
+.card.reading { box-shadow: var(--shadow), 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); }
+.card .cband, .card .longhint, .card .ctop { transition: max-height 0.32s ease, opacity 0.25s ease, padding 0.32s ease, border-color 0.32s ease; }
+.card .cband { max-height: 220px; overflow: hidden; }
+.card .longhint { max-height: 30px; overflow: hidden; }
+.card.reading .cband { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; border-color: transparent; }
+.card.reading .longhint { max-height: 0; opacity: 0; padding: 0; }
+.card .ctop { max-height: 70px; overflow: hidden; }
+.card.reading .ctop { max-height: 0; opacity: 0; padding-top: 0; }
+.card.reading .ctext { justify-content: flex-start; overflow-y: auto; padding-top: 18px; padding-bottom: 40px; -webkit-mask-image: linear-gradient(transparent 0, #000 16px, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(transparent 0, #000 16px, #000 calc(100% - 30px), transparent); }
+.card .ctext .arb, .card .ctext .tl, .card .ctext .en { transition: font-size 0.3s ease; }
+.counter .hint, .counter .dots, .counter .chead { transition: opacity 0.25s ease; }
+.counter.reading .hint, .counter.reading .dots { opacity: 0; }
+.counter.reading .chead { opacity: 0.35; pointer-events: none; }
 .cband { display: flex; align-items: flex-end; gap: 12px; padding: 14px 20px 18px; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--card) 55%, transparent); }
 .card.long .cband { cursor: grab; }
 .cband .cnt { font-family: var(--font-num); font-weight: 300; font-size: 64px; line-height: 0.95; font-variant-numeric: tabular-nums; color: var(--strong); }
@@ -1627,8 +1639,11 @@ function bindDeck() {
   function startReading() {
     if (!drag || drag.moved || ui.pending) return;
     const top = topCard(), box = top.querySelector(".ctext"); if (!box) return;
-    drag.reading = { box, lastY: drag.lastY, samples: [] };
-    top.classList.add("reading");
+    // Remember sizes, then show the text a little larger while reading.
+    const parts = [...box.querySelectorAll(".arb, .tl, .en")].map(el => [el, el.style.fontSize || getComputedStyle(el).fontSize]);
+    drag.reading = { box, lastY: drag.lastY, samples: [], parts, wasLong: top.classList.contains("long") };
+    top.classList.add("reading"); $counter.classList.add("reading");
+    for (const [el, size] of parts) el.style.fontSize = (parseFloat(size) * (el.classList.contains("arb") ? 1.2 : 1.1)).toFixed(1) + "px";
     if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) {}
   }
   function glide(box, v) { // gentle momentum after letting go, in px per ms
@@ -1665,8 +1680,9 @@ function bindDeck() {
   deck.onpointerup = deck.onpointercancel = e => {
     if (!drag || animating) return; const d = drag; drag = null; clearTimeout(d.timer);
     if (d.reading) {
-      const top = topCard(); top.classList.remove("reading"); top.style.transform = "";
-      const s = d.reading.samples; if (s.length > 1) glide(d.reading.box, (s[s.length - 1][0] - s[0][0]) / Math.max(1, s[s.length - 1][1] - s[0][1]));
+      const top = topCard(); top.classList.remove("reading"); $counter.classList.remove("reading"); top.style.transform = "";
+      for (const [el, size] of d.reading.parts) el.style.fontSize = size;
+      if (!d.reading.wasLong) d.reading.box.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
     if (!d.moved) {
