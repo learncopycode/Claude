@@ -1019,7 +1019,7 @@ const HOLD_MS = 320;
 function enterReading(top, host) {
   top.classList.add("reading"); host.classList.add("reading");
   if (!top.querySelector(".readback")) top.insertAdjacentHTML("beforeend", `<button class="readback" data-act="exitread" aria-label="Leave reading mode">${ICONS.back}<span>Back</span></button>
-    <button class="readnext" data-act="readnext" aria-label="${host === $reader ? "Next ayah" : "Count and go on"}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14l6-6 6 6"/></svg><span>${host === $reader ? "Next" : "Swipe up"}</span></button>`);
+    <button class="readnext" data-act="readnext" aria-label="${host === $reader ? "Next ayah" : "Count and go on"}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14l6-6 6 6"/></svg><span>${host === $reader ? "Next" : "Swipe"}</span></button>`);
   if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) {}
 }
 /* The "Swipe up" handle in reading mode: tap it or flick it up to count and move on, without going Back first. */
