@@ -30,3 +30,18 @@ from the summary, so they can be checked by hand.
 npm pack @kmaslesa/holy-quran-word-by-word-full-data && tar xzf kmaslesa-holy-quran-word-by-word-full-data-*.tgz -C wbw
 python3 build_quran.py qj/package/dist wbw/package/data.json quran.js
 ```
+
+## Tafsir (loaded on demand)
+
+The reader's tafsir view fetches `tafsir/{ik|mx}/{surah}.json` next to the page. These files are
+**not committed** (Tafsir Ibn Kathir's English edition is a copyrighted publication); rebuild them with:
+
+```bash
+for ed in en-tafisr-ibn-kathir en-tafsir-al-mukhtasar; do mkdir -p taf/$ed
+  for s in $(seq 1 114); do curl -sSf -o taf/$ed/$s.json \
+    https://raw.githubusercontent.com/spa5k/tafsir_api/main/tafsir/$ed/$s.json; done; done
+python3 build_tafsir.py taf ../tafsir
+```
+Source: spa5k/tafsir_api (data from Quran.com / Tarteel QUL). `ik` = Tafsir Ibn Kathir (abridged
+English), `mx` = Al-Mukhtasar (Tafsir Center for Quranic Studies). Ibn Kathir's repeated passages are
+stored once per surah (`p`) with a per-ayah index (`m`).

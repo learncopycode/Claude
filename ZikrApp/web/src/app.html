@@ -258,6 +258,21 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .lastread svg { width: 11px; height: 11px; }
 .tlbtn { font-weight: 700; font-size: 14px; color: var(--faint); }
 .tlbtn.on { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+/* Tafsir view: the ayah fades out and the commentary fills the card. */
+.card .ctop, .card .ctext, .card .cband { transition: opacity 0.3s ease; }
+.card.tafsir .ctop, .card.tafsir .ctext, .card.tafsir .cband, .card.tafsir .longhint { opacity: 0; pointer-events: none; }
+.reader.tafsir .hint, .reader.tafsir .chead { opacity: 0; pointer-events: none; }
+.reader.tafsir .deck { touch-action: auto; }
+.card > .tafsir-view { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; border-radius: inherit; background: var(--card); animation: tfIn 0.35s ease; }
+@keyframes tfIn { from { opacity: 0; transform: translateY(12px); } }
+.tf-head { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px; border-bottom: 1px solid var(--line); }
+.tf-seg { flex: 1; }
+.tf-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; padding: 16px 20px 40px; line-height: 1.7; font-size: 15.5px; }
+.tf-body p { margin: 0 0 14px; }
+.tf-body .tf-ar { font-size: 22px; line-height: 2; text-align: right; color: var(--strong); }
+.tf-body h4 { margin: 18px 0 8px; font-family: var(--font-display); font-weight: 400; font-size: 19px; color: var(--accent); }
+.tf-range { color: var(--accent); font-weight: 600; font-size: 13.5px; }
+.tf-src { font-size: 12px; color: var(--faint); border-top: 1px solid var(--line); padding-top: 12px; }
 /* ---------- Overlays ---------- */
 .overlay { position: fixed; inset: 0; z-index: 50; overflow-y: auto; background: var(--bg); animation: ovIn 0.5s cubic-bezier(.2, .8, .2, 1); }
 .overlay.out { animation: ovOut 0.28s ease forwards; }
@@ -998,6 +1013,7 @@ function ayahCardHTML(p, role) {
   const bism = p.a === 1 && p.s !== 1 && p.s !== 9 ? `<div class="bism ar">${BISMILLAH}</div>` : "";
   return `<div class="card ${role}" style="${auroraVars(h)}">${aurora()}
     <div class="ctop"><span class="lbl">${esc(m[1])} · ${p.s}:${p.a}${role === "top" && ui.resumed ? ` <span class="lastread">${ICONS.bookmark} Where you left off</span>` : ""}</span>
+      <button class="srcchip" data-act="tafsir" aria-label="Tafsir of this ayah">${ICONS.book}Tafsir</button>
       <button class="srcchip bm ${isBookmarked(p) ? "on" : ""}" data-act="bm" data-s="${p.s}" data-a="${p.a}" aria-label="${isBookmarked(p) ? "Remove bookmark" : "Bookmark this ayah"}">${ICONS.bookmark}</button></div>
     <div class="ctext">${bism}<div class="arb ar" style="font-size:${size}px">${ar} <span class="ayno">﴿${arNum(p.a)}﴾</span></div>
       ${S.tlQuran ? `<div class="tl" style="font-size:15.5px">${esc(tl)}</div>` : ""}<div class="en" style="font-size:15px">${esc(en)}</div></div>
@@ -1016,7 +1032,7 @@ function drawReader() {
       <span class="icon-btn quran-pct" title="Through the Quran">${Math.floor(ayahIndex(p) / 6236 * 100)}%</span>
     </div>
     <div class="deck" id="rdeck">${next ? ayahCardHTML(next, "back") : ""}${ayahCardHTML(p, "top")}</div>
-    <div class="hint">Swipe up for the next ayah · down to go back</div>`;
+    <div class="hint">Swipe for the next ayah · triple-tap for tafsir</div>`;
   rSetBack(0); bindReader();
   $reader.querySelectorAll(".card").forEach(fitCard);
 }
@@ -1042,8 +1058,9 @@ function bindReader() {
     top.classList.add("reading"); $reader.classList.add("reading");
     if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) {}
   }
+  let taps = [];
   deck.onpointerdown = e => {
-    if (rAnimating || e.target.closest("[data-act]")) return;
+    if (rAnimating || e.target.closest("[data-act]") || $reader.classList.contains("tafsir")) return;
     drag = { y: e.clientY, lastY: e.clientY, dy: 0, moved: false, reading: null, samples: [[e.clientY, performance.now()]] };
     drag.timer = setTimeout(startReading, HOLD_MS);
     deck.setPointerCapture(e.pointerId); topCard().style.transition = "none";
@@ -1063,7 +1080,11 @@ function bindReader() {
     if (!drag || rAnimating) return; const d = drag; drag = null; clearTimeout(d.timer);
     const top = topCard();
     if (d.reading) { top.classList.remove("reading"); $reader.classList.remove("reading"); if (!d.reading.wasLong) d.reading.box.scrollTo({ top: 0, behavior: "smooth" }); return; }
-    if (!d.moved) return;
+    if (!d.moved) { // three quick taps open the tafsir
+      const now = performance.now(); taps = taps.filter(t => now - t < 650); taps.push(now);
+      if (taps.length >= 3) { taps = []; openTafsir(); }
+      return;
+    }
     const s0 = d.samples[0], s1 = d.samples[d.samples.length - 1], v = (s1[0] - s0[0]) / Math.max(1, s1[1] - s0[1]), h = deck.clientHeight;
     if ((d.dy < -90 || v < -0.7) && stepAyah(quranPos(), 1)) {
       rAnimating = true; const dur = Math.max(150, 280 - Math.abs(v) * 60);
@@ -1076,6 +1097,58 @@ function bindReader() {
       t.style.transition = "transform 0.55s cubic-bezier(.2,1,.3,1)"; t.style.transform = "none"; setTimeout(() => { rAnimating = false; }, 550);
     } else { top.style.transition = "transform 0.5s cubic-bezier(.2,1.4,.4,1)"; top.style.transform = "none"; rSetBack(0, 450); }
   };
+}
+
+/* ---------- Tafsir: triple-tap an ayah (or tap Tafsir) ---------- */
+const TAFSIRS = {
+  ik: { name: "Ibn Kathir", full: "Tafsir Ibn Kathir (abridged English)", link: p => `https://quran.com/${p.s}:${p.a}/tafsirs/en-tafisr-ibn-kathir` },
+  mx: { name: "Al-Mukhtasar", full: "Al-Mukhtasar, Tafsir Center for Quranic Studies", link: () => "https://qul.tarteel.ai/resources/tafsir/266" },
+};
+const tafsirCache = {};
+function loadTafsir(ed, s) {
+  const key = ed + s;
+  if (!tafsirCache[key]) tafsirCache[key] = fetch(`tafsir/${ed}/${s}.json`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .catch(e => { delete tafsirCache[key]; throw e; });
+  return tafsirCache[key];
+}
+function tafsirParagraphs(text) {
+  return text.split(/\n{2,}/).map(par => {
+    const t = par.trim(); if (!t) return "";
+    const arabic = (t.match(/[؀-ۿ]/g) || []).length;
+    if (arabic > t.replace(/\s/g, "").length * 0.5) return `<p class="ar tf-ar">${esc(t)}</p>`;
+    // Short lines without closing punctuation are section headings in the tafsir.
+    if (t.length < 80 && !/[.?!:;,)"'”’]$/.test(t)) return `<h4>${esc(t)}</h4>`;
+    return `<p>${esc(t).replace(/\n/g, "<br>")}</p>`;
+  }).join("");
+}
+async function openTafsir(ed) {
+  const top = $reader?.querySelector(".card.top"); if (!top) return;
+  ed = ed || S.tafsirEd || "ik"; S.tafsirEd = ed; save();
+  const p = quranPos(), meta = TAFSIRS[ed];
+  $reader.classList.add("tafsir"); top.classList.add("tafsir");
+  let view = top.querySelector(".tafsir-view");
+  if (!view) { top.insertAdjacentHTML("beforeend", `<div class="tafsir-view" role="region" aria-label="Tafsir"></div>`); view = top.querySelector(".tafsir-view"); }
+  view.innerHTML = `<div class="tf-head"><button class="icon-btn" data-act="closetafsir" aria-label="Back to the ayah">${ICONS.back}</button>
+      <div class="seg tf-seg">${Object.entries(TAFSIRS).map(([k, t]) => `<button data-act="tafed" data-ed="${k}" aria-pressed="${k === ed}">${t.name}</button>`).join("")}</div></div>
+    <div class="tf-body"><span class="eyebrow">${esc(QURAN_META[p.s - 1][1])} ${p.s}:${p.a}</span><p class="muted">Loading tafsir…</p></div>`;
+  const body = view.querySelector(".tf-body");
+  try {
+    const d = await loadTafsir(ed, p.s), idx = d.m[p.a - 1];
+    let from = p.a, to = p.a; while (from > 1 && d.m[from - 2] === idx) from--; while (to < d.m.length && d.m[to] === idx) to++;
+    if (!view.isConnected) return;
+    body.innerHTML = `<span class="eyebrow">${esc(QURAN_META[p.s - 1][1])} ${p.s}:${p.a}</span>
+      ${from !== to ? `<p class="tf-range">Commentary on ayahs ${from}–${to}</p>` : ""}
+      ${tafsirParagraphs(d.p[idx])}
+      <p class="tf-src">${esc(meta.full)} · <a href="${meta.link(p)}" target="_blank" rel="noopener">source ↗</a></p>`;
+    body.scrollTop = 0;
+  } catch (e) {
+    body.innerHTML = `<p class="muted">Couldn't load the tafsir. Check your connection and try again.</p><button class="btn small" data-act="tafed" data-ed="${ed}">Try again</button>`;
+  }
+}
+function closeTafsir() {
+  if (!$reader) return;
+  const top = $reader.querySelector(".card.top"); $reader.classList.remove("tafsir"); top?.classList.remove("tafsir");
+  const view = top?.querySelector(".tafsir-view"); if (view) setTimeout(() => { if (!top.classList.contains("tafsir")) view.remove(); }, 300);
 }
 function openSurahs() {
   const p = quranPos();
@@ -1232,6 +1305,9 @@ document.addEventListener("click", e => {
     case "surahs": openSurahs(); break;
     case "closesurahs": closeSurahs(); break;
     case "picksurah": closeSurahs(); openReader({ s: +b.dataset.s, a: 1 }); break;
+    case "tafsir": openTafsir(); break;
+    case "closetafsir": closeTafsir(); break;
+    case "tafed": openTafsir(b.dataset.ed); break;
     case "openpos": closeSurahs(); openReader({ s: +b.dataset.s, a: +b.dataset.a }); break;
     case "bm": { const on = toggleBookmark({ s: +b.dataset.s, a: +b.dataset.a }); b.classList.toggle("on", on); toast(on ? "Bookmarked" : "Bookmark removed", `${QURAN_META[+b.dataset.s - 1][1]} ${b.dataset.s}:${b.dataset.a}`, (+b.dataset.s * 37) % 360, 1400); break; }
     case "tlquran": S.tlQuran = !S.tlQuran; save(); drawReader(); toast(S.tlQuran ? "Transliteration on" : "Transliteration off", "Quran reader", 200, 1200); break;
@@ -1255,8 +1331,8 @@ document.addEventListener("click", e => {
   }
 });
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape") { const o = [...document.querySelectorAll(".overlay")].pop(); if (o) return closeOverlay(o); if ($reader) return closeReader(); if ($counter) closeCounter(); return; }
-  if ($reader && !e.target.closest("input, textarea") && !rAnimating) {
+  if (e.key === "Escape") { const o = [...document.querySelectorAll(".overlay")].pop(); if (o) return closeOverlay(o); if ($reader?.classList.contains("tafsir")) return closeTafsir(); if ($reader) return closeReader(); if ($counter) closeCounter(); return; }
+  if ($reader && !e.target.closest("input, textarea") && !rAnimating && !$reader.classList.contains("tafsir")) {
     if (e.key === "ArrowDown" || e.key === " ") { e.preventDefault(); readerGo(1); drawReader(); }
     if (e.key === "ArrowUp") { e.preventDefault(); readerGo(-1); drawReader(); }
     return;
