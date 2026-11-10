@@ -1185,9 +1185,22 @@ const TAFSIRS = {
   mx: { name: "Al-Mukhtasar", full: "Al-Mukhtasar, Tafsir Center for Quranic Studies", link: () => "https://qul.tarteel.ai/resources/tafsir/266" },
 };
 const tafsirCache = {};
+/* Al-Mukhtasar is built into the page. Ibn Kathir loads per surah: first the copy published with
+   the page, then (if that can't be reached) the same data straight from spa5k/tafsir_api. */
+const TAFSIR_MX = /*TAFSIR_MX*/;
+const TAFSIR_RAW = { ik: "en-tafisr-ibn-kathir", mx: "en-tafsir-al-mukhtasar" };
+function packTafsir(ayahs) {
+  const p = [], idx = new Map(), m = [];
+  for (const a of ayahs.slice().sort((x, y) => x.ayah - y.ayah)) { const t = String(a.text || "").trim(); if (!idx.has(t)) { idx.set(t, p.length); p.push(t); } m.push(idx.get(t)); }
+  return { p, m };
+}
+const getJSON = url => fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 function loadTafsir(ed, s) {
   const key = ed + s;
-  if (!tafsirCache[key]) tafsirCache[key] = fetch(`tafsir/${ed}/${s}.json`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  if (ed === "mx" && TAFSIR_MX[s]) return Promise.resolve(TAFSIR_MX[s]);
+  if (!tafsirCache[key]) tafsirCache[key] = getJSON(`tafsir/${ed}/${s}.json`)
+    .catch(() => getJSON(new URL(`tafsir/${ed}/${s}.json`, location.href).href))
+    .catch(() => getJSON(`https://raw.githubusercontent.com/spa5k/tafsir_api/main/tafsir/${TAFSIR_RAW[ed]}/${s}.json`).then(packTafsir))
     .catch(e => { delete tafsirCache[key]; throw e; });
   return tafsirCache[key];
 }
@@ -1219,10 +1232,11 @@ async function openTafsir(ed) {
     body.innerHTML = `<span class="eyebrow">${esc(QURAN_META[p.s - 1][1])} ${p.s}:${p.a}</span>
       ${from !== to ? `<p class="tf-range">Commentary on ayahs ${from}–${to}</p>` : ""}
       ${tafsirParagraphs(d.p[idx])}
-      <p class="tf-src">${esc(meta.full)} · <a href="${meta.link(p)}" target="_blank" rel="noopener">source ↗</a></p>`;
+      <p class="tf-src">${esc(meta.full)} · <a href="${meta.link(p)}" target="_blank" rel="noopener">source ↗</a></p>
+      <p class="tf-src">Nouman Ali Khan's talks are video only: <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(`Nouman Ali Khan ${QURAN_META[p.s - 1][1]} ayah ${p.a}`)}" target="_blank" rel="noopener">find them on YouTube ↗</a> · <a href="https://bayyinah.tv" target="_blank" rel="noopener">Bayyinah TV ↗</a></p>`;
     body.scrollTop = 0;
   } catch (e) {
-    body.innerHTML = `<p class="muted">Couldn't load the tafsir. Check your connection and try again.</p><button class="btn small" data-act="tafed" data-ed="${ed}">Try again</button>`;
+    body.innerHTML = `<p class="muted">Couldn't load ${esc(meta.full)} right now.</p><div class="btn-row" style="justify-content:flex-start"><button class="btn small" data-act="tafed" data-ed="${ed}">Try again</button>${ed !== "mx" ? `<button class="btn ghost small" data-act="tafed" data-ed="mx">Read Al-Mukhtasar</button>` : ""}</div>`;
   }
 }
 function closeTafsir() {
