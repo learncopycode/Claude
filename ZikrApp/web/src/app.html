@@ -251,6 +251,13 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .quran-card { width: 100%; box-sizing: border-box; }
 .quran-card > *:not(.aurora) { position: relative; }
 .quran-card .qmeta { font-size: 13px; color: var(--muted); }
+.reader .bm { color: var(--faint); border-color: var(--line); padding: 7px 10px; }
+.reader .bm svg { width: 16px; height: 16px; }
+.reader .bm.on { color: var(--accent); border-color: var(--accent); }
+.lastread { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding: 2px 8px; border-radius: 99px; background: var(--accent); color: var(--on-accent); font-size: 10px; letter-spacing: 0.06em; }
+.lastread svg { width: 11px; height: 11px; }
+.tlbtn { font-weight: 700; font-size: 14px; color: var(--faint); }
+.tlbtn.on { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
 /* ---------- Overlays ---------- */
 .overlay { position: fixed; inset: 0; z-index: 50; overflow-y: auto; background: var(--bg); animation: ovIn 0.5s cubic-bezier(.2, .8, .2, 1); }
 .overlay.out { animation: ovOut 0.28s ease forwards; }
@@ -378,10 +385,16 @@ const BY_ID = Object.fromEntries(ALL.map(d => [d.id, d]));
 /* Authentic texts pulled from the sources (see sources.js). */
 function verseKey(ref) { const m = /(\d+):(\d+)(?:[–-](\d+))?/.exec(ref || ""); return m ? `${m[1]}:${m[2]}` + (m[3] ? `-${m[3]}` : "") : null; }
 const verseSrc = ref => QURAN_SRC[verseKey(ref)] || null;
+/* Quran transliteration comes from Quran.com (standard scheme: dh, th, ʿ, ā ī ū). */
+function quranTl(key) {
+  const m = /^(\d+):(\d+)(?:-(\d+))?$/.exec(key || ""); if (!m) return "";
+  const s = +m[1], a = +m[2], b = +(m[3] || m[2]);
+  return QURAN_TEXT[s - 1].slice(a - 1, b).map(v => v[2]).join(" ");
+}
 const hadithSrc = ref => (ref && HADITH_SRC[ref]) || null;
 // Whole surahs and Ayat al-Kursi in the library use the authentic Uthmani text and translation.
 for (const [id, key] of [["quran-2:255", "2:255"], ["quran-112", "112:1-4"], ["quran-113", "113:1-5"], ["quran-114", "114:1-6"]]) {
-  const d = BY_ID[id], q = QURAN_SRC[key]; if (d && q) Object.assign(d, { arabic: q.ar, meaning: q.en, translit: q.tl });
+  const d = BY_ID[id], q = QURAN_SRC[key]; if (d && q) Object.assign(d, { arabic: q.ar, meaning: q.en, translit: quranTl(key) });
 }
 const GROUPS = [
   { id: "dhikrs", title: "Dhikrs", note: "Tasbih, istighfar and salawat", cats: [["tasbih", "Tasbih & Dhikr"], ["forgiveness", "Forgiveness"], ["salawat", "Salawat"]], icon: "beads" },
@@ -403,6 +416,7 @@ const ICONS = {
   soundOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 10v4h4l5 4V6L8 10zM17 9l5 6M22 9l-5 6"/></svg>',
   more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/></svg>',
   search: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>',
+  bookmark: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
   book: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5.5C6.5 4 9 4 12 5.5V20c-3-1.5-5.5-1.5-8 0zM12 5.5C15 4 17.5 4 20 5.5V20c-2.5-1.5-5-1.5-8 0z"/></svg>',
 };
 
@@ -526,7 +540,7 @@ const reflectArt = r => artSVG(r.art, reflectColor(r), r.nameText);
 const _reflection = reflection;
 reflection = function (n) {
   const r = _reflection(n), q = verseSrc(r.ref);
-  if (q) Object.assign(r, { ar: q.ar, en: q.en, tl: q.tl, ref: q.ref, verified: true });
+  if (q) Object.assign(r, { ar: q.ar, en: q.en, tl: quranTl(verseKey(r.ref)), ref: q.ref, verified: true });
   const h = hadithSrc(r.topicHadith?.ref);
   if (h) r.topicHadith = { ...r.topicHadith, ...h, text: h.en, verified: true };
   return r;
@@ -775,7 +789,7 @@ function cardHTML(it, role, preview = 0, huePreview = preview) {
     <div class="ctop"><span class="lbl">${esc(it.title)}</span>${src ? `<button class="srcchip" data-act="source" data-lib="${it.libraryID}">${ICONS.book}${src.kind}</button>` : ""}</div>
     <div class="ctext">
       ${it.arabic ? `<div class="arb ar" style="font-size:${arSize}px">${esc(it.arabic)}</div>` : `<div class="arb display" style="font-size:36px">${esc(it.title)}</div>`}
-      ${it.translit ? `<div class="tl" style="font-size:16px">${esc(it.translit)}</div>` : ""}
+      ${it.translit && S.tlZikr !== false ? `<div class="tl" style="font-size:16px">${esc(it.translit)}</div>` : ""}
       ${it.translation ? `<div class="en" style="font-size:15px">${esc(it.translation)}</div>` : ""}
       ${it.source ? `<div class="src">${esc(it.source)}</div>` : ""}
     </div>
@@ -805,7 +819,7 @@ function drawCounter() {
         <button data-act="mode" data-mode="feed" aria-pressed="${S.mode === "feed"}">Zikr feed</button><button data-act="mode" data-mode="single" aria-pressed="${S.mode === "single"}">Single zikr</button></div></div>
       <button class="icon-btn" data-act="sound" aria-label="${S.sound ? "Sound on" : "Sound off"}">${S.sound ? ICONS.soundOn : ICONS.soundOff}</button>
       <button class="icon-btn" data-act="menu" aria-label="More">${ICONS.more}</button>
-      ${menuOpen ? `<div class="menu"><button data-act="undo">Undo last count</button><button data-act="target">Change target (now ${it.target})</button><button data-act="resetround">Reset current round</button><button data-act="openrefl">Open Reflections</button><button data-act="delete" style="color:#d9796b">Remove from My Zikr</button></div>` : ""}
+      ${menuOpen ? `<div class="menu"><button data-act="undo">Undo last count</button><button data-act="target">Change target (now ${it.target})</button><button data-act="resetround">Reset current round</button><button data-act="tlzikr">${S.tlZikr === false ? "Show" : "Hide"} transliteration</button><button data-act="openrefl">Open Reflections</button><button data-act="delete" style="color:#d9796b">Remove from My Zikr</button></div>` : ""}
     </div>
     <div class="deck" id="deck">${cardHTML(ui.pending ? it : nextItem(), "back", !ui.pending && S.mode === "single" ? 1 : 0, ui.pending ? 0 : 1)}${ui.pending ? reflectCardHTML(ui.pending) : cardHTML(it, "top")}
       ${S.mode === "feed" && its.length > 1 && !ui.pending ? `<div class="dots">${its.map((x, i) => `<i class="${i === curIndex() ? "on" : ""}"></i>`).join("")}</div>` : ""}</div>
@@ -958,7 +972,16 @@ function stepAyah(p, dir) {
   else if (a > QURAN_META[s - 1][3]) { if (s === 114) return null; s++; a = 1; }
   return { s, a };
 }
+const bookmarks = () => S.quranBookmarks || [];
+const isBookmarked = p => bookmarks().some(b => b.s === p.s && b.a === p.a);
+function toggleBookmark(p) {
+  if (isBookmarked(p)) S.quranBookmarks = bookmarks().filter(b => !(b.s === p.s && b.a === p.a));
+  else S.quranBookmarks = [{ s: p.s, a: p.a, date: new Date().toISOString() }, ...bookmarks()];
+  save(); return isBookmarked(p);
+}
 function openReader(p) {
+  // Opening without a destination resumes the last ayah read, marked "Where you left off".
+  ui.resumed = !p && !!S.quranPos;
   S.quranPos = p || quranPos(); save();
   if (!$reader) { $reader = document.createElement("section"); $reader.className = "counter reader"; $reader.setAttribute("aria-label", "Quran reader"); $layer.appendChild($reader); }
   drawReader(); keepAwake(true);
@@ -974,9 +997,10 @@ function ayahCardHTML(p, role) {
   const h = (p.s * 37 + p.a * 3) % 360;
   const bism = p.a === 1 && p.s !== 1 && p.s !== 9 ? `<div class="bism ar">${BISMILLAH}</div>` : "";
   return `<div class="card ${role}" style="${auroraVars(h)}">${aurora()}
-    <div class="ctop"><span class="lbl">${esc(m[1])} · ${p.s}:${p.a}</span><span class="srcchip ar" style="font-size:15px">${esc(m[0])}</span></div>
+    <div class="ctop"><span class="lbl">${esc(m[1])} · ${p.s}:${p.a}${role === "top" && ui.resumed ? ` <span class="lastread">${ICONS.bookmark} Where you left off</span>` : ""}</span>
+      <button class="srcchip bm ${isBookmarked(p) ? "on" : ""}" data-act="bm" data-s="${p.s}" data-a="${p.a}" aria-label="${isBookmarked(p) ? "Remove bookmark" : "Bookmark this ayah"}">${ICONS.bookmark}</button></div>
     <div class="ctext">${bism}<div class="arb ar" style="font-size:${size}px">${ar} <span class="ayno">﴿${arNum(p.a)}﴾</span></div>
-      <div class="tl" style="font-size:15.5px">${esc(tl)}</div><div class="en" style="font-size:15px">${esc(en)}</div></div>
+      ${S.tlQuran ? `<div class="tl" style="font-size:15.5px">${esc(tl)}</div>` : ""}<div class="en" style="font-size:15px">${esc(en)}</div></div>
     <div class="longhint">Hold to read and scroll · swipe for the next ayah</div>
     <div class="cband"><span class="meta"><b>Ayah ${p.a} of ${m[3]}</b><span>${esc(m[2])} · ${m[4] === "meccan" ? "Makki" : "Madani"}</span></span>
       <span class="today"><b>${fmt(ayahsReadToday())}</b>read today</span><span class="pbar"><i style="width:${(p.a / m[3] * 100).toFixed(1)}%"></i></span></div></div>`;
@@ -988,6 +1012,7 @@ function drawReader() {
     <div class="chead">
       <button class="icon-btn" data-act="closereader" aria-label="Close">${ICONS.back}</button>
       <div class="grow"><button class="surah-pick" data-act="surahs">${esc(QURAN_META[p.s - 1][1])} <span class="muted">· ${p.s}</span> ▾</button></div>
+      <button class="icon-btn tlbtn ${S.tlQuran ? "on" : ""}" data-act="tlquran" aria-label="${S.tlQuran ? "Hide" : "Show"} transliteration" title="Transliteration">Aa</button>
       <span class="icon-btn quran-pct" title="Through the Quran">${Math.floor(ayahIndex(p) / 6236 * 100)}%</span>
     </div>
     <div class="deck" id="rdeck">${next ? ayahCardHTML(next, "back") : ""}${ayahCardHTML(p, "top")}</div>
@@ -1044,9 +1069,9 @@ function bindReader() {
       rAnimating = true; const dur = Math.max(150, 280 - Math.abs(v) * 60);
       top.style.transition = `transform ${dur}ms cubic-bezier(.35,0,.75,.4), opacity ${dur}ms`;
       top.style.transform = `translateY(${-h * 1.15}px) rotateX(-12deg) scale(.94)`; top.style.opacity = "0.5"; rSetBack(1, dur);
-      setTimeout(() => { readerGo(1); rAnimating = false; drawReader(); }, dur);
+      setTimeout(() => { ui.resumed = false; readerGo(1); rAnimating = false; drawReader(); }, dur);
     } else if ((d.dy > 110 || v > 0.9) && stepAyah(quranPos(), -1)) {
-      rAnimating = true; readerGo(-1); drawReader();
+      rAnimating = true; ui.resumed = false; readerGo(-1); drawReader();
       const t = topCard(); t.style.transition = "none"; t.style.transform = `translateY(${-h}px)`; void t.offsetWidth;
       t.style.transition = "transform 0.55s cubic-bezier(.2,1,.3,1)"; t.style.transform = "none"; setTimeout(() => { rAnimating = false; }, 550);
     } else { top.style.transition = "transform 0.5s cubic-bezier(.2,1.4,.4,1)"; top.style.transform = "none"; rSetBack(0, 450); }
@@ -1057,6 +1082,11 @@ function openSurahs() {
   $layer.insertAdjacentHTML("beforeend", `<div class="scrim" data-act="closesurahs" style="z-index:40"></div><div class="sheet" style="z-index:41" role="dialog" aria-label="Surahs"><div class="in">
     <div class="top"><span></span><b>The Quran</b><button class="textbtn" data-act="closesurahs">Done</button></div>
     <label class="field">${ICONS.search}<input id="surah-q" autocomplete="off" placeholder="Surah name or number"></label>
+    <div class="list" style="margin-top:10px">
+      <button class="row" data-act="openpos" data-s="${p.s}" data-a="${p.a}" style="text-align:left;border-color:var(--accent)"><span class="rt"><b>${ICONS.bookmark} Where you left off</b><small>${esc(QURAN_META[p.s - 1][1])} ${p.s}:${p.a}</small></span></button>
+      ${bookmarks().map(b => `<button class="row" data-act="openpos" data-s="${b.s}" data-a="${b.a}" style="text-align:left"><span class="rt"><b>${esc(QURAN_META[b.s - 1][1])} ${b.s}:${b.a}</b><small>Bookmarked ${new Date(b.date).toLocaleDateString()}</small></span><span class="rar ar" style="font-size:17px">${esc(QURAN_TEXT[b.s - 1][b.a - 1][0])}</span></button>`).join("")}
+    </div>
+    <div class="eyebrow" style="margin-top:14px">All surahs</div>
     <div class="list" id="surah-list" style="margin-top:8px"></div></div></div>`);
   const draw = q => {
     const key = searchKey(q || ""), num = parseInt(q, 10);
@@ -1070,7 +1100,7 @@ function quranCardHTML() {
   const started = !!S.quranPos, p = quranPos(), m = QURAN_META[p.s - 1], pct = ayahIndex(p) / 6236 * 100;
   return `<button class="today-z quran-card" data-act="reader" style="${auroraVars((p.s * 37 + p.a * 3) % 360)};text-align:left">${aurora()}
     <span class="row1"><span><span class="eyebrow">The Quran</span><br><b>${started ? "Continue reading" : "Read ayah by ayah"}</b></span><span class="ar" style="font-size:22px">${esc(m[0])}</span></span>
-    <span class="qmeta">${esc(m[1])} · ayah ${p.a} of ${m[3]}${ayahsReadToday() ? ` · ${ayahsReadToday()} read today` : ""}</span>
+    <span class="qmeta">${started ? ICONS.bookmark + " " : ""}${esc(m[1])} · ayah ${p.a} of ${m[3]}${ayahsReadToday() ? ` · ${ayahsReadToday()} read today` : ""}${bookmarks().length ? ` · ${bookmarks().length} bookmark${bookmarks().length === 1 ? "" : "s"}` : ""}</span>
     <span class="prog"><i style="width:${pct.toFixed(2)}%"></i></span></button>`;
 }
 
@@ -1202,6 +1232,10 @@ document.addEventListener("click", e => {
     case "surahs": openSurahs(); break;
     case "closesurahs": closeSurahs(); break;
     case "picksurah": closeSurahs(); openReader({ s: +b.dataset.s, a: 1 }); break;
+    case "openpos": closeSurahs(); openReader({ s: +b.dataset.s, a: +b.dataset.a }); break;
+    case "bm": { const on = toggleBookmark({ s: +b.dataset.s, a: +b.dataset.a }); b.classList.toggle("on", on); toast(on ? "Bookmarked" : "Bookmark removed", `${QURAN_META[+b.dataset.s - 1][1]} ${b.dataset.s}:${b.dataset.a}`, (+b.dataset.s * 37) % 360, 1400); break; }
+    case "tlquran": S.tlQuran = !S.tlQuran; save(); drawReader(); toast(S.tlQuran ? "Transliteration on" : "Transliteration off", "Quran reader", 200, 1200); break;
+    case "tlzikr": menuOpen = false; S.tlZikr = S.tlZikr === false; save(); drawCounter(); break;
     case "sound": S.sound = !S.sound; save(); if (S.sound) tick(false); drawCounter(); break;
     case "menu": menuOpen = !menuOpen; drawCounter(); break;
     case "mode": S.mode = b.dataset.mode; save(); drawCounter(); break;
