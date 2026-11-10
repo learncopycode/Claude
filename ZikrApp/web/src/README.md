@@ -1,8 +1,13 @@
 # Web build sources
 
 - `app.html` – the app shell, styles and logic
-- `data.json` – the dua library and the 99 Names
-- `reflections.js`, `more_topics.js` – reflection topics; `hadith.js` – which hadith backs each dhikr
+- `hisn.json` – **generated** by `build_hisn.py`: Hisn al-Muslim (Fortress of the Muslim) from the sunnah.com
+  data, Arabic / transliteration / translation / reference exactly as published
+- `names.json` – **generated** by `build_names.py`: the 99 Names as listed in Jami` at-Tirmidhi 3507 (sunnah.com)
+- `reflections.js`, `more_topics.js` – reflection topics (title, verse reference, hadith reference, art).
+  Only the references are used: the verse, hadith and tafsir texts are pulled, and the reflection
+  paragraph is written live by Claude (artifact `sample` capability) from those pulled texts only.
+  Without it, the page shows the Al-Mukhtasar tafsir of the verse instead.
 - `art.js` – animated illustrations (shapes only, no faces)
 - `sources.js` – **generated**: authentic Quran and hadith text for every reference
 
@@ -17,6 +22,8 @@
 npm pack quran-json@3.1.2 && tar xzf quran-json-3.1.2.tgz -C qj
 npm pack hadith && tar xzf hadith-*.tgz -C hadith
 python3 pull_sources.py . qj/package/dist hadith/package/data/hadith.db sources.js
+python3 build_hisn.py hadith/package/data/hadith.db hisn.json
+python3 build_names.py hadith/package/data/hadith.db names.json
 python3 build.py   # writes the single-page app
 ```
 The script keeps each cited hadith number and prints any whose wording differs a lot

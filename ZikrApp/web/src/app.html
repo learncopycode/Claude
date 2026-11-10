@@ -331,6 +331,8 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .res b, .res small, .res .ar { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .res .ar { color: var(--accent); font-size: 19px; line-height: 1.8; }
 .res small { color: var(--muted); font-size: 12px; }
+.shimmer { display: block; height: 10px; border-radius: 6px; margin-top: 6px; background: linear-gradient(90deg, var(--line), var(--accent), var(--line)); background-size: 200% 100%; animation: shim 1.4s linear infinite; opacity: .5; }
+@keyframes shim { to { background-position: -200% 0; } }
 .virtue { margin-top: 10px; padding: 14px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; line-height: 1.6; }
 .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .presets button { padding: 8px 14px; border-radius: 99px; background: var(--card); border: 1px solid var(--line); font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -389,14 +391,11 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 const DATA = /*DATA*/;
 /*REFLECTIONS*/
 /*MORE*/
-/*HADITH*/
 /*SOURCES*/
 /*QURAN*/
 /*ART*/
 
 /* ================= Library ================= */
-const LIB = DATA.duas, NAMES = DATA.names, ALL = LIB.concat(NAMES);
-const BY_ID = Object.fromEntries(ALL.map(d => [d.id, d]));
 /* Authentic texts pulled from the sources (see sources.js). */
 function verseKey(ref) { const m = /(\d+):(\d+)(?:[–-](\d+))?/.exec(ref || ""); return m ? `${m[1]}:${m[2]}` + (m[3] ? `-${m[3]}` : "") : null; }
 const verseSrc = ref => QURAN_SRC[verseKey(ref)] || null;
@@ -407,15 +406,69 @@ function quranTl(key) {
   return QURAN_TEXT[s - 1].slice(a - 1, b).map(v => v[2]).join(" ");
 }
 const hadithSrc = ref => (ref && HADITH_SRC[ref]) || null;
-// Whole surahs and Ayat al-Kursi in the library use the authentic Uthmani text and translation.
-for (const [id, key] of [["quran-2:255", "2:255"], ["quran-112", "112:1-4"], ["quran-113", "113:1-5"], ["quran-114", "114:1-6"]]) {
-  const d = BY_ID[id], q = QURAN_SRC[key]; if (d && q) Object.assign(d, { arabic: q.ar, meaning: q.en, translit: quranTl(key) });
+/* A link to check a source: Quran verses open quran.com, hadith search sunnah.com. */
+function sourceLink(ref) {
+  if (!ref) return { label: "", url: "#" };
+  const q = /(?:Quran|[A-Z][\w‘’' -]*) (\d+):(\d+)/.exec(ref || "");
+  if (q) return { label: "Open on quran.com", url: `https://quran.com/${q[1]}/${q[2]}` };
+  return { label: "Check on sunnah.com", url: "https://sunnah.com/search?q=" + encodeURIComponent((ref || "").replace(/Sahih |Sunan |Jami‘ /, "")) };
 }
-const GROUPS = [
-  { id: "dhikrs", title: "Dhikrs", note: "Tasbih, istighfar and salawat", cats: [["tasbih", "Tasbih & Dhikr"], ["forgiveness", "Forgiveness"], ["salawat", "Salawat"]], icon: "beads" },
-  { id: "duas", title: "Duas", note: "Morning, evening and every moment", cats: [["morningEvening", "Morning & Evening"], ["protection", "Protection"], ["hardship", "Hardship & Anxiety"], ["daily", "Daily Life"]], icon: "lamp" },
-  { id: "quranic", title: "From the Quran", note: "Duas of the prophets, Ayat al-Kursi, the Quls", cats: [["quranic", "Duas of the prophets"], ["quran", "Recitations"]], icon: "arch" },
-];
+
+/* ================= Library =================
+   Every text here is published text, shown as published:
+   - Hisn al-Muslim (Fortress of the Muslim), from the sunnah.com collection: Arabic, transliteration, translation, reference.
+   - The Quran: Uthmani text (QuranEnc), Saheeh International, Quran.com transliteration.
+   - The 99 Names as listed in Jami` at-Tirmidhi 3507 (sunnah.com). */
+const NAMES_HADITH = { ref: "Sahih al-Bukhari 2736" };
+const quranAyahs = key => { const m = /^(\d+):(\d+)(?:-(\d+))?$/.exec(key); return QURAN_TEXT[m[1] - 1].slice(m[2] - 1, +(m[3] || m[2])); };
+const surahName = key => QURAN_META[+String(key).split(":")[0] - 1][1];
+const brief = (t, n = 5) => { const w = String(t || "").replace(/\s*\([^)]*\)\s*/g, " ").trim().split(/\s+/); return w.length > n ? w.slice(0, n).join(" ").replace(/[,.;:]$/, "") + "…" : w.join(" ").replace(/[.!]$/, ""); };
+function quranText(keys) {
+  const parts = keys.map(quranAyahs);
+  return { arabic: parts.map(v => v.map(x => x[0]).join(" ")).join("\n\n"), translit: keys.map(quranTl).join("\n\n"), meaning: parts.map(v => v.map(x => x[1]).join(" ")).join("\n\n") };
+}
+const quranTitle = keys => keys.length > 1 ? keys.map(surahName).join(", ") : `${surahName(keys[0])} ${keys[0]}`;
+const QULS = ["112:1-4", "113:1-5", "114:1-6"];
+// Hisn al-Muslim entries that are recitations of the Quran: shown with the Quran text itself.
+const QURAN_IN_HISN = { h4: ["3:190-200"], h70: QULS, h75: ["2:255"], h76: QULS, h99: QULS, h101: ["2:285-286"] };
+const NOT_RECITED = new Set(["h236"]);   // a narration describing the Prophet's ﷺ actions, not a single dhikr
+const HISN_RAW = Object.fromEntries(DATA.hisn.map(e => [e.id, e]));
+const CHAPTERS = [], chapterOf = {};
+for (const e of DATA.hisn) {
+  let c = chapterOf[e.ch]; if (!c) { c = chapterOf[e.ch] = { ch: e.ch, title: e.chapter, items: [], notes: [] }; CHAPTERS.push(c); }
+  if (!e.recite || NOT_RECITED.has(e.id)) { c.notes.push(e); continue; }
+  const q = QURAN_IN_HISN[e.id];
+  const d = { id: e.id, kind: "hisn", n: e.n, ch: e.ch, chapter: c.title, arabic: e.arabic, translit: e.translit, meaning: e.meaning, count: e.count, source: `Hisn al-Muslim ${e.n}` };
+  if (q) Object.assign(d, quranText(q), { quran: q, title: quranTitle(q) }); else d.title = brief(e.translit);
+  c.items.push(d);
+}
+CHAPTERS.sort((a, b) => a.ch - b.ch);
+// Single phrases exactly as they appear inside Hisn al-Muslim 69 and 66 (only the joining “wa / and” is left off).
+const SPLITS = [
+  { id: "t-subhanallah", from: "h69", arabic: "سُبْحانَ اللهِ", translit: "Subḥānallāh", meaning: "Glory is to Allah", count: 33 },
+  { id: "t-alhamdulillah", from: "h69", arabic: "الحَمْدُ لله", translit: "Alḥamdu lillāh", meaning: "Praise is to Allah", count: 33 },
+  { id: "t-allahuakbar", from: "h69", arabic: "اللهُ أكْبَر", translit: "Allāhu 'akbar", meaning: "Allah is the Most Great", count: 33 },
+  { id: "t-astaghfirullah", from: "h66", arabic: "أَسْتَغْفِرُ الله", translit: "Astaghfirullāh", meaning: "I seek the forgiveness of Allah", count: 3 },
+].map(t => { const e = HISN_RAW[t.from]; return { ...t, kind: "hisn", n: e.n, ch: e.ch, chapter: e.chapter, title: t.translit, source: `Hisn al-Muslim ${e.n}` }; });
+chapterOf[25].items.unshift(...SPLITS);
+// Duas in the words of the Quran (whole ayahs).
+const QURAN_DUAS = ["2:255", ...QULS, "2:285-286", "2:201", "3:8", "3:193-194", "7:23", "14:40-41", "17:24", "18:10", "20:25-28", "20:114", "21:87", "23:118", "25:74", "59:10"];
+const QURAN_LIB = QURAN_DUAS.map(k => ({ id: "q-" + k, kind: "quran", key: k, ...quranText([k]), title: quranTitle([k]), count: QULS.includes(k) ? 3 : 1, source: `Quran ${k}`, chapter: "From the Quran" }));
+const NAMES = DATA.names.names.map(x => ({ ...x, kind: "name", title: x.translit, count: 33, source: "Jami` at-Tirmidhi 3507", chapter: "99 Names" }));
+const NAMES_NOTE = { ref: DATA.names.ref, url: DATA.names.url, grade: DATA.names.grade };
+const HISN_LIB = CHAPTERS.flatMap(c => c.items);
+const LIB = HISN_LIB.concat(QURAN_LIB), ALL = LIB.concat(NAMES);
+const BY_ID = Object.fromEntries(ALL.map(d => [d.id, d]));
+// Older versions had their own library; each entry maps to the same words in Hisn al-Muslim or the Quran.
+const OLD_IDS = { subhanallah: "t-subhanallah", alhamdulillah: "t-alhamdulillah", allahuakbar: "t-allahuakbar", astaghfirullah: "t-astaghfirullah",
+  "tahlil-complete": "h93", "la-ilaha-illallah": "h245", "subhanallahi-wa-bihamdihi": "h91", "adada-khalqihi": "h94", salawat: "h53",
+  "astaghfirullah-atubu": "h96", "sayyid-istighfar": "h79", "dhun-nun": "h124", "bismillah-la-yadurr": "h86", raditu: "h87", hasbiyallah: "h83",
+  "auzu-bikalimat": "h97", afiyah: "h84", hasbunallah: "h128", ainni: "h59", "hamm-hazan": "h121", karb: "h122", sleep: "h105", waking: "h1",
+  "leaving-home": "h16", "after-eating": "h180", travel: "h207", masjid: "h20", "visiting-sick": "h147", rain: "h172",
+  "sharh-sadr": "q-20:25-28", "rabbana-atina": "q-2:201", "zidni-ilma": "q-20:114", "rabbana-zalamna": "q-7:23", "hab-lana": "q-25:74",
+  "la-tuzigh": "q-3:8", parents: "q-17:24", "quran-2:255": "q-2:255", "quran-112": "q-112:1-4", "quran-113": "q-113:1-5", "quran-114": "q-114:1-6" };
+// The old Names list started at Ar-Rahman and had Al-Ahad; Tirmidhi 3507 starts with Allah and has Al-Wahid only.
+const oldNameIndex = k => k <= 66 ? k : k - 1;   // 1-based old number → index in NAMES
 const ICONS = {
   star8: '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="10" y="10" width="20" height="20"/><rect x="10" y="10" width="20" height="20" transform="rotate(45 20 20)"/><circle cx="20" cy="20" r="4"/></svg>',
   beads: '<svg viewBox="0 0 40 40" fill="currentColor">' + Array.from({ length: 11 }, (_, i) => { const a = -Math.PI / 2 + (i + 1) * (Math.PI * 2 / 12); return `<circle cx="${(20 + 13 * Math.cos(a)).toFixed(1)}" cy="${(19 + 13 * Math.sin(a)).toFixed(1)}" r="2.3"/>`; }).join("") + '</svg>',
@@ -445,7 +498,7 @@ function itemFrom(d, target) {
     target: target ?? d.count, count: 0, rounds: 0, total: 0, libraryID: d.id, createdAt: Date.now() };
 }
 function seed() {
-  return { items: ["subhanallah", "alhamdulillah", "allahuakbar"].map((id, i) => ({ ...itemFrom(BY_ID[id]), createdAt: Date.now() + i })),
+  return { libV: 2, items: ["t-subhanallah", "t-alhamdulillah", "t-allahuakbar"].map((id, i) => ({ ...itemFrom(BY_ID[id]), createdAt: Date.now() + i })),
     days: {}, itemDays: {}, unlocks: {}, mode: "feed", sound: false };
 }
 let S;
@@ -462,7 +515,16 @@ S.unlocks = S.unlocks || {}; S.days = S.days || {}; S.itemDays = S.itemDays || {
   if (S.scale !== 50) { const out = {}; for (const [k, v] of Object.entries(S.unlocks)) { const [id, t] = k.split("|"); out[id + "|" + (+t * 2)] = v; } S.unlocks = out; S.scale = 50; }
 })();
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) {} }
-for (const it of S.items) { const d = BY_ID[it.libraryID]; if (d) Object.assign(it, { arabic: d.arabic, translit: d.translit, translation: d.meaning }); }
+if (S.libV !== 2) {
+  for (const it of S.items) {
+    if (!it.libraryID) continue;
+    const m = /^name-(\d+)$/.exec(it.libraryID);
+    it.libraryID = m ? NAMES[oldNameIndex(+m[1])].id : OLD_IDS[it.libraryID] || null;
+  }
+  S.libV = 2; save();
+}
+// Library zikrs always show the published text.
+for (const it of S.items) { const d = BY_ID[it.libraryID]; if (d) Object.assign(it, { title: d.title, arabic: d.arabic, translit: d.translit, translation: d.meaning, source: d.source }); }
 const sortedItems = () => S.items.slice().sort((a, b) => a.createdAt - b.createdAt);
 const itemById = id => S.items.find(i => i.id === id);
 function findOrCreate(d) { let it = S.items.find(i => i.libraryID === d.id); if (!it) { it = itemFrom(d); S.items.push(it); save(); } return it; }
@@ -531,11 +593,12 @@ function roman(n) { const t = [[10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I
 /* Every reflection is a different topic: 60 Quran topics woven with the 99 Names (159 in all).
    Only after all of them does a topic return, with a new Name, prompt and colours. */
 const CREATION = REFLECTIONS.map(b => ({ ...b, art: b.key, ...TOPIC[b.key] })).concat(MORE_TOPICS);
-const ORDER = (() => { const o = []; let c = 0, m = 0; while (c < CREATION.length || m < NAMES.length) { for (let k = 0; k < 2 && c < CREATION.length; k++) o.push({ c: c++ }); if (m < NAMES.length) o.push({ m: m++ }); } return o; })();
+const RNAMES = NAMES.slice(1).concat(NAMES[0]);
+const ORDER = (() => { const o = []; let c = 0, m = 0; while (c < CREATION.length || m < RNAMES.length) { for (let k = 0; k < 2 && c < CREATION.length; k++) o.push({ c: c++ }); if (m < RNAMES.length) o.push({ m: m++ }); } return o; })();
 let reflection = function (n) {
   const slot = ORDER[(n - 1) % ORDER.length], cycle = Math.floor((n - 1) / ORDER.length), shift = cycle * 31;
   if (slot.c !== undefined) {
-    const t = CREATION[slot.c], name = NAMES[t.names[cycle % t.names.length] - 1], meaning = lowFirst(name.meaning);
+    const t = CREATION[slot.c], name = NAMES[oldNameIndex(t.names[cycle % t.names.length])], meaning = lowFirst(name.meaning);
     const ties = [
       `${cap(t.noun)} is one sign of Him being ${meaning}.`,
       `When you think of ${t.noun}, call on Him: “Ya ${bareName(name.translit)}.”`,
@@ -545,7 +608,7 @@ let reflection = function (n) {
       reflect: t.reflect, wonder: t.wonder, prompt: t.prompts[cycle % t.prompts.length], name, tie: ties[(slot.c + cycle) % ties.length],
       topicHadith: t.hadith, hue: (t.hue + shift) % 360, hue2: (t.hue2 + shift) % 360 };
   }
-  const name = NAMES[slot.m], meaning = lowFirst(name.meaning), k = slot.m + cycle;
+  const name = RNAMES[slot.m], meaning = lowFirst(name.meaning), k = slot.m + cycle;
   return { n, isName: true, art: "rosette", nameText: name.arabic, label: cycle ? `${name.translit} ${roman(cycle + 1)}` : name.translit, subtitle: name.meaning,
     ref: NAMES_VERSE.ref, ar: NAMES_VERSE.ar, tl: NAMES_VERSE.tl, en: NAMES_VERSE.en,
     reflect: NAME_REFLECTIONS[k % NAME_REFLECTIONS.length](meaning), prompt: NAME_PROMPTS[k % NAME_PROMPTS.length](bareName(name.translit)),
@@ -557,7 +620,9 @@ reflection = function (n) {
   const r = _reflection(n), q = verseSrc(r.ref);
   if (q) Object.assign(r, { ar: q.ar, en: q.en, tl: quranTl(verseKey(r.ref)), ref: q.ref, verified: true });
   const h = hadithSrc(r.topicHadith?.ref);
-  if (h) r.topicHadith = { ...r.topicHadith, ...h, text: h.en, verified: true };
+  // Only pulled texts are shown: a hadith without its sunnah.com text is left out.
+  r.topicHadith = h ? { ref: r.topicHadith.ref, ...h, text: h.en, verified: true } : null;
+  delete r.reflect; delete r.wonder; delete r.prompt; r.tie = "";
   return r;
 };
 const reflectColor = r => ({ h: r.hue, s: 0.6, b: 0.86 });
@@ -573,7 +638,7 @@ function searchKey(text) {
 }
 const INDEX = ALL.map(d => ({ d, tk: searchKey(d.translit), ti: searchKey(d.title) }));
 const STOP_WORDS = new Set("dua duas doa dhikr zikr the for and with when what give show find want need please some about times time can you that this say read recite prayer add from how after before".split(" "));
-const ALIASES = [[/kursi|throne verse/, "quran-2:255"], [/ikhlas|qul huwa/, "quran-112"], [/falaq/, "quran-113"], [/\bnas\b|an nas/, "quran-114"]];
+const ALIASES = [[/kursi|throne verse/, "q-2:255"], [/ikhlas|qul huwa/, "q-112:1-4"], [/falaq/, "q-113:1-5"], [/\bnas\b|an nas/, "q-114:1-6"]];
 function search(q, limit = 6) {
   q = q.trim(); if (q.length < 2) return [];
   const lower = q.toLowerCase(), keys = [searchKey(q)]; if (lower.startsWith("ya ")) keys.push(searchKey(q.slice(3)));
@@ -581,32 +646,26 @@ function search(q, limit = 6) {
   for (const [re, id] of ALIASES) if (re.test(lower)) add(BY_ID[id], 120);
   for (const { d, tk, ti } of INDEX) for (const k of keys) {
     if (k.length < 2) continue;
-    if (tk.startsWith(k) || ti.startsWith(k)) add(d, 100 - (d.cat === "names" ? 5 : 0) - Math.min(20, tk.length / 10));
-    else if (k.length >= 3 && (tk.includes(k) || ti.includes(k))) add(d, 60 - (d.cat === "names" ? 5 : 0));
+    if (tk.startsWith(k) || ti.startsWith(k)) add(d, 100 - (d.kind === "name" ? 5 : 0) - Math.min(20, tk.length / 10));
+    else if (k.length >= 3 && (tk.includes(k) || ti.includes(k))) add(d, 60 - (d.kind === "name" ? 5 : 0));
   }
   const words = lower.split(/[^a-z]+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
   for (const d of LIB) {
-    let s = 0;
-    for (const w of words) {
-      if (d.tags.some(t => t === w || (t.length >= 4 && w.length >= 4 && (t.startsWith(w) || w.startsWith(t))))) s += 3;
-      if (d.title.toLowerCase().includes(w)) s += 2;
-      if (d.meaning.toLowerCase().includes(w)) s += 1;
-    }
-    for (const t of d.tags) if (t.includes(" ") && lower.includes(t)) s += 5;
+    let s = 0; const ch = d.chapter.toLowerCase(), en = d.meaning.toLowerCase();
+    for (const w of words) { if (ch.includes(w)) s += 3; if (en.includes(w)) s += 1; }
     if (s > 0) add(d, 20 + s);
   }
   return [...scored.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([id]) => BY_ID[id]);
 }
-/* The hadith (or Quran reference) behind a zikr. */
+/* Where a zikr comes from, shown as published. */
 function sourceFor(libId) {
-  if (!libId) return null;
-  const withSrc = h => { const s = hadithSrc(h.ref); return s ? { kind: "Hadith", ...h, ...s, text: s.en, verified: true } : { kind: "Hadith", ...h }; };
-  if (HADITH[libId]) return withSrc(HADITH[libId]);
-  if (libId.startsWith("name-")) return withSrc(NAMES_HADITH);
   const d = BY_ID[libId]; if (!d) return null;
-  if (/Quran \d+:\d+/.test(d.source)) { const q = verseSrc(d.source); return q ? { kind: "Quran", ref: q.ref, text: q.en, ar: q.ar, tl: q.tl, verified: true } : { kind: "Quran", ref: d.source, text: d.meaning }; }
-  return null;
+  if (d.kind === "name") { const s = hadithSrc(NAMES_HADITH.ref); return s ? { kind: "Hadith", ref: NAMES_HADITH.ref, ...s, text: s.en, verified: true, names: true } : null; }
+  if (d.kind === "quran") return { kind: "Quran", ref: `Quran ${d.key}`, text: d.meaning, verified: true };
+  const e = HISN_RAW[d.from || d.id]; if (!e) return null;
+  return { kind: "Hisn", ref: `Hisn al-Muslim ${e.n}`, chapter: e.chapter, text: e.ref, url: `https://sunnah.com/hisn:${parseInt(e.n, 10)}`, verified: true, quran: d.quran };
 }
+const SRC_LABEL = { Quran: "From the Quran", Hadith: "Hadith", Hisn: "Hisn al-Muslim" };
 
 /* ================= Stats helpers ================= */
 const PERIODS = [["today", "Day", "Today"], ["week", "Week", "This week"], ["month", "Month", "This month"], ["year", "Year", "This year"], ["all", "All", "All time"]];
@@ -678,19 +737,20 @@ const topBar = (title, extra = "") => `<div class="bar"><div class="brand"><b>${
 /* ---------- My Zikr ---------- */
 const DAY_INDEX = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000);
 function momentSuggestion() {
-  const now = new Date(), hr = now.getHours(), friday = now.getDay() === 5, pick = ids => ids.map(id => BY_ID[id]).filter(Boolean);
-  if (friday && hr >= 9 && hr < 16) return { title: "Jumu‘ah", note: "Abundant salawat on the Prophet ﷺ", items: pick(["salawat", "astaghfirullah", "quran-112"]) };
-  if (hr >= 4 && hr < 11) return { title: "Morning adhkar", note: "Start the day under His protection", items: pick(["quran-2:255", "quran-112", "quran-113", "quran-114", "sayyid-istighfar", "bismillah-la-yadurr", "raditu", "hasbiyallah", "adada-khalqihi"]) };
-  if (hr >= 11 && hr < 16) return { title: "Midday pause", note: "Light on the tongue, heavy on the scale", items: pick(["subhanallahil-azim", "hawqala", "salawat", "afiyah"]) };
-  if (hr >= 16 && hr < 21) return { title: "Evening adhkar", note: "Close the day remembering Him", items: pick(["quran-2:255", "quran-112", "quran-113", "quran-114", "sayyid-istighfar", "auzu-bikalimat", "bismillah-la-yadurr", "hasbiyallah"]) };
-  return { title: "Before sleep", note: "The Quls, Ayat al-Kursi and the dua of sleep", items: pick(["quran-112", "quran-113", "quran-114", "quran-2:255", "sleep", "dhun-nun"]) };
+  const now = new Date(), hr = now.getHours(), friday = now.getDay() === 5;
+  const fromCh = (ch, title) => { const c = chapterOf[ch]; return { title, sub: "ch:" + ch, total: c.items.length, items: c.items.slice(0, 8) }; };
+  if (friday && hr >= 9 && hr < 16) return { title: "Jumu‘ah", items: ["h53", "t-astaghfirullah", "q-112:1-4", "q-113:1-5", "q-114:1-6"].map(id => BY_ID[id]) };
+  if (hr >= 4 && hr < 11) return fromCh(27, "Morning adhkar");
+  if (hr >= 11 && hr < 16) return fromCh(25, "After prayer");
+  if (hr >= 16 && hr < 21) return fromCh(27, "Evening adhkar");
+  return fromCh(28, "Before sleep");
 }
 function homeHTML() {
   const m = momentSuggestion(), items = S.items.slice().sort((a, b) => (b.updated || b.createdAt) - (a.updated || a.createdAt)), h0 = hueOf(DAY_INDEX * 37).h;
   let h = `<div class="wrap">${topBar("Zikr")}
     <section class="today-z" style="${auroraVars(h0)}">${aurora()}
-      <div class="row1"><span><span class="eyebrow">Today's zikr</span><br><b>${m.title}</b></span><button class="btn ghost small" data-act="addall">Add all</button></div>
-      <div class="chips">${m.items.map(d => `<button class="chip ${added(d) ? "on" : ""}" data-act="lib" data-id="${d.id}"><b>${esc(d.title)}</b><span class="ar">${esc(d.arabic)}</span></button>`).join("")}</div>
+      <div class="row1"><span><span class="eyebrow">Today's zikr</span><br><b>${m.title}</b></span><button class="btn ghost small" data-act="addall">Add these</button></div>
+      <div class="chips">${m.items.map(d => `<button class="chip ${added(d) ? "on" : ""}" data-act="lib" data-id="${d.id}"><b>${esc(d.title)}</b><span class="ar">${esc(d.arabic)}</span></button>`).join("")}${m.total > m.items.length ? `<button class="chip" data-act="sub" data-sub="${m.sub}"><b>See all ${m.total}</b><span class="muted" style="font-size:12px">Hisn al-Muslim</span></button>` : ""}</div>
     </section>
     ${quranCardHTML()}
     <h2 class="sec">My zikr <small>${items.length}</small></h2>`;
@@ -708,7 +768,7 @@ function homeHTML() {
 /* ---------- Discover ---------- */
 function libRow(d, sub) {
   const on = added(d);
-  return `<div class="row"><button class="rowmain" data-act="lib" data-id="${d.id}"><span class="rt"><b>${esc(d.title)}</b><small>${esc(sub ?? `×${d.count} · ${d.source.split(/[(·;]/)[0].trim()}`)}</small></span><span class="rar ar">${esc(d.arabic)}</span></button>
+  return `<div class="row"><button class="rowmain" data-act="lib" data-id="${d.id}"><span class="rt"><b>${esc(d.title)}</b><small>${esc(sub ?? `×${d.count} · ${d.source}`)}</small></span><span class="rar ar">${esc(d.arabic)}</span></button>
     <button class="addbtn ${on ? "on" : ""}" data-act="quickadd" data-id="${d.id}" aria-label="${on ? "In My Zikr" : "Add to My Zikr"}">${on ? "✓" : "+"}</button></div>`;
 }
 function featureCard(eyebrow, d, hue) {
@@ -718,21 +778,41 @@ function featureCard(eyebrow, d, hue) {
     <div class="btn-row"><button class="btn small" data-act="lib" data-id="${d.id}">Count now</button><button class="btn ghost small" data-act="quickadd" data-id="${d.id}">${on ? "✓ In My Zikr" : "+ My Zikr"}</button></div></div>`;
 }
 function discoverHTML() {
-  const pool = LIB.filter(d => d.cat !== "quran" && d.arabic.length < 260), dua = pool[DAY_INDEX % pool.length], name = NAMES[DAY_INDEX % NAMES.length];
+  const pool = HISN_LIB.filter(d => !d.quran && d.arabic.length < 200), dua = pool[DAY_INDEX % pool.length], name = NAMES[DAY_INDEX % NAMES.length];
   return `<div class="wrap">${topBar("Discover")}
     ${featureCard("Dua of the day", dua, (DAY_INDEX * 47) % 360)}
     ${featureCard("Name of Allah for today", name, (DAY_INDEX * 47 + 140) % 360)}
     <h2 class="sec">Library</h2><div class="grid2">
     <button class="tile" data-act="reader" style="grid-column:1 / -1;min-height:auto"><span class="ic">${ICONS.book}</span><b>Read the Quran</b><span>Ayah by ayah, Uthmani text with translation. Picks up where you left off.</span><span class="count">6,236</span></button>
     <button class="tile" data-act="sub" data-sub="names"><span class="ic">${ICONS.star8}</span><b>99 Names of Allah</b><span>Invoke Him by His beautiful names</span><span class="count">99</span></button>` +
-    GROUPS.map(g => `<button class="tile" data-act="sub" data-sub="${g.id}"><span class="ic">${ICONS[g.icon]}</span><b>${g.title}</b><span>${g.note}</span><span class="count">${LIB.filter(d => g.cats.some(c => c[0] === d.cat)).length}</span></button>`).join("") + `</div>
-    <p class="note">Tap a dua to count it now, or + to keep it in My Zikr.</p></div>`;
+    `<button class="tile" data-act="sub" data-sub="hisn"><span class="ic">${ICONS.lamp}</span><b>Hisn al-Muslim</b><span>Fortress of the Muslim: every dua by chapter</span><span class="count">${HISN_LIB.length}</span></button>
+    <button class="tile" data-act="sub" data-sub="quran"><span class="ic">${ICONS.arch}</span><b>Duas from the Quran</b><span>Ayat al-Kursi, the Quls, duas of the prophets</span><span class="count">${QURAN_LIB.length}</span></button>
+    <button class="tile" data-act="sub" data-sub="ch:27"><span class="ic">${ICONS.sun}</span><b>Morning & evening</b><span>${esc(chapterOf[27].title)}</span><span class="count">${chapterOf[27].items.length}</span></button>
+    <button class="tile" data-act="sub" data-sub="ch:25"><span class="ic">${ICONS.beads}</span><b>After prayer</b><span>Tasbih and adhkar after salam</span><span class="count">${chapterOf[25].items.length}</span></button>
+    </div>
+    <p class="note">Texts are shown exactly as published: Hisn al-Muslim from sunnah.com, the Quran from QuranEnc with Saheeh International. Tap a dua to count it now, or + to keep it in My Zikr.</p></div>`;
 }
 function subHTML(sub) {
-  const back = `<div class="bar"><button class="icon-btn" data-act="tab" data-tab="discover" aria-label="Back">${ICONS.back}</button><div class="brand"><b>${sub === "names" ? "99 Names of Allah" : GROUPS.find(g => g.id === sub).title}</b></div></div>`;
-  if (sub === "names") return `<div class="wrap">${back}<div class="list">${NAMES.map(n => libRow(n, n.meaning)).join("")}</div></div>`;
-  const g = GROUPS.find(x => x.id === sub);
-  return `<div class="wrap">${back}` + g.cats.map(([cat, label]) => `<div class="eyebrow" style="margin-top:8px">${label}</div><div class="list">${LIB.filter(d => d.cat === cat).map(d => libRow(d)).join("")}</div>`).join("") + `</div>`;
+  const c = sub.startsWith("ch:") ? chapterOf[sub.slice(3)] : null;
+  const title = sub === "names" ? "99 Names of Allah" : sub === "hisn" ? "Hisn al-Muslim" : sub === "quran" ? "Duas from the Quran" : c ? c.title : "";
+  const back = `<div class="bar"><button class="icon-btn" data-act="${c ? "sub" : "tab"}" ${c ? 'data-sub="hisn"' : 'data-tab="discover"'} aria-label="Back">${ICONS.back}</button><div class="brand"><b>${esc(title)}</b>${c ? "<span>Hisn al-Muslim</span>" : ""}</div></div>`;
+  if (sub === "names") return `<div class="wrap">${back}<div class="list">${NAMES.map(n => libRow(n, n.meaning)).join("")}</div>
+    <p class="note">The list as narrated in <a href="${NAMES_NOTE.url}" target="_blank" rel="noopener">${esc(NAMES_NOTE.ref)}</a>${NAMES_NOTE.grade ? ` (graded ${esc(NAMES_NOTE.grade)} on sunnah.com)` : ""}. That Allah has ninety-nine Names is narrated in Sahih al-Bukhari 2736. Translation and transliteration from sunnah.com.</p></div>`;
+  if (sub === "quran") return `<div class="wrap">${back}<div class="list">${QURAN_LIB.map(d => libRow(d, `×${d.count} · ${d.source}`)).join("")}</div>
+    <p class="note">Uthmani text (QuranEnc, King Fahd Complex), Saheeh International translation, Quran.com transliteration.</p></div>`;
+  if (sub === "hisn") return `<div class="wrap">${back}
+    <label class="field">${ICONS.search}<input id="ch-q" autocomplete="off" placeholder="Find a chapter, e.g. travel, rain, anxiety"></label>
+    <div class="list" id="ch-list" style="margin-top:10px">${chapterRows("")}</div>
+    <p class="note">Hisn al-Muslim (Fortress of the Muslim) by Sa‘id bin Wahf al-Qahtani, as published on sunnah.com.</p></div>`;
+  if (!c) return `<div class="wrap">${back}</div>`;
+  return `<div class="wrap">${back}<div class="list">${c.items.map(d => libRow(d, `×${d.count} · ${d.source}`)).join("")}</div>
+    ${c.notes.map(e => `<div class="virtue"><span class="eyebrow">Hisn al-Muslim ${esc(e.n)}</span>${e.arabic ? `<p class="ar" style="font-size:19px;line-height:1.9;text-align:right;margin:0">${esc(e.arabic)}</p>` : ""}<span>${esc(e.meaning)}</span>${e.ref ? `<small class="muted">${esc(e.ref)}</small>` : ""}</div>`).join("")}
+    <p class="note"><a href="https://sunnah.com/hisn" target="_blank" rel="noopener">Hisn al-Muslim on sunnah.com ↗</a></p></div>`;
+}
+function chapterRows(q) {
+  const k = q.trim().toLowerCase();
+  return CHAPTERS.filter(c => (c.items.length || c.notes.length) && (!k || c.title.toLowerCase().includes(k) || c.items.some(d => d.meaning.toLowerCase().includes(k))))
+    .map(c => `<button class="row" data-act="sub" data-sub="ch:${c.ch}" style="text-align:left"><span class="rt"><b>${esc(c.title)}</b><small>${c.items.length ? `${c.items.length} dua${c.items.length === 1 ? "" : "s"}` : "Narrations"}</small></span>${c.items[0] ? `<span class="rar ar">${esc(c.items[0].arabic)}</span>` : ""}</button>`).join("") || `<div class="empty">No chapter matches “${esc(q)}”.</div>`;
 }
 
 /* ---------- Reflections ---------- */
@@ -1192,24 +1272,84 @@ function openReflectionOverlay(n, itemId, tier) {
         <a class="ref" href="${link.url}" target="_blank" rel="noopener">${esc(r.ref)} ↗</a>${r.verified ? `<span class="note">Uthmani text (QuranEnc) · Saheeh International</span>` : ""}</div>
       ${ORNAMENT}
       <div class="block">${r.isName ? "" : aurora()}<span class="eyebrow">${r.isName ? "The Name" : "Name of Allah"}</span><div class="name-ar ar">${esc(r.name.arabic)}</div><b>${esc(r.name.translit)} · ${esc(r.name.meaning)}</b>${r.tie ? `<p class="para muted">${esc(r.tie)}</p>` : ""}</div>
-      <div class="block left"><span class="eyebrow">Reflect</span><p class="para">${esc(r.reflect)}</p><p class="para"><b>Today:</b> ${esc(r.prompt)}</p></div>
+      <div class="block left" id="reflect-${n}"><span class="eyebrow">Reflect</span>${reflectBodyHTML(n)}</div>
       ${r.topicHadith ? `<div class="block left"><span class="eyebrow">Hadith</span>${r.topicHadith.narrator ? `<span class="muted">${esc(r.topicHadith.narrator)}</span>` : ""}<p class="para">${esc(r.topicHadith.text)}</p>${r.topicHadith.ar ? `<p class="ar" style="font-size:21px;line-height:2;text-align:right;margin:0">${esc(r.topicHadith.ar)}</p>` : ""}<a class="ref" href="${r.topicHadith.url || hlink.url}" target="_blank" rel="noopener">${esc(r.topicHadith.ref)}${r.topicHadith.grade ? ` · ${esc(r.topicHadith.grade)}` : ""} ↗</a></div>` : ""}
-      ${r.wonder ? `<div class="block left">${aurora()}<span class="eyebrow">A wonder</span><p class="para">${esc(r.wonder)}</p></div>` : ""}
       ${ORNAMENT}
       <div class="btn-row"><button class="btn" data-act="closeov">Alhamdulillah</button></div>
     </div>`;
   document.body.appendChild(el);
+  if (!(S.reflectText || {})[n]) writeReflection(n);
+}
+/* ---------- Reflection text: written by Claude from the pulled sources only ---------- */
+let samplerP = null;
+function sampler() {
+  if (!samplerP) samplerP = (async () => { try { return window.claude?.use ? await window.claude.use("sample") : null; } catch (e) { return null; } })();
+  return samplerP;
+}
+const writing = {};
+async function tafsirFor(ref) {
+  const k = verseKey(ref); if (!k) return "";
+  const [s, a] = k.split(/[:-]/).map(Number);
+  try { const d = await loadTafsir("mx", s); return d.p[d.m[a - 1]] || ""; } catch (e) { return ""; }
+}
+function reflectBodyHTML(n) {
+  const t = (S.reflectText || {})[n], w = writing[n];
+  if (t) return `${t.text.split(/\n{2,}/).map(p => `<p class="para">${esc(p)}</p>`).join("")}${t.today ? `<p class="para"><b>Today:</b> ${esc(t.today)}</p>` : ""}
+    <span class="note">Written by Claude from the verse, tafsir, hadith and Name on this page.</span>`;
+  if (w && w.state === "writing") return `<p class="para muted">Writing a reflection from these sources…</p><span class="shimmer"></span>`;
+  if (w && w.state === "fallback") return `${w.tafsir ? `<span class="muted" style="font-size:13px">From Tafsir Al-Mukhtasar on ${esc(w.ref)}</span>${tafsirParagraphs(w.tafsir)}` : `<p class="para muted">Couldn't load the tafsir for this verse.</p>`}
+    ${w.retry ? `<button class="btn ghost small" data-act="rewrite" data-n="${n}">Try writing a reflection again</button>` : ""}`;
+  return `<button class="btn ghost small" data-act="rewrite" data-n="${n}">Write a reflection</button>`;
+}
+function redrawReflect(n) { const box = document.getElementById("reflect-" + n); if (box) box.innerHTML = `<span class="eyebrow">Reflect</span>` + reflectBodyHTML(n); }
+async function writeReflection(n) {
+  if (writing[n]?.state === "writing") return;
+  const r = reflection(n);
+  writing[n] = { state: "writing" }; redrawReflect(n);
+  const [sample, tafsir] = await Promise.all([sampler(), tafsirFor(r.ref)]);
+  const fallback = retry => { writing[n] = { state: "fallback", tafsir, ref: r.ref, retry }; redrawReflect(n); };
+  if (!sample) return fallback(false);
+  const h = r.topicHadith;
+  const sources = [
+    `QURAN ${r.ref} (Saheeh International): ${r.en}`,
+    tafsir ? `TAFSIR AL-MUKHTASAR on ${r.ref}: ${tafsir.slice(0, 2400)}` : "",
+    h ? `HADITH ${h.ref}${h.grade ? ` (${h.grade})` : ""}: ${String(h.text).slice(0, 1600)}` : "",
+    `NAME OF ALLAH: ${r.name.translit} (${r.name.arabic}), "${r.name.meaning}" (from the list in Jami\` at-Tirmidhi 3507)`,
+  ].filter(Boolean).join("\n\n");
+  const prompt = `You write the short reflection on one card of a Muslim dhikr (remembrance) app. The card's theme is "${r.isName ? r.name.translit + " — " + r.name.meaning : r.label}".
+
+Use ONLY the sources below. Strict rules:
+- Every claim must be supported by the sources. Do not add verses, hadith, stories, scholars, numbers, scientific facts or rulings that are not in them.
+- Do not quote the Arabic. Do not put words in quotation marks unless they are copied exactly from the sources.
+- Do not say what a verse or hadith means beyond what the translation or the tafsir says.
+- Plain, warm, humble English; speak to the reader as "you". No headings, no lists, no emojis.
+
+SOURCES
+${sources}
+
+Return JSON only: {"reflection": "two short paragraphs separated by a blank line, 90 to 140 words in all", "today": "one small, concrete thing to do today, under 25 words, that follows from the sources"}`;
+  try {
+    const out = await sample.json(prompt, { modelTier: "default" });
+    if (!out || typeof out.reflection !== "string" || !out.reflection.trim()) throw { code: "bad_output" };
+    S.reflectText = S.reflectText || {}; S.reflectText[n] = { text: out.reflection.trim(), today: String(out.today || "").trim(), at: Date.now() }; save();
+    delete writing[n]; redrawReflect(n);
+  } catch (e) {
+    fallback(e?.code !== "not_granted");
+  }
 }
 function openSource(libId) {
   const s = sourceFor(libId); if (!s) return;
   const link = s.url ? { label: "Open on sunnah.com", url: s.url } : sourceLink(s.ref), d = BY_ID[libId];
   $layer.insertAdjacentHTML("beforeend", `<div class="scrim" data-act="closesrc" style="z-index:54"></div><div class="sheet-src" role="dialog" aria-label="${s.kind}"><div class="in">
-    <span class="eyebrow">${s.kind === "Quran" ? "From the Quran" : "Hadith"} · ${esc(d ? d.title : "")}</span>
+    <span class="eyebrow">${SRC_LABEL[s.kind]} · ${esc(s.chapter || (d ? d.title : ""))}</span>
     ${s.narrator ? `<span class="muted">${esc(s.narrator)}</span>` : ""}
+    ${s.kind === "Hisn" ? `<span class="muted" style="font-size:12.5px">Reference, as given in the book</span>` : ""}
     <p>${esc(s.text)}</p>
+    ${s.quran ? `<p class="muted" style="font-size:13px">The Quran text shown is ${esc(s.quran.map(k => "Quran " + k).join(", "))} from QuranEnc, with the Saheeh International translation.</p>` : ""}
+    ${s.names ? `<p class="muted" style="font-size:13px">The list of Names itself is from <a href="${NAMES_NOTE.url}" target="_blank" rel="noopener">${esc(NAMES_NOTE.ref)}</a>${NAMES_NOTE.grade ? `, graded ${esc(NAMES_NOTE.grade)}` : ""}.</p>` : ""}
     ${s.ar ? `<p class="ar" style="font-size:22px;line-height:2;text-align:right">${esc(s.ar)}</p>` : ""}
     <b>${esc(s.ref)}${s.grade ? ` · <span class="muted" style="font-weight:600">${esc(s.grade)}</span>` : ""}</b>
-    ${s.verified ? `<span class="note">${s.kind === "Quran" ? "Uthmani text from QuranEnc (King Fahd Complex) · Saheeh International translation" : "Text and grading from the sunnah.com collection"}</span>` : ""}
+    ${s.verified ? `<span class="note">${s.kind === "Quran" ? "Uthmani text from QuranEnc (King Fahd Complex) · Saheeh International translation" : s.kind === "Hisn" ? "Arabic, transliteration, translation and reference from Hisn al-Muslim on sunnah.com" : "Text and grading from the sunnah.com collection"}</span>` : ""}
     <a href="${link.url}" target="_blank" rel="noopener">${link.label} ↗</a>
     <div class="btn-row" style="justify-content:flex-start"><button class="btn small" data-act="closesrc">Back to counting</button></div></div></div>`);
 }
@@ -1248,7 +1388,7 @@ function drawAdd() {
     <label class="field"><textarea id="f-arabic" class="ar" rows="2" dir="rtl" placeholder="النَّصُّ الْعَرَبِيُّ">${esc(form.arabic)}</textarea></label>
     <label class="field"><textarea id="f-translit" rows="2" placeholder="Transliteration">${esc(form.translit)}</textarea></label>
     <label class="field"><textarea id="f-translation" rows="2" placeholder="Meaning in English">${esc(form.translation)}</textarea></label>
-    ${src ? `<div class="virtue"><span class="eyebrow">${src.kind === "Quran" ? "From the Quran" : "Hadith"}</span><span>${esc(src.text)}</span><small class="muted">${esc(src.ref)}</small></div>` : ""}
+    ${src ? `<div class="virtue"><span class="eyebrow">${SRC_LABEL[src.kind]}</span><span>${esc(src.text)}</span><small class="muted">${esc(src.ref)}</small></div>` : ""}
     <div class="eyebrow" style="margin-top:16px">Count per round</div>
     <div class="presets">${[1, 3, 7, 33, 99, 100, 1000].map(n => `<button data-act="preset" data-n="${n}" aria-pressed="${form.target === n}">${n}</button>`).join("")}</div>`;
   const t = document.getElementById("f-title");
@@ -1260,7 +1400,7 @@ function drawAdd() {
 function drawResults() {
   const box = document.getElementById("results"); if (!box) return;
   const show = form.title.trim().length >= 2 && (!form.filled || form.filled.title !== form.title), res = show ? search(form.title) : [];
-  box.innerHTML = show ? `<div class="results">${res.length ? res.map(d => `<button class="res" data-act="pick" data-id="${d.id}"><span class="rb"><b>${esc(d.title)}</b><span class="ar">${esc(d.arabic)}</span><small>${esc(d.source)}</small></span></button>`).join("") : `<div class="res muted">No verified match yet. Keep typing, or fill in the fields yourself.</div>`}</div>` : "";
+  box.innerHTML = show ? `<div class="results">${res.length ? res.map(d => `<button class="res" data-act="pick" data-id="${d.id}"><span class="rb"><b>${esc(d.title)}</b><span class="ar">${esc(d.arabic)}</span><small>${esc(d.chapter)} · ${esc(d.source)}</small></span></button>`).join("") : `<div class="res muted">No verified match yet. Keep typing, or fill in the fields yourself.</div>`}</div>` : "";
 }
 function fill(d) { Object.assign(form, { title: d.title, arabic: d.arabic, translit: d.translit, translation: d.meaning, target: d.count, filled: d }); drawAdd(); }
 function saveAdd() {
@@ -1291,6 +1431,7 @@ document.addEventListener("click", e => {
     case "statopen": ui.statOpen = ui.statOpen === id ? null : id; rerenderKeepScroll(); break;
     case "reflect": openReflectionOverlay(+b.dataset.n, id, +b.dataset.tier); break;
     case "closeov": closeOverlay(b.closest(".overlay")); break;
+    case "rewrite": writeReflection(+b.dataset.n); break;
     case "source": openSource(b.dataset.lib); break;
     case "closesrc": $layer.querySelectorAll(".sheet-src").forEach(x => x.remove()); $layer.querySelectorAll('.scrim[data-act="closesrc"]').forEach(x => x.remove()); break;
     case "add": openAdd(); break;

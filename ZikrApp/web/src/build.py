@@ -1,7 +1,10 @@
 import json
-app=open('app.html').read(); d=json.load(open('data.json'))
-out=(app.replace('/*DATA*/',json.dumps(d,ensure_ascii=False).replace('</','<\\/'))
- .replace('/*REFLECTIONS*/',open('reflections.js').read()).replace('/*MORE*/',open('more_topics.js').read()).replace('/*HADITH*/',open('hadith.js').read()).replace('/*SOURCES*/',open('sources.js').read()).replace('/*QURAN*/',open('quran.js').read()).replace('/*ART*/',open('art.js').read()))
-open('zikr-counter.html','w').write(out)
-open('check.js','w').write(out[out.index('<script>')+8:out.rindex('</script>')])
+app = open('app.html', encoding='utf8').read()
+d = {"hisn": json.load(open('hisn.json', encoding='utf8')), "names": json.load(open('names.json', encoding='utf8'))}
+r = lambda f: open(f, encoding='utf8').read()
+out = (app.replace('/*DATA*/', json.dumps(d, ensure_ascii=False).replace('</', '<\\/'))
+       .replace('/*REFLECTIONS*/', r('reflections.js')).replace('/*MORE*/', r('more_topics.js'))
+       .replace('/*SOURCES*/', r('sources.js')).replace('/*QURAN*/', r('quran.js')).replace('/*ART*/', r('art.js')))
+open('zikr-counter.html', 'w', encoding='utf8').write(out)
+open('check.js', 'w', encoding='utf8').write(out[out.index('<script>') + 8:out.rindex('</script>')])
 print(len(out))
