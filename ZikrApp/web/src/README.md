@@ -52,3 +52,30 @@ python3 build_tafsir.py taf ../tafsir
 Source: spa5k/tafsir_api (data from Quran.com / Tarteel QUL). `ik` = Tafsir Ibn Kathir (abridged
 English), `mx` = Al-Mukhtasar (Tafsir Center for Quranic Studies). Ibn Kathir's repeated passages are
 stored once per surah (`p`) with a per-ayah index (`m`).
+
+## Bangla (switch with the বাং / EN button)
+
+All Bangla text is a published translation; nothing is translated by hand.
+
+- `quran_bn.json` – Abu Bakr Zakaria's Bangla Quran translation (King Fahd Complex), from
+  fawazahmed0/quran-api `ben-abubakrzakaria`; only footnote markers like [১] are removed
+- `hadith_bn.json` – Bangla text of each hadith in `sources.js`, from the Bangla editions in
+  fawazahmed0/hadith-api. `match_hadith_bn.py` finds each hadith by its Arabic text (Sahih Muslim is
+  numbered differently there), skips "same hadith through another chain" entries, and starts at the
+  hadith's own number where the edition puts chapter notes first. Two have no usable Bangla text and
+  show in English.
+- `hisn_bn_titles.json` – Hisn al-Muslim chapter titles from hisnmuslim.com. The site has no Bangla
+  text for the duas themselves, so their meanings stay in English.
+- Tafsir `zkb` (Tafsir Abu Bakr Zakaria) and `mxb` (Bengali Al-Mukhtasar) from spa5k/tafsir_api.
+  The Bangla Ibn Kathir (5.7 MB compressed) does not fit within the page's 16 MB limit.
+
+```bash
+curl -o zak.json https://raw.githubusercontent.com/fawazahmed0/quran-api/1/editions/ben-abubakrzakaria.json
+curl -o bn27.html https://hisnmuslim.com/i/bn/27
+# tafsir: download bn-tafsir-abu-bakr-zakaria and bengali-mokhtasar like the English ones, into tafbn/
+python3 build_bn.py zak.json bn27.html tafbn .        # writes quran_bn.json, hisn_bn_titles.json, tafsir/{zkb,mxb}
+# hadith: download {ara,ben}-{bukhari,muslim,tirmidhi,abudawud,ibnmajah}.json from fawazahmed0/hadith-api into hbn/
+python3 match_hadith_bn.py sources.js hbn hadith_bn.json
+python3 build.py
+```
+All tafsir editions are embedded in the page gzipped per surah and unpacked when a surah is opened.

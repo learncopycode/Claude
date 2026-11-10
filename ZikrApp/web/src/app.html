@@ -338,6 +338,8 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .res small { color: var(--muted); font-size: 12px; }
 .shimmer { display: block; height: 10px; border-radius: 6px; margin-top: 6px; background: linear-gradient(90deg, var(--line), var(--accent), var(--line)); background-size: 200% 100%; animation: shim 1.4s linear infinite; opacity: .5; }
 @keyframes shim { to { background-position: -200% 0; } }
+.langbtn { font-weight: 700; font-size: 14px; }
+:lang(bn) .en, .en[lang="bn"] { font-family: "Hind Siliguri", "Noto Sans Bengali", system-ui, sans-serif; }
 .virtue { margin-top: 10px; padding: 14px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; line-height: 1.6; }
 .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .presets button { padding: 8px 14px; border-radius: 99px; background: var(--card); border: 1px solid var(--line); font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -411,6 +413,32 @@ function quranTl(key) {
   return QURAN_TEXT[s - 1].slice(a - 1, b).map(v => v[2]).join(" ");
 }
 const hadithSrc = ref => (ref && HADITH_SRC[ref]) || null;
+
+/* ================= Language: English or Bangla =================
+   Bangla texts are all published translations, never written here:
+   Quran – Abu Bakr Zakaria (King Fahd Complex); hadith – the Bangla editions in fawazahmed0/hadith-api,
+   matched by their Arabic text; tafsir – Tafseer Ibn Kathir (Tawheed Publication) and the Bengali
+   Al-Mukhtasar; Hisn al-Muslim chapter titles – hisnmuslim.com. Where no Bangla edition exists
+   (Hisn al-Muslim dua meanings, the 99 Names' meanings) the English is shown. */
+const BN = () => S.lang === "bn";
+const HISN_BN_TITLES = /*HISN_BN_TITLES*/;
+const HADITH_BN = /*HADITH_BN*/;
+const QURAN_BN_GZ = /*QURAN_BN*/;
+async function gunzipB64(b64) {
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  return new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+}
+const SURAH_OFF = (() => { const o = []; let t = 0; for (const m of QURAN_META) { o.push(t); t += m[3]; } return o; })();
+let QBN = null;
+const qbn = (s, a) => QBN ? QBN[SURAH_OFF[s - 1] + a - 1] : null;
+const ayahMeaning = (s, a) => (BN() && qbn(s, a)) || QURAN_TEXT[s - 1][a - 1][1];
+function rangeMeaning(key) {
+  const m = /^(\d+):(\d+)(?:-(\d+))?$/.exec(key || ""); if (!m) return "";
+  const out = []; for (let a = +m[2]; a <= +(m[3] || m[2]); a++) out.push(ayahMeaning(+m[1], a)); return out.join(" ");
+}
+const QURAN_TR = () => BN() && QBN ? "Abu Bakr Zakaria's Bangla translation (King Fahd Complex)" : "Saheeh International";
+const hadithText = h => (BN() && h && HADITH_BN[h.ref]?.bn) || h?.text || h?.en || "";
+const L = (en, bn) => BN() ? bn : en;
 /* A link to check a source: Quran verses open quran.com, hadith search sunnah.com. */
 function sourceLink(ref) {
   if (!ref) return { label: "", url: "#" };
@@ -449,7 +477,7 @@ for (const e of DATA.hisn) {
   if (!e.recite || NOT_RECITED.has(e.id)) { c.notes.push(e); continue; }
   const q = QURAN_IN_HISN[e.id];
   const d = { id: e.id, kind: "hisn", n: e.n, ch: e.ch, chapter: c.title, arabic: e.arabic, translit: e.translit, meaning: e.meaning, count: e.count, source: `Hisn al-Muslim ${e.n}` };
-  if (q) Object.assign(d, quranText(q), { quran: q, title: quranTitle(q) }); else d.title = brief(e.translit);
+  if (q) Object.assign(d, quranText(q), { quran: q, qkeys: q, title: quranTitle(q) }); else d.title = brief(e.translit);
   c.items.push(d);
 }
 CHAPTERS.sort((a, b) => a.ch - b.ch);
@@ -463,12 +491,20 @@ const SPLITS = [
 chapterOf[25].items.unshift(...SPLITS);
 // Duas in the words of the Quran (whole ayahs).
 const QURAN_DUAS = ["2:255", ...QULS, "2:285-286", "2:201", "3:8", "3:193-194", "7:23", "14:40-41", "17:24", "18:10", "20:25-28", "20:114", "21:87", "23:118", "25:74", "59:10"];
-const QURAN_LIB = QURAN_DUAS.map(k => ({ id: "q-" + k, kind: "quran", key: k, ...quranText([k]), title: quranTitle([k]), count: QULS.includes(k) ? 3 : 1, source: `Quran ${k}`, chapter: "From the Quran" }));
+const QURAN_LIB = QURAN_DUAS.map(k => ({ id: "q-" + k, kind: "quran", key: k, qkeys: [k], ...quranText([k]), title: quranTitle([k]), count: QULS.includes(k) ? 3 : 1, source: `Quran ${k}`, chapter: "From the Quran" }));
 const NAMES = DATA.names.names.map(x => ({ ...x, kind: "name", title: x.translit, count: 33, source: "Jami` at-Tirmidhi 3507", chapter: "99 Names" }));
 const NAMES_NOTE = { ref: DATA.names.ref, url: DATA.names.url, grade: DATA.names.grade };
 const HISN_LIB = CHAPTERS.flatMap(c => c.items);
 const LIB = HISN_LIB.concat(QURAN_LIB), ALL = LIB.concat(NAMES);
 const BY_ID = Object.fromEntries(ALL.map(d => [d.id, d]));
+// The meaning shown for a library entry in the current language (Quran entries have a Bangla edition).
+function meaningOf(d) {
+  if (!d) return "";
+  if (BN() && QBN && d.qkeys) return d.qkeys.map(k => (startsSurah(k) ? qbn(1, 1) + "\n" : "") + rangeMeaning(k)).join("\n\n");
+  return d.meaning;
+}
+const itemMeaning = it => { const d = BY_ID[it.libraryID]; return d ? meaningOf(d) : it.translation; };
+const chTitle = c => (BN() && HISN_BN_TITLES[Math.round(c.ch ?? c)]) || c.title || "";
 // Older versions had their own library; each entry maps to the same words in Hisn al-Muslim or the Quran.
 const OLD_IDS = { subhanallah: "t-subhanallah", alhamdulillah: "t-alhamdulillah", allahuakbar: "t-allahuakbar", astaghfirullah: "t-astaghfirullah",
   "tahlil-complete": "h93", "la-ilaha-illallah": "h245", "subhanallahi-wa-bihamdihi": "h91", "adada-khalqihi": "h94", salawat: "h53",
@@ -725,6 +761,12 @@ function tick(strong) {
 }
 async function keepAwake(on) { try { if (on && navigator.wakeLock) wakeLock = await navigator.wakeLock.request("screen"); else if (wakeLock) { await wakeLock.release(); wakeLock = null; } } catch (e) {} }
 
+if (typeof DecompressionStream !== "undefined") gunzipB64(QURAN_BN_GZ).then(t => {
+  QBN = JSON.parse(t);
+  if (BN()) { rerenderKeepScroll?.(); if (typeof drawReader === "function" && $reader) drawReader(); if (typeof drawCounter === "function" && $counter) drawCounter(); }
+}).catch(() => {});
+document.documentElement.lang = S.lang === "bn" ? "bn" : "en";
+
 /* ================= Screens ================= */
 const ui = { tab: "home", sub: null, period: "week", counterId: null, statOpen: null, pending: null };
 const $screen = document.getElementById("screen"), $layer = document.getElementById("layer");
@@ -741,6 +783,7 @@ function updateBadge() {
   const n = Object.keys(S.unlocks).length; if (n) btn.insertAdjacentHTML("beforeend", `<span class="badge">${n}</span>`);
 }
 const topBar = (title, extra = "") => `<div class="bar"><div class="brand"><b>${title}</b><span>${esc(hijri())}</span></div>${extra}
+  <button class="icon-btn langbtn" data-act="lang" aria-label="${BN() ? "Show English translations" : "বাংলা অনুবাদ দেখান"}">${BN() ? "EN" : "বাং"}</button>
   <button class="icon-btn" data-act="theme" aria-label="Switch to ${isLight() ? "dark" : "light"} theme">${isLight() ? ICONS.moon : ICONS.sun}</button>
   <button class="icon-btn" data-act="add" aria-label="Add a zikr">${ICONS.plus}</button></div>`;
 
@@ -783,7 +826,7 @@ function libRow(d, sub) {
 }
 function featureCard(eyebrow, d, hue) {
   const on = added(d);
-  return `<div class="feature" style="${auroraVars(hue)}">${aurora()}<span class="eyebrow">${eyebrow}</span><div class="ar fa">${esc(d.arabic)}</div><div class="ftl">${esc(d.translit)}</div><div class="fen">${esc(d.meaning)}</div>
+  return `<div class="feature" style="${auroraVars(hue)}">${aurora()}<span class="eyebrow">${eyebrow}</span><div class="ar fa">${esc(d.arabic)}</div><div class="ftl">${esc(d.translit)}</div><div class="fen">${esc(meaningOf(d))}</div>
     <div class="fsrc">${esc(d.source)}</div>
     <div class="btn-row"><button class="btn small" data-act="lib" data-id="${d.id}">Count now</button><button class="btn ghost small" data-act="quickadd" data-id="${d.id}">${on ? "✓ In My Zikr" : "+ My Zikr"}</button></div></div>`;
 }
@@ -797,14 +840,14 @@ function discoverHTML() {
     <button class="tile" data-act="sub" data-sub="names"><span class="ic">${ICONS.star8}</span><b>99 Names of Allah</b><span>Invoke Him by His beautiful names</span><span class="count">99</span></button>` +
     `<button class="tile" data-act="sub" data-sub="hisn"><span class="ic">${ICONS.lamp}</span><b>Hisn al-Muslim</b><span>Fortress of the Muslim: every dua by chapter</span><span class="count">${HISN_LIB.length}</span></button>
     <button class="tile" data-act="sub" data-sub="quran"><span class="ic">${ICONS.arch}</span><b>Duas from the Quran</b><span>Ayat al-Kursi, the Quls, duas of the prophets</span><span class="count">${QURAN_LIB.length}</span></button>
-    <button class="tile" data-act="sub" data-sub="ch:27"><span class="ic">${ICONS.sun}</span><b>Morning & evening</b><span>${esc(chapterOf[27].title)}</span><span class="count">${chapterOf[27].items.length}</span></button>
+    <button class="tile" data-act="sub" data-sub="ch:27"><span class="ic">${ICONS.sun}</span><b>Morning & evening</b><span>${esc(chTitle(chapterOf[27]))}</span><span class="count">${chapterOf[27].items.length}</span></button>
     <button class="tile" data-act="sub" data-sub="ch:25"><span class="ic">${ICONS.beads}</span><b>After prayer</b><span>Tasbih and adhkar after salam</span><span class="count">${chapterOf[25].items.length}</span></button>
     </div>
     <p class="note">Texts are shown exactly as published: Hisn al-Muslim from sunnah.com, the Quran from QuranEnc with Saheeh International. Tap a dua to count it now, or + to keep it in My Zikr.</p></div>`;
 }
 function subHTML(sub) {
   const c = sub.startsWith("ch:") ? chapterOf[sub.slice(3)] : null;
-  const title = sub === "names" ? "99 Names of Allah" : sub === "hisn" ? "Hisn al-Muslim" : sub === "quran" ? "Duas from the Quran" : c ? c.title : "";
+  const title = sub === "names" ? "99 Names of Allah" : sub === "hisn" ? "Hisn al-Muslim" : sub === "quran" ? "Duas from the Quran" : c ? chTitle(c) : "";
   const back = `<div class="bar"><button class="icon-btn" data-act="${c ? "sub" : "tab"}" ${c ? 'data-sub="hisn"' : 'data-tab="discover"'} aria-label="Back">${ICONS.back}</button><div class="brand"><b>${esc(title)}</b>${c ? "<span>Hisn al-Muslim</span>" : ""}</div></div>`;
   if (sub === "names") return `<div class="wrap">${back}<div class="list">${NAMES.map(n => libRow(n, n.meaning)).join("")}</div>
     <p class="note">The list as narrated in <a href="${NAMES_NOTE.url}" target="_blank" rel="noopener">${esc(NAMES_NOTE.ref)}</a>${NAMES_NOTE.grade ? ` (graded ${esc(NAMES_NOTE.grade)} on sunnah.com)` : ""}. That Allah has ninety-nine Names is narrated in Sahih al-Bukhari 2736. Translation and transliteration from sunnah.com.</p></div>`;
@@ -821,8 +864,8 @@ function subHTML(sub) {
 }
 function chapterRows(q) {
   const k = q.trim().toLowerCase();
-  return CHAPTERS.filter(c => (c.items.length || c.notes.length) && (!k || c.title.toLowerCase().includes(k) || c.items.some(d => d.meaning.toLowerCase().includes(k))))
-    .map(c => `<button class="row" data-act="sub" data-sub="ch:${c.ch}" style="text-align:left"><span class="rt"><b>${esc(c.title)}</b><small>${c.items.length ? `${c.items.length} dua${c.items.length === 1 ? "" : "s"}` : "Narrations"}</small></span>${c.items[0] ? `<span class="rar ar">${esc(c.items[0].arabic)}</span>` : ""}</button>`).join("") || `<div class="empty">No chapter matches “${esc(q)}”.</div>`;
+  return CHAPTERS.filter(c => (c.items.length || c.notes.length) && (!k || c.title.toLowerCase().includes(k) || chTitle(c).includes(q.trim()) || c.items.some(d => d.meaning.toLowerCase().includes(k))))
+    .map(c => `<button class="row" data-act="sub" data-sub="ch:${c.ch}" style="text-align:left"><span class="rt"><b>${esc(chTitle(c))}</b><small>${c.items.length ? `${c.items.length} dua${c.items.length === 1 ? "" : "s"}` : "Narrations"}</small></span>${c.items[0] ? `<span class="rar ar">${esc(c.items[0].arabic)}</span>` : ""}</button>`).join("") || `<div class="empty">No chapter matches “${esc(q)}”.</div>`;
 }
 
 /* ---------- Reflections ---------- */
@@ -895,7 +938,7 @@ function cardHTML(it, role, preview = 0, huePreview = preview) {
     <div class="ctext">
       ${it.arabic ? `<div class="arb ar" style="font-size:${arSize}px">${esc(it.arabic)}</div>` : `<div class="arb display" style="font-size:36px">${esc(it.title)}</div>`}
       ${it.translit && S.tlZikr !== false ? `<div class="tl" style="font-size:16px">${esc(it.translit)}</div>` : ""}
-      ${it.translation ? `<div class="en" style="font-size:15px">${esc(it.translation)}</div>` : ""}
+      ${itemMeaning(it) ? `<div class="en" style="font-size:15px">${esc(itemMeaning(it))}</div>` : ""}
       ${it.source ? `<div class="src">${esc(it.source)}</div>` : ""}
     </div>
     <div class="longhint">Hold to read and scroll · swipe to count</div>
@@ -1111,7 +1154,7 @@ function closeReader() {
   el.classList.add("out"); setTimeout(() => el.remove(), 280); render();
 }
 function ayahCardHTML(p, role) {
-  const [ar, en, tl] = QURAN_TEXT[p.s - 1][p.a - 1], m = QURAN_META[p.s - 1], len = ar.length;
+  const [ar, , tl] = QURAN_TEXT[p.s - 1][p.a - 1], en = ayahMeaning(p.s, p.a), m = QURAN_META[p.s - 1], len = ar.length;
   const size = len > 400 ? 26 : len > 200 ? 30 : len > 90 ? 34 : 42;
   // A slow hue drift through each surah, continuous from ayah to ayah.
   const h = (p.s * 37 + p.a * 3) % 360;
@@ -1121,7 +1164,7 @@ function ayahCardHTML(p, role) {
       <button class="srcchip" data-act="tafsir" aria-label="Tafsir of this ayah">${ICONS.book}Tafsir</button>
       <button class="srcchip bm ${isBookmarked(p) ? "on" : ""}" data-act="bm" data-s="${p.s}" data-a="${p.a}" aria-label="${isBookmarked(p) ? "Remove bookmark" : "Bookmark this ayah"}">${ICONS.bookmark}</button></div>
     <div class="ctext">${bism}<div class="arb ar" style="font-size:${size}px">${ar} <span class="ayno">﴿${arNum(p.a)}﴾</span></div>
-      ${S.tlQuran ? `<div class="tl" style="font-size:15.5px">${esc(tl)}</div>` : ""}<div class="en" style="font-size:15px">${esc(en)}</div></div>
+      ${S.tlQuran ? `<div class="tl" style="font-size:15.5px">${esc(tl)}</div>` : ""}<div class="en" style="font-size:15px" ${BN() && QBN ? 'lang="bn"' : ""}>${esc(en)}</div></div>
     <div class="longhint">Hold to read and scroll · swipe for the next ayah</div>
     <div class="cband"><span class="meta"><b>Ayah ${p.a} of ${m[3]}</b><span>${esc(m[2])} · ${m[4] === "meccan" ? "Makki" : "Madani"}</span></span>
       <span class="today"><b>${fmt(ayahsReadToday())}</b>read today</span><span class="pbar"><i style="width:${(p.a / m[3] * 100).toFixed(1)}%"></i></span></div></div>`;
@@ -1208,20 +1251,21 @@ function bindReader() {
 const TAFSIRS = {
   ik: { name: "Ibn Kathir", full: "Tafsir Ibn Kathir (abridged English)", link: p => `https://quran.com/${p.s}:${p.a}/tafsirs/en-tafisr-ibn-kathir` },
   mx: { name: "Al-Mukhtasar", full: "Al-Mukhtasar, Tafsir Center for Quranic Studies", link: () => "https://qul.tarteel.ai/resources/tafsir/266" },
+  zkb: { name: "আবু বকর যাকারিয়া", full: "Tafsir Abu Bakr Zakaria (Bangla, King Fahd Complex)", link: () => "https://qul.tarteel.ai/resources/tafsir/33" },
+  mxb: { name: "মুখতাসার", full: "Bengali Abridged Explanation of the Quran (Al-Mukhtasar)", link: () => "https://qul.tarteel.ai/resources/tafsir/267" },
 };
+// Each English tafsir has a Bangla counterpart: Ibn Kathir ↔ Abu Bakr Zakaria, Al-Mukhtasar ↔ Bangla Al-Mukhtasar.
+const TAF_PAIR = { ik: "zkb", mx: "mxb", zkb: "ik", mxb: "mx" };
+const tafEd = ed => { const bnEd = /b$/.test(ed); return BN() === bnEd ? ed : TAF_PAIR[ed]; };
 const tafsirCache = {};
-/* Al-Mukhtasar is built into the page. Ibn Kathir loads per surah: first the copy published with
-   the page, then (if that can't be reached) the same data straight from spa5k/tafsir_api. */
-const TAFSIR_MX = /*TAFSIR_MX*/;
-// Ibn Kathir is built in too, gzipped per surah (base64), and unpacked only when a surah is opened.
-const TAFSIR_IK_GZ = /*TAFSIR_IK*/;
-async function unpackIK(s) {
-  const b64 = TAFSIR_IK_GZ[s]; if (!b64 || typeof DecompressionStream === "undefined") throw new Error("no built-in copy");
-  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-  const text = await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
-  return JSON.parse(text);
+/* Every tafsir is built into the page, gzipped per surah (base64), and unpacked only when a surah is
+   opened. If that fails, the same data is fetched from spa5k/tafsir_api. */
+const TAFSIR_GZ = /*TAFSIR_GZ*/;
+async function unpackTafsir(ed, s) {
+  const b64 = TAFSIR_GZ[ed]?.[s]; if (!b64 || typeof DecompressionStream === "undefined") throw new Error("no built-in copy");
+  return JSON.parse(await gunzipB64(b64));
 }
-const TAFSIR_RAW = { ik: "en-tafisr-ibn-kathir", mx: "en-tafsir-al-mukhtasar" };
+const TAFSIR_RAW = { ik: "en-tafisr-ibn-kathir", mx: "en-tafsir-al-mukhtasar", zkb: "bn-tafsir-abu-bakr-zakaria", mxb: "bengali-mokhtasar" };
 function packTafsir(ayahs) {
   const p = [], idx = new Map(), m = [];
   for (const a of ayahs.slice().sort((x, y) => x.ayah - y.ayah)) { const t = String(a.text || "").trim(); if (!idx.has(t)) { idx.set(t, p.length); p.push(t); } m.push(idx.get(t)); }
@@ -1230,8 +1274,7 @@ function packTafsir(ayahs) {
 const getJSON = url => fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 function loadTafsir(ed, s) {
   const key = ed + s;
-  if (ed === "mx" && TAFSIR_MX[s]) return Promise.resolve(TAFSIR_MX[s]);
-  if (!tafsirCache[key]) tafsirCache[key] = (ed === "ik" ? unpackIK(s) : Promise.reject())
+  if (!tafsirCache[key]) tafsirCache[key] = unpackTafsir(ed, s)
     .catch(() => getJSON(`tafsir/${ed}/${s}.json`))
     .catch(() => getJSON(new URL(`tafsir/${ed}/${s}.json`, location.href).href))
     .catch(() => getJSON(`https://raw.githubusercontent.com/spa5k/tafsir_api/main/tafsir/${TAFSIR_RAW[ed]}/${s}.json`).then(packTafsir))
@@ -1250,13 +1293,13 @@ function tafsirParagraphs(text) {
 }
 async function openTafsir(ed) {
   const top = $reader?.querySelector(".card.top"); if (!top) return;
-  ed = ed || S.tafsirEd || "ik"; S.tafsirEd = ed; save();
+  ed = tafEd(ed || S.tafsirEd || "ik"); S.tafsirEd = /b$/.test(ed) ? TAF_PAIR[ed] : ed; save();
   const p = quranPos(), meta = TAFSIRS[ed];
   $reader.classList.add("tafsir"); top.classList.add("tafsir");
   let view = top.querySelector(".tafsir-view");
   if (!view) { top.insertAdjacentHTML("beforeend", `<div class="tafsir-view" role="region" aria-label="Tafsir"></div>`); view = top.querySelector(".tafsir-view"); }
   view.innerHTML = `<div class="tf-head"><button class="icon-btn" data-act="closetafsir" aria-label="Back to the ayah">${ICONS.back}</button>
-      <div class="seg tf-seg">${Object.entries(TAFSIRS).map(([k, t]) => `<button data-act="tafed" data-ed="${k}" aria-pressed="${k === ed}">${t.name}</button>`).join("")}</div></div>
+      <div class="seg tf-seg">${Object.entries(TAFSIRS).filter(([k]) => tafEd(k) === k).map(([k, t]) => `<button data-act="tafed" data-ed="${k}" aria-pressed="${k === ed}">${t.name}</button>`).join("")}</div></div>
     <div class="tf-body"><span class="eyebrow">${esc(QURAN_META[p.s - 1][1])} ${p.s}:${p.a}</span><p class="muted">Loading tafsir…</p></div>`;
   const body = view.querySelector(".tf-body");
   try {
@@ -1270,7 +1313,7 @@ async function openTafsir(ed) {
       <p class="tf-src">Nouman Ali Khan's talks are video only: <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(`Nouman Ali Khan ${QURAN_META[p.s - 1][1]} ayah ${p.a}`)}" target="_blank" rel="noopener">find them on YouTube ↗</a> · <a href="https://bayyinah.tv" target="_blank" rel="noopener">Bayyinah TV ↗</a></p>`;
     body.scrollTop = 0;
   } catch (e) {
-    body.innerHTML = `<p class="muted">Couldn't load ${esc(meta.full)} right now.</p><div class="btn-row" style="justify-content:flex-start"><button class="btn small" data-act="tafed" data-ed="${ed}">Try again</button>${ed !== "mx" ? `<button class="btn ghost small" data-act="tafed" data-ed="mx">Read Al-Mukhtasar</button>` : ""}</div>`;
+    body.innerHTML = `<p class="muted">Couldn't load ${esc(meta.full)} right now.</p><div class="btn-row" style="justify-content:flex-start"><button class="btn small" data-act="tafed" data-ed="${ed}">Try again</button>${!ed.startsWith("mx") ? `<button class="btn ghost small" data-act="tafed" data-ed="mx">${esc(TAFSIRS[tafEd("mx")].name)}</button>` : ""}</div>`;
   }
 }
 function closeTafsir() {
@@ -1316,17 +1359,17 @@ function openReflectionOverlay(n, itemId, tier) {
       <div class="artbox">${reflectArt(r)}</div>
       <span class="pill"><i></i>Reflection #${n}${it ? ` · ${fmt(tier * REFLECT_EVERY)} × ${esc(it.title)}` : ""}</span>
       <h1>${esc(r.label)}</h1>${r.isName ? `<p class="muted" style="text-align:center;margin:-6px 0 0">${esc(r.subtitle)}</p>` : ""}
-      <div class="block">${aurora()}<span class="eyebrow">From the Quran</span><div class="ar">${esc(r.ar)}</div><div class="tl">${esc(r.tl)}</div><div class="en">${esc(r.en)}</div>
-        <a class="ref" href="${link.url}" target="_blank" rel="noopener">${esc(r.ref)} ↗</a>${r.verified ? `<span class="note">Uthmani text (QuranEnc) · Saheeh International</span>` : ""}</div>
+      <div class="block">${aurora()}<span class="eyebrow">From the Quran</span><div class="ar">${esc(r.ar)}</div><div class="tl">${esc(r.tl)}</div><div class="en">${esc(BN() && QBN ? rangeMeaning(verseKey(r.ref)) : r.en)}</div>
+        <a class="ref" href="${link.url}" target="_blank" rel="noopener">${esc(r.ref)} ↗</a>${r.verified ? `<span class="note">Uthmani text (QuranEnc) · ${esc(QURAN_TR())}</span>` : ""}</div>
       ${ORNAMENT}
       <div class="block">${r.isName ? "" : aurora()}<span class="eyebrow">${r.isName ? "The Name" : "Name of Allah"}</span><div class="name-ar ar">${esc(r.name.arabic)}</div><b>${esc(r.name.translit)} · ${esc(r.name.meaning)}</b>${r.tie ? `<p class="para muted">${esc(r.tie)}</p>` : ""}</div>
       <div class="block left" id="reflect-${n}"><span class="eyebrow">Reflect</span>${reflectBodyHTML(n)}</div>
-      ${r.topicHadith ? `<div class="block left"><span class="eyebrow">Hadith</span>${r.topicHadith.narrator ? `<span class="muted">${esc(r.topicHadith.narrator)}</span>` : ""}<p class="para">${esc(r.topicHadith.text)}</p>${r.topicHadith.ar ? `<p class="ar" style="font-size:21px;line-height:2;text-align:right;margin:0">${esc(r.topicHadith.ar)}</p>` : ""}<a class="ref" href="${r.topicHadith.url || hlink.url}" target="_blank" rel="noopener">${esc(r.topicHadith.ref)}${r.topicHadith.grade ? ` · ${esc(r.topicHadith.grade)}` : ""} ↗</a></div>` : ""}
+      ${r.topicHadith ? `<div class="block left"><span class="eyebrow">Hadith</span>${r.topicHadith.narrator && !(BN() && HADITH_BN[r.topicHadith.ref]) ? `<span class="muted">${esc(r.topicHadith.narrator)}</span>` : ""}<p class="para">${esc(hadithText(r.topicHadith))}</p>${r.topicHadith.ar ? `<p class="ar" style="font-size:21px;line-height:2;text-align:right;margin:0">${esc(r.topicHadith.ar)}</p>` : ""}<a class="ref" href="${r.topicHadith.url || hlink.url}" target="_blank" rel="noopener">${esc(r.topicHadith.ref)}${r.topicHadith.grade ? ` · ${esc(r.topicHadith.grade)}` : ""} ↗</a></div>` : ""}
       ${ORNAMENT}
       <div class="btn-row"><button class="btn" data-act="closeov">Alhamdulillah</button></div>
     </div>`;
   document.body.appendChild(el);
-  if (!(S.reflectText || {})[n]) writeReflection(n);
+  if (!(S.reflectText || {})[rkey(n)]) writeReflection(n);
 }
 /* ---------- Reflection text: written by Claude from the pulled sources only ---------- */
 let samplerP = null;
@@ -1335,33 +1378,35 @@ function sampler() {
   return samplerP;
 }
 const writing = {};
+const rkey = n => BN() ? n + "|bn" : String(n);
 async function tafsirFor(ref) {
   const k = verseKey(ref); if (!k) return "";
   const [s, a] = k.split(/[:-]/).map(Number);
-  try { const d = await loadTafsir("mx", s); return d.p[d.m[a - 1]] || ""; } catch (e) { return ""; }
+  try { const d = await loadTafsir(tafEd("mx"), s); return d.p[d.m[a - 1]] || ""; } catch (e) { return ""; }
 }
 function reflectBodyHTML(n) {
-  const t = (S.reflectText || {})[n], w = writing[n];
-  if (t) return `${t.text.split(/\n{2,}/).map(p => `<p class="para">${esc(p)}</p>`).join("")}${t.today ? `<p class="para"><b>Today:</b> ${esc(t.today)}</p>` : ""}
-    <span class="note">Written by Claude from the verse, tafsir, hadith and Name on this page.</span>`;
-  if (w && w.state === "writing") return `<p class="para muted">Writing a reflection from these sources…</p><span class="shimmer"></span>`;
-  if (w && w.state === "fallback") return `${w.tafsir ? `<span class="muted" style="font-size:13px">From Tafsir Al-Mukhtasar on ${esc(w.ref)}</span>${tafsirParagraphs(w.tafsir)}` : `<p class="para muted">Couldn't load the tafsir for this verse.</p>`}
+  const t = (S.reflectText || {})[rkey(n)], w = writing[rkey(n)];
+  if (t) return `${t.text.split(/\n{2,}/).map(p => `<p class="para">${esc(p)}</p>`).join("")}${t.today ? `<p class="para"><b>${L("Today:", "আজ:")}</b> ${esc(t.today)}</p>` : ""}
+    <span class="note">${L("Written by Claude from the verse, tafsir, hadith and Name on this page.", "এই পাতার আয়াত, তাফসীর, হাদীস ও নাম থেকে Claude লিখেছে।")}</span>`;
+  if (w && w.state === "writing") return `<p class="para muted">${L("Writing a reflection from these sources…", "এই উৎসগুলো থেকে লেখা হচ্ছে…")}</p><span class="shimmer"></span>`;
+  if (w && w.state === "fallback") return `${w.tafsir ? `<span class="muted" style="font-size:13px">${esc(TAFSIRS[tafEd("mx")].full)} · ${esc(w.ref)}</span>${tafsirParagraphs(w.tafsir)}` : `<p class="para muted">Couldn't load the tafsir for this verse.</p>`}
     ${w.retry ? `<button class="btn ghost small" data-act="rewrite" data-n="${n}">Try writing a reflection again</button>` : ""}`;
   return `<button class="btn ghost small" data-act="rewrite" data-n="${n}">Write a reflection</button>`;
 }
 function redrawReflect(n) { const box = document.getElementById("reflect-" + n); if (box) box.innerHTML = `<span class="eyebrow">Reflect</span>` + reflectBodyHTML(n); }
 async function writeReflection(n) {
-  if (writing[n]?.state === "writing") return;
+  const key = rkey(n), bn = BN();
+  if (writing[key]?.state === "writing") return;
   const r = reflection(n);
-  writing[n] = { state: "writing" }; redrawReflect(n);
+  writing[key] = { state: "writing" }; redrawReflect(n);
   const [sample, tafsir] = await Promise.all([sampler(), tafsirFor(r.ref)]);
-  const fallback = retry => { writing[n] = { state: "fallback", tafsir, ref: r.ref, retry }; redrawReflect(n); };
+  const fallback = retry => { writing[key] = { state: "fallback", tafsir, ref: r.ref, retry }; redrawReflect(n); };
   if (!sample) return fallback(false);
   const h = r.topicHadith;
   const sources = [
-    `QURAN ${r.ref} (Saheeh International): ${r.en}`,
-    tafsir ? `TAFSIR AL-MUKHTASAR on ${r.ref}: ${tafsir.slice(0, 2400)}` : "",
-    h ? `HADITH ${h.ref}${h.grade ? ` (${h.grade})` : ""}: ${String(h.text).slice(0, 1600)}` : "",
+    `QURAN ${r.ref} (${QURAN_TR()}): ${bn && QBN ? rangeMeaning(verseKey(r.ref)) : r.en}`,
+    tafsir ? `TAFSIR (${TAFSIRS[tafEd("mx")].full}) on ${r.ref}: ${tafsir.slice(0, 2400)}` : "",
+    h ? `HADITH ${h.ref}${h.grade ? ` (${h.grade})` : ""}: ${String(hadithText(h)).slice(0, 1600)}` : "",
     `NAME OF ALLAH: ${r.name.translit} (${r.name.arabic}), "${r.name.meaning}" (from the list in Jami\` at-Tirmidhi 3507)`,
   ].filter(Boolean).join("\n\n");
   const prompt = `You write the short reflection on one card of a Muslim dhikr (remembrance) app. The card's theme is "${r.isName ? r.name.translit + " — " + r.name.meaning : r.label}".
@@ -1370,7 +1415,7 @@ Use ONLY the sources below. Strict rules:
 - Every claim must be supported by the sources. Do not add verses, hadith, stories, scholars, numbers, scientific facts or rulings that are not in them.
 - Do not quote the Arabic. Do not put words in quotation marks unless they are copied exactly from the sources.
 - Do not say what a verse or hadith means beyond what the translation or the tafsir says.
-- Plain, warm, humble English; speak to the reader as "you". No headings, no lists, no emojis.
+- ${bn ? "Write in Bangla (Bengali script), in plain, warm, humble standard Bangla; address the reader as \"আপনি\". Keep Islamic terms as Bangla Muslims usually write them (আল্লাহ, রাসূলুল্লাহ ﷺ, দো‘আ, যিকির)." : "Plain, warm, humble English; speak to the reader as \"you\"."} No headings, no lists, no emojis.
 
 SOURCES
 ${sources}
@@ -1379,8 +1424,8 @@ Return JSON only: {"reflection": "two short paragraphs separated by a blank line
   try {
     const out = await sample.json(prompt, { modelTier: "default" });
     if (!out || typeof out.reflection !== "string" || !out.reflection.trim()) throw { code: "bad_output" };
-    S.reflectText = S.reflectText || {}; S.reflectText[n] = { text: out.reflection.trim(), today: String(out.today || "").trim(), at: Date.now() }; save();
-    delete writing[n]; redrawReflect(n);
+    S.reflectText = S.reflectText || {}; S.reflectText[key] = { text: out.reflection.trim(), today: String(out.today || "").trim(), at: Date.now() }; save();
+    delete writing[key]; redrawReflect(n);
   } catch (e) {
     fallback(e?.code !== "not_granted");
   }
@@ -1389,15 +1434,15 @@ function openSource(libId) {
   const s = sourceFor(libId); if (!s) return;
   const link = s.url ? { label: "Open on sunnah.com", url: s.url } : sourceLink(s.ref), d = BY_ID[libId];
   $layer.insertAdjacentHTML("beforeend", `<div class="scrim" data-act="closesrc" style="z-index:54"></div><div class="sheet-src" role="dialog" aria-label="${s.kind}"><div class="in">
-    <span class="eyebrow">${SRC_LABEL[s.kind]} · ${esc(s.chapter || (d ? d.title : ""))}</span>
-    ${s.narrator ? `<span class="muted">${esc(s.narrator)}</span>` : ""}
+    <span class="eyebrow">${SRC_LABEL[s.kind]} · ${esc(d && d.ch ? chTitle(d) || s.chapter : s.chapter || (d ? d.title : ""))}</span>
+    ${s.narrator && !(BN() && HADITH_BN[s.ref]) ? `<span class="muted">${esc(s.narrator)}</span>` : ""}
     ${s.kind === "Hisn" ? `<span class="muted" style="font-size:12.5px">Reference, as given in the book</span>` : ""}
-    <p>${esc(s.text)}</p>
+    <p>${esc(s.kind === "Quran" ? meaningOf(d) : s.kind === "Hadith" ? hadithText(s) : s.text)}</p>
     ${s.quran ? `<p class="muted" style="font-size:13px">The Quran text shown is ${esc(s.quran.map(k => "Quran " + k).join(", "))} from QuranEnc, with the Saheeh International translation.</p>` : ""}
     ${s.names ? `<p class="muted" style="font-size:13px">The list of Names itself is from <a href="${NAMES_NOTE.url}" target="_blank" rel="noopener">${esc(NAMES_NOTE.ref)}</a>${NAMES_NOTE.grade ? `, graded ${esc(NAMES_NOTE.grade)}` : ""}.</p>` : ""}
     ${s.ar ? `<p class="ar" style="font-size:22px;line-height:2;text-align:right">${esc(s.ar)}</p>` : ""}
     <b>${esc(s.ref)}${s.grade ? ` · <span class="muted" style="font-weight:600">${esc(s.grade)}</span>` : ""}</b>
-    ${s.verified ? `<span class="note">${s.kind === "Quran" ? "Uthmani text from QuranEnc (King Fahd Complex) · Saheeh International translation" : s.kind === "Hisn" ? "Arabic, transliteration, translation and reference from Hisn al-Muslim on sunnah.com" : "Text and grading from the sunnah.com collection"}</span>` : ""}
+    ${s.verified ? `<span class="note">${s.kind === "Quran" ? `Uthmani text from QuranEnc (King Fahd Complex) · ${QURAN_TR()}` : s.kind === "Hisn" ? "Arabic, transliteration, translation and reference from Hisn al-Muslim on sunnah.com" : BN() && HADITH_BN[s.ref] ? "Arabic and grading from sunnah.com · Bangla from the Bangla edition in fawazahmed0/hadith-api" : "Text and grading from the sunnah.com collection"}</span>` : ""}
     <a href="${link.url}" target="_blank" rel="noopener">${link.label} ↗</a>
     <div class="btn-row" style="justify-content:flex-start"><button class="btn small" data-act="closesrc">Back to counting</button></div></div></div>`);
 }
@@ -1468,6 +1513,8 @@ document.addEventListener("click", e => {
     case "tab": if ($counter) closeCounter(); document.querySelectorAll(".overlay").forEach(closeOverlay); ui.tab = b.dataset.tab; ui.sub = null; render(true); $screen.scrollTop = 0; break;
     case "sub": ui.tab = "discover"; ui.sub = b.dataset.sub; render(true); $screen.scrollTop = 0; break;
     case "theme": S.theme = isLight() ? "dark" : "light"; save(); applyTheme(); rerenderKeepScroll(); break;
+    case "lang": S.lang = BN() ? "en" : "bn"; save(); document.documentElement.lang = BN() ? "bn" : "en"; rerenderKeepScroll();
+      toast(BN() ? "বাংলা অনুবাদ" : "English translations", BN() ? "Hisn al-Muslim duas have no Bangla edition yet, so they stay in English" : "Saheeh International · sunnah.com"); break;
     case "open": openCounter(id); break;
     case "lib": openCounter(findOrCreate(BY_ID[id]).id); break;
     case "quickadd": {
