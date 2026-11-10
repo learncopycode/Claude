@@ -454,7 +454,15 @@ function auroraVars(h, h2) {
   return `--a1:${hsb(h, s, v)};--a2:${hsb(second, s * 0.9, v)};--a3:${hsb(h - 70, s * 0.85, v)};--c:${hsb(h, 0.6, L ? 0.75 : 0.85)}`;
 }
 const ORNAMENT = `<div class="ornament" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="6" y="6" width="12" height="12"/><rect x="6" y="6" width="12" height="12" transform="rotate(45 12 12)"/><circle cx="12" cy="12" r="2"/></svg></div>`;
-const auroraHTML = '<span class="aurora" aria-hidden="true"><i></i><i></i><i></i></span>';
+/* Roaming colour layers. Their motion is tied to the clock, so a newly drawn card
+   continues from the same point instead of jumping back to the start. */
+const AURORA_DURATIONS = [19, 23, 27];
+function aurora() {
+  const t = performance.now() / 1000;
+  // Each layer runs forwards then backwards (alternate), so one full cycle is twice its duration.
+  const delays = AURORA_DURATIONS.map(d => -(t % (2 * d))).map(s => `animation-delay:${s.toFixed(2)}s`);
+  return `<span class="aurora" aria-hidden="true"><i style="${delays[0]}"></i><i style="${delays[1]}"></i><i style="${delays[2]}"></i></span>`;
+}
 const colorOf = total => hsb(hueOf(total).h, 0.6, isLight() ? 0.75 : 0.85);
 
 /* ================= Reflections (endless) ================= */
@@ -622,7 +630,7 @@ function momentSuggestion() {
 function homeHTML() {
   const m = momentSuggestion(), items = S.items.slice().sort((a, b) => (b.updated || b.createdAt) - (a.updated || a.createdAt)), h0 = hueOf(DAY_INDEX * 37).h;
   let h = `<div class="wrap">${topBar("Zikr")}
-    <section class="today-z" style="${auroraVars(h0)}">${auroraHTML}
+    <section class="today-z" style="${auroraVars(h0)}">${aurora()}
       <div class="row1"><span><span class="eyebrow">Today's zikr</span><br><b>${m.title}</b></span><button class="btn ghost small" data-act="addall">Add all</button></div>
       <div class="chips">${m.items.map(d => `<button class="chip ${added(d) ? "on" : ""}" data-act="lib" data-id="${d.id}"><b>${esc(d.title)}</b><span class="ar">${esc(d.arabic)}</span></button>`).join("")}</div>
     </section>
@@ -646,7 +654,7 @@ function libRow(d, sub) {
 }
 function featureCard(eyebrow, d, hue) {
   const on = added(d);
-  return `<div class="feature" style="${auroraVars(hue)}">${auroraHTML}<span class="eyebrow">${eyebrow}</span><div class="ar fa">${esc(d.arabic)}</div><div class="ftl">${esc(d.translit)}</div><div class="fen">${esc(d.meaning)}</div>
+  return `<div class="feature" style="${auroraVars(hue)}">${aurora()}<span class="eyebrow">${eyebrow}</span><div class="ar fa">${esc(d.arabic)}</div><div class="ftl">${esc(d.translit)}</div><div class="fen">${esc(d.meaning)}</div>
     <div class="fsrc">${esc(d.source)}</div>
     <div class="btn-row"><button class="btn small" data-act="lib" data-id="${d.id}">Count now</button><button class="btn ghost small" data-act="quickadd" data-id="${d.id}">${on ? "✓ In My Zikr" : "+ My Zikr"}</button></div></div>`;
 }
@@ -673,14 +681,14 @@ function reflectionsHTML() {
   const best = S.items.slice().sort((a, b) => (b.total % REFLECT_EVERY) - (a.total % REFLECT_EVERY))[0];
   const next = reflection((S.reflectN || 0) + 1), need = best ? REFLECT_EVERY - (best.total % REFLECT_EVERY) : REFLECT_EVERY;
   let h = `<div class="wrap">${topBar("Reflections")}
-    <div class="next-up" style="${auroraVars(next.hue, next.hue2)}">${auroraHTML}<span class="eyebrow">Next reflection</span>
+    <div class="next-up" style="${auroraVars(next.hue, next.hue2)}">${aurora()}<span class="eyebrow">Next reflection</span>
       <b class="display" style="font-size:20px">${esc(next.label)}</b>
       <span class="muted" style="font-size:13.5px">${best ? `${need} more ${esc(best.title)} to open it.` : "Reach 50 on any zikr to open it."}</span>
       ${best ? `<span class="prog"><i style="width:${(REFLECT_EVERY - need) / REFLECT_EVERY * 100}%"></i></span>` : ""}</div>`;
   if (!list.length) return h + `<div class="empty">Every 50 recitations of a zikr opens a new blessing to reflect on: a verse, a hadith, a Name of Allah and something to do today. They gather here.</div></div>`;
   h += `<h2 class="sec">Collected <small>${list.length}</small></h2><div class="rgrid">` + list.map(u => {
     const r = reflection(u.n), it = itemById(u.itemId);
-    return `<button class="rcard" data-act="reflect" data-n="${u.n}" data-id="${u.itemId}" data-tier="${u.tier}" style="${auroraVars(r.hue, r.hue2)}">${reflectArt(r)}${auroraHTML}
+    return `<button class="rcard" data-act="reflect" data-n="${u.n}" data-id="${u.itemId}" data-tier="${u.tier}" style="${auroraVars(r.hue, r.hue2)}">${reflectArt(r)}${aurora()}
       <span class="rt2"><b>${esc(r.label)}</b><small>#${u.n} · ${fmt(u.tier * REFLECT_EVERY)} × ${esc(it ? it.title : "zikr")}</small></span></button>`;
   }).join("") + `</div>`;
   return h + `</div>`;
@@ -732,7 +740,7 @@ function cardHTML(it, role, preview = 0) {
   const len = it.arabic.length, focus = S.mode === "single", src = sourceFor(it.libraryID);
   const arSize = len > 400 ? 26 : len > 200 ? 30 : len > 90 ? 34 : len > 40 ? 42 : 54;
   const pct = it.target ? Math.min(100, count / it.target * 100) : 0;
-  return `<div class="card ${role} ${focus ? "focus" : ""}" style="${auroraVars(h)}">${auroraHTML}
+  return `<div class="card ${role} ${focus ? "focus" : ""}" style="${auroraVars(h)}">${aurora()}
     <div class="ctop"><span class="lbl">${esc(it.title)}</span>${src ? `<button class="srcchip" data-act="source" data-lib="${it.libraryID}">${ICONS.book}${src.kind}</button>` : ""}</div>
     <div class="ctext">
       ${it.arabic ? `<div class="arb ar" style="font-size:${arSize}px">${esc(it.arabic)}</div>` : `<div class="arb display" style="font-size:36px">${esc(it.title)}</div>`}
@@ -749,7 +757,7 @@ function cardHTML(it, role, preview = 0) {
 }
 function reflectCardHTML(p) {
   const r = reflection(p.n), it = itemById(p.itemId);
-  return `<div class="card top rcard-deck enter-r" style="${auroraVars(r.hue, r.hue2)}">${auroraHTML}
+  return `<div class="card top rcard-deck enter-r" style="${auroraVars(r.hue, r.hue2)}">${aurora()}
     <div class="rart">${reflectArt(r)}</div>
     <div class="rbody"><span class="pill"><i></i>${fmt(p.tier * REFLECT_EVERY)} × ${esc(it ? it.title : "")}</span>
       <span class="eyebrow">A new blessing to reflect on</span><h3>${esc(r.label)}</h3>
@@ -889,13 +897,13 @@ function openReflectionOverlay(n, itemId, tier) {
       <div class="artbox">${reflectArt(r)}</div>
       <span class="pill"><i></i>Reflection #${n}${it ? ` · ${fmt(tier * REFLECT_EVERY)} × ${esc(it.title)}` : ""}</span>
       <h1>${esc(r.label)}</h1>${r.isName ? `<p class="muted" style="text-align:center;margin:-6px 0 0">${esc(r.subtitle)}</p>` : ""}
-      <div class="block">${auroraHTML}<span class="eyebrow">From the Quran</span><div class="ar">${esc(r.ar)}</div><div class="tl">${esc(r.tl)}</div><div class="en">${esc(r.en)}</div>
+      <div class="block">${aurora()}<span class="eyebrow">From the Quran</span><div class="ar">${esc(r.ar)}</div><div class="tl">${esc(r.tl)}</div><div class="en">${esc(r.en)}</div>
         <a class="ref" href="${link.url}" target="_blank" rel="noopener">${esc(r.ref)} ↗</a>${r.verified ? `<span class="note">Uthmani text (QuranEnc) · Saheeh International</span>` : ""}</div>
       ${ORNAMENT}
-      <div class="block">${r.isName ? "" : auroraHTML}<span class="eyebrow">${r.isName ? "The Name" : "Name of Allah"}</span><div class="name-ar ar">${esc(r.name.arabic)}</div><b>${esc(r.name.translit)} · ${esc(r.name.meaning)}</b>${r.tie ? `<p class="para muted">${esc(r.tie)}</p>` : ""}</div>
+      <div class="block">${r.isName ? "" : aurora()}<span class="eyebrow">${r.isName ? "The Name" : "Name of Allah"}</span><div class="name-ar ar">${esc(r.name.arabic)}</div><b>${esc(r.name.translit)} · ${esc(r.name.meaning)}</b>${r.tie ? `<p class="para muted">${esc(r.tie)}</p>` : ""}</div>
       <div class="block left"><span class="eyebrow">Reflect</span><p class="para">${esc(r.reflect)}</p><p class="para"><b>Today:</b> ${esc(r.prompt)}</p></div>
       ${r.topicHadith ? `<div class="block left"><span class="eyebrow">Hadith</span>${r.topicHadith.narrator ? `<span class="muted">${esc(r.topicHadith.narrator)}</span>` : ""}<p class="para">${esc(r.topicHadith.text)}</p>${r.topicHadith.ar ? `<p class="ar" style="font-size:21px;line-height:2;text-align:right;margin:0">${esc(r.topicHadith.ar)}</p>` : ""}<a class="ref" href="${r.topicHadith.url || hlink.url}" target="_blank" rel="noopener">${esc(r.topicHadith.ref)}${r.topicHadith.grade ? ` · ${esc(r.topicHadith.grade)}` : ""} ↗</a></div>` : ""}
-      ${r.wonder ? `<div class="block left">${auroraHTML}<span class="eyebrow">A wonder</span><p class="para">${esc(r.wonder)}</p></div>` : ""}
+      ${r.wonder ? `<div class="block left">${aurora()}<span class="eyebrow">A wonder</span><p class="para">${esc(r.wonder)}</p></div>` : ""}
       ${ORNAMENT}
       <div class="btn-row"><button class="btn" data-act="closeov">Alhamdulillah</button></div>
     </div>`;
