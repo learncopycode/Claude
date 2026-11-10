@@ -202,6 +202,9 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .card.reading > .aurora { opacity: 0; }
 .card > .readback.readback { position: absolute; top: 12px; left: 12px; z-index: 6; display: flex; align-items: center; gap: 2px; padding: 7px 14px 7px 8px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--text); font: 600 14px/1 inherit; font-family: inherit; box-shadow: var(--shadow); animation: rbIn .3s ease both; }
 .readback svg { width: 18px; height: 18px; }
+.card > .readnext.readnext { position: absolute; right: 14px; bottom: 14px; z-index: 6; display: flex; flex-direction: column; align-items: center; gap: 0; padding: 8px 12px 9px; border-radius: 18px; background: var(--accent); color: #fff; font: 700 12px/1 inherit; font-family: inherit; letter-spacing: .02em; box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 45%, transparent); touch-action: none; animation: rbIn .3s ease both; }
+.readnext svg { width: 20px; height: 20px; animation: nudgeUp 1.6s ease-in-out infinite; }
+@keyframes nudgeUp { 0%, 100% { transform: translateY(2px); } 50% { transform: translateY(-3px); } }
 @keyframes rbIn { from { opacity: 0; transform: translateY(-6px); } }
 .card .cband, .card .longhint, .card .ctop { transition: max-height 0.32s ease, opacity 0.25s ease, padding 0.32s ease, border-color 0.32s ease; }
 .card .cband { max-height: 220px; overflow: hidden; }
@@ -210,7 +213,7 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .card.reading .longhint { max-height: 0; opacity: 0; padding: 0; }
 .card .ctop { max-height: 70px; overflow: hidden; }
 .card.reading .ctop { max-height: 0; opacity: 0; padding-top: 0; }
-.card.reading .ctext { justify-content: flex-start; overflow-y: auto; padding-top: 62px; padding-bottom: 40px; -webkit-mask-image: linear-gradient(transparent 40px, #000 60px, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(transparent 40px, #000 60px, #000 calc(100% - 30px), transparent); }
+.card.reading .ctext { justify-content: flex-start; overflow-y: auto; padding-top: 62px; padding-bottom: 76px; -webkit-mask-image: linear-gradient(transparent 40px, #000 60px, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(transparent 40px, #000 60px, #000 calc(100% - 30px), transparent); }
 .counter .hint, .counter .dots, .counter .chead { transition: opacity 0.25s ease; }
 .counter.reading .hint, .counter.reading .dots { opacity: 0; }
 .counter.reading .chead { opacity: 0.35; pointer-events: none; }
@@ -1015,15 +1018,29 @@ const HOLD_MS = 320;
 /* Hold a card to enter reading mode; it stays until Back is tapped. */
 function enterReading(top, host) {
   top.classList.add("reading"); host.classList.add("reading");
-  if (!top.querySelector(".readback")) top.insertAdjacentHTML("beforeend", `<button class="readback" data-act="exitread" aria-label="Leave reading mode">${ICONS.back}<span>Back</span></button>`);
+  if (!top.querySelector(".readback")) top.insertAdjacentHTML("beforeend", `<button class="readback" data-act="exitread" aria-label="Leave reading mode">${ICONS.back}<span>Back</span></button>
+    <button class="readnext" data-act="readnext" aria-label="${host === $reader ? "Next ayah" : "Count and go on"}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14l6-6 6 6"/></svg><span>${host === $reader ? "Next" : "Swipe up"}</span></button>`);
   if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) {}
 }
+/* The "Swipe up" handle in reading mode: tap it or flick it up to count and move on, without going Back first. */
+function readNext() {
+  const inReader = !!$reader?.querySelector(".card.top.reading");
+  exitReading();
+  if (inReader) return readerNext();
+  if ($counter && !animating) { tick(false); commitUp($counter.querySelector("#deck").clientHeight, 260); }
+}
+let rnDown = null, rnSkipClick = false;
+document.addEventListener("pointerdown", e => { const b = e.target.closest(".readnext"); rnDown = b ? { y: e.clientY } : null; }, true);
+document.addEventListener("pointerup", e => {
+  if (!rnDown) return; const dy = e.clientY - rnDown.y; rnDown = null;
+  if (dy < -24) { rnSkipClick = true; setTimeout(() => { rnSkipClick = false; }, 350); readNext(); }   // flicked up
+}, true);
 function exitReading() {
   for (const host of [$counter, $reader]) {
     if (!host || !host.isConnected) continue;
     host.classList.remove("reading");
     host.querySelectorAll(".card.reading").forEach(top => {
-      top.classList.remove("reading"); top.style.transform = ""; top.querySelector(".readback")?.remove();
+      top.classList.remove("reading"); top.style.transform = ""; top.querySelectorAll(".readback, .readnext").forEach(e => e.remove());
       if (!top.classList.contains("long")) top.querySelector(".ctext")?.scrollTo({ top: 0, behavior: "smooth" });
     });
   }
@@ -1196,6 +1213,14 @@ function readerGo(dir) {
   S.quranPos = next; save();
   if (dir > 0 && next.a === 1) toast(`Surah ${QURAN_META[next.s - 1][1]}`, QURAN_META[next.s - 1][2], (next.s * 37) % 360);
 }
+function readerNext(dur = 260) {
+  if (rAnimating || !$reader || !stepAyah(quranPos(), 1)) return;
+  const top = $reader.querySelector("#rdeck .card.top"), h = $reader.querySelector("#rdeck").clientHeight;
+  rAnimating = true;
+  top.style.transition = `transform ${dur}ms cubic-bezier(.35,0,.75,.4), opacity ${dur}ms`;
+  top.style.transform = `translateY(${-h * 1.15}px) rotateX(-12deg) scale(.94)`; top.style.opacity = "0.5"; rSetBack(1, dur);
+  setTimeout(() => { ui.resumed = false; readerGo(1); rAnimating = false; drawReader(); }, dur);
+}
 function bindReader() {
   const deck = $reader.querySelector("#rdeck"); let drag = null;
   const topCard = () => deck.querySelector(".card.top");
@@ -1235,10 +1260,7 @@ function bindReader() {
     }
     const s0 = d.samples[0], s1 = d.samples[d.samples.length - 1], v = (s1[0] - s0[0]) / Math.max(1, s1[1] - s0[1]), h = deck.clientHeight;
     if ((d.dy < -90 || v < -0.7) && stepAyah(quranPos(), 1)) {
-      rAnimating = true; const dur = Math.max(150, 280 - Math.abs(v) * 60);
-      top.style.transition = `transform ${dur}ms cubic-bezier(.35,0,.75,.4), opacity ${dur}ms`;
-      top.style.transform = `translateY(${-h * 1.15}px) rotateX(-12deg) scale(.94)`; top.style.opacity = "0.5"; rSetBack(1, dur);
-      setTimeout(() => { ui.resumed = false; readerGo(1); rAnimating = false; drawReader(); }, dur);
+      readerNext(Math.max(150, 280 - Math.abs(v) * 60));
     } else if ((d.dy > 110 || v > 0.9) && stepAyah(quranPos(), -1)) {
       rAnimating = true; ui.resumed = false; readerGo(-1); drawReader();
       const t = topCard(); t.style.transition = "none"; t.style.transform = `translateY(${-h}px)`; void t.offsetWidth;
@@ -1527,6 +1549,7 @@ document.addEventListener("click", e => {
     case "reflect": openReflectionOverlay(+b.dataset.n, id, +b.dataset.tier); break;
     case "closeov": closeOverlay(b.closest(".overlay")); break;
     case "exitread": exitReading(); break;
+    case "readnext": if (rnSkipClick) { rnSkipClick = false; break; } readNext(); break;
     case "rewrite": writeReflection(+b.dataset.n); break;
     case "source": openSource(b.dataset.lib); break;
     case "closesrc": $layer.querySelectorAll(".sheet-src").forEach(x => x.remove()); $layer.querySelectorAll('.scrim[data-act="closesrc"]').forEach(x => x.remove()); break;
