@@ -349,7 +349,8 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .prayer .ptitle { font-size: 17px; }
 .pscroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .pwrap { max-width: 600px; margin: 0 auto; padding: 10px 16px 24px; }
-.pseg { margin: 4px 0 10px; } .pseg button { font-size: 12.5px; }
+.pseg { margin: 4px 0 10px; } .pseg button.nowp { position: relative; } .pseg button.nowp::after { content: ""; position: absolute; left: 50%; bottom: 3px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: currentColor; opacity: .8; }
+.pnow { color: var(--accent); } .pseg button { font-size: 12.5px; }
 .pnote { font-size: 13.5px; margin: 0 0 12px; line-height: 1.5; }
 .prow .pnum { flex: 0 0 22px; font-weight: 700; font-size: 13px; color: var(--faint); text-align: center; }
 .prow .rt { flex: 1; min-width: 0; } .prow .rt b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } .prow .rar { flex: 0 1 32%; min-width: 0; font-size: 17px; }
@@ -1135,14 +1136,15 @@ const prayerToday = () => ((S.prayerLog || {})[dayKey()] || {});
 let $prayer = null, pAnimating = false;
 const P = { p: null, stage: "list", i: 0, n: 0, list: [] };
 function openPrayer(p) {
-  Object.assign(P, { p: p || P.p || guessPrayer(), stage: "list", i: 0, n: 0 });
+  // Without a chosen prayer, open on the current waqt (the prayer whose time has most recently begun).
+  Object.assign(P, { p: p || guessPrayer(), stage: "list", i: 0, n: 0 });
   if (!$prayer) { $prayer = document.createElement("section"); $prayer.className = "counter prayer"; $prayer.setAttribute("aria-label", "After prayer"); $layer.appendChild($prayer); }
   drawPrayer();
 }
 function closePrayer() { if (!$prayer) return; const el = $prayer; $prayer = null; keepAwake(false); el.classList.add("out"); setTimeout(() => el.remove(), 280); rerenderKeepScroll(); }
 function prayerSegHTML() {
   const done = prayerToday();
-  return `<div class="seg pseg" role="group" aria-label="Prayer">${PRAYERS.map(([k, n]) => `<button data-act="pselect" data-p="${k}" aria-pressed="${P.p === k}">${n}${done[k] ? " ✓" : ""}</button>`).join("")}</div>`;
+  return `<div class="seg pseg" role="group" aria-label="Prayer">${PRAYERS.map(([k, n]) => `<button data-act="pselect" data-p="${k}" aria-pressed="${P.p === k}" class="${k === guessPrayer() ? "nowp" : ""}">${n}${done[k] ? " ✓" : ""}</button>`).join("")}</div>`;
 }
 function drawPrayer() {
   if (!$prayer) return;
@@ -1151,7 +1153,7 @@ function drawPrayer() {
     $prayer.innerHTML = `<div class="chead"><button class="icon-btn" data-act="pclose" aria-label="Close">${ICONS.back}</button>
         <div class="grow"><b class="ptitle">After prayer</b></div><span style="width:42px"></span></div>
       <div class="pscroll"><div class="pwrap">${prayerSegHTML()}
-        <p class="muted pnote">After ${esc(pName(P.p))}, in the order of Hisn al-Muslim. Swipe through them top to bottom.${prayerToday()[P.p] ? ` <b>Done today ✓</b>` : ""}</p>
+        <p class="muted pnote">${P.p === guessPrayer() ? `<b class="pnow">It's ${esc(pName(P.p))} time now.</b> ` : ""}After ${esc(pName(P.p))}, in the order of Hisn al-Muslim. Swipe through them top to bottom.${prayerToday()[P.p] ? ` <b>Done today ✓</b>` : ""}</p>
         <div class="list">${list.map((x, k) => { const d = BY_ID[x.id]; return `<div class="row prow ${x.on ? "" : "off"}">
           <span class="pnum">${k + 1}</span>
           <span class="rt"><b>${esc(d.title)}</b><small>×${x.n} · ${esc(d.source)}</small></span><span class="rar ar">${esc(d.arabic)}</span>
