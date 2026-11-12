@@ -79,3 +79,14 @@ python3 match_hadith_bn.py sources.js hbn hadith_bn.json
 python3 build.py
 ```
 All tafsir editions are embedded in the page gzipped per surah and unpacked when a surah is opened.
+
+## Prayer times and adhan
+
+- `adhan.umd.min.js` – adhan.js 4.4.6 by Batoul Apps (MIT), from npm `adhan`; calculates the times on the device.
+- `cities.json` – 7,281 cities with coordinates and time zones from npm `city-timezones` 1.3.4 (MIT),
+  as `[name, country, lat, lng, tz]`, largest first. Used to guess the place from the time zone and for city search.
+- `adhan.mp3` – "Beautiful adhan" by Adam-synagda on Wikimedia Commons (CC0), re-encoded to 32 kbps mono MP3
+  with `ffmpeg -i Beautiful_adhan.ogg -ac 1 -ar 22050 -b:a 32k adhan.mp3` so iPhones can play it.
+
+The adhan plays while the page is open. Browsers stop pages that are closed or in the background, so a
+web page can't sound the adhan then; that needs an installed app.

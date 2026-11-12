@@ -202,8 +202,13 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .card.reading > .aurora { opacity: 0; }
 .card > .readback.readback { position: absolute; top: 12px; left: 12px; z-index: 6; display: flex; align-items: center; gap: 2px; padding: 7px 14px 7px 8px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--text); font: 600 14px/1 inherit; font-family: inherit; box-shadow: var(--shadow); animation: rbIn .3s ease both; }
 .readback svg { width: 18px; height: 18px; }
-.card > .readnext.readnext { position: absolute; right: 14px; bottom: 14px; z-index: 6; display: flex; flex-direction: column; align-items: center; gap: 0; padding: 8px 12px 9px; border-radius: 18px; background: var(--accent); color: #fff; font: 700 12px/1 inherit; font-family: inherit; letter-spacing: .02em; box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 45%, transparent); touch-action: none; animation: rbIn .3s ease both; }
-.readnext svg { width: 20px; height: 20px; animation: nudgeUp 1.6s ease-in-out infinite; }
+.card > .readnext.readnext { position: absolute; left: 0; right: 0; bottom: 0; z-index: 6; height: 84px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); background: linear-gradient(to bottom, color-mix(in srgb, var(--accent) 10%, var(--card)), color-mix(in srgb, var(--accent) 22%, var(--card))); color: var(--accent); touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; animation: rbIn .3s ease both; }
+.readnext b { font-size: 14.5px; font-weight: 700; } .readnext .rn-scroll { font-size: 11.5px; color: var(--muted); display: none; }
+.card.can-scroll .readnext .rn-scroll { display: block; } .card.can-scroll.scrolled .readnext .rn-scroll { opacity: .6; }
+.readnext svg { width: 22px; height: 22px; animation: nudgeUp 1.6s ease-in-out infinite; }
+.card.rn-armed .readnext { background: var(--accent); color: var(--on-accent); } .card.rn-armed .readnext .rn-scroll { color: inherit; }
+.card > .rscroll.rscroll { position: absolute; right: 5px; top: 70px; bottom: 96px; width: 4px; z-index: 5; border-radius: 3px; background: color-mix(in srgb, var(--text) 8%, transparent); opacity: 0; transition: opacity .3s; }
+.card.can-scroll > .rscroll { opacity: 1; } .rscroll i { position: absolute; left: 0; right: 0; top: 0; border-radius: 3px; background: color-mix(in srgb, var(--accent) 70%, transparent); }
 @keyframes nudgeUp { 0%, 100% { transform: translateY(2px); } 50% { transform: translateY(-3px); } }
 @keyframes rbIn { from { opacity: 0; transform: translateY(-6px); } }
 .card .cband, .card .longhint, .card .ctop { transition: max-height 0.32s ease, opacity 0.25s ease, padding 0.32s ease, border-color 0.32s ease; }
@@ -213,7 +218,7 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .card.reading .longhint { max-height: 0; opacity: 0; padding: 0; }
 .card .ctop { max-height: 70px; overflow: hidden; }
 .card.reading .ctop { max-height: 0; opacity: 0; padding-top: 0; }
-.card.reading .ctext { justify-content: flex-start; overflow-y: auto; padding-top: 62px; padding-bottom: 76px; -webkit-mask-image: linear-gradient(transparent 40px, #000 60px, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(transparent 40px, #000 60px, #000 calc(100% - 30px), transparent); }
+.card.reading .ctext { justify-content: flex-start; overflow-y: auto; padding-top: 62px; padding-bottom: 100px; -webkit-mask-image: linear-gradient(transparent 40px, #000 60px, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(transparent 40px, #000 60px, #000 calc(100% - 30px), transparent); }
 .counter .hint, .counter .dots, .counter .chead { transition: opacity 0.25s ease; }
 .counter.reading .hint, .counter.reading .dots { opacity: 0; }
 .counter.reading .chead { opacity: 0.35; pointer-events: none; }
@@ -362,6 +367,25 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .after-card .pchips { display: flex; gap: 6px; margin-top: 10px; position: relative; }
 .pchip { flex: 1; padding: 9px 2px; border-radius: 12px; background: var(--bg-2); border: 1px solid var(--line); font-size: 12.5px; font-weight: 600; color: var(--text); white-space: nowrap; }
 .pchip.now { border-color: var(--accent); } .pchip.done { background: color-mix(in srgb, var(--accent) 18%, var(--bg-2)); color: var(--accent); }
+.ploc { margin: 4px 0 12px; }
+.pnext { display: flex; flex-direction: column; gap: 2px; }
+.pnext .pn-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; position: relative; }
+.pnext .pn-row b { font-size: 30px; } .pnext .pn-time { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ptimes { margin-top: 12px; } .prt { gap: 8px; } .prt .rt b { font-size: 16px; }
+.prt .prt-time { font-weight: 700; font-size: 17px; font-variant-numeric: tabular-nums; min-width: 78px; text-align: right; }
+.prt.past { opacity: .55; } .prt.cur { border-color: var(--accent); } .prt.nxt .prt-time { color: var(--accent); }
+.icon-btn.small { width: 36px; height: 36px; } .icon-btn.small svg { width: 18px; height: 18px; } .icon-btn.small.on { color: var(--accent); }
+.prt .btn.small { padding: 8px 12px; font-size: 13px; }
+.pweek { overflow-x: auto; border-radius: 16px; border: 1px solid var(--line); background: var(--card); }
+.pweek table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.pweek th, .pweek td { padding: 9px 6px; text-align: center; white-space: nowrap; } .pweek th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.pweek td:first-child { text-align: left; padding-left: 12px; color: var(--muted); } .pweek tr.today td { color: var(--accent); font-weight: 700; }
+.pweek tr + tr td { border-top: 1px solid var(--line); }
+.psettings { display: flex; flex-direction: column; gap: 10px; }
+.psettings label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.psettings select { padding: 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg-2); color: var(--text); font: inherit; font-size: 15px; }
+.pnext-link { font-size: 12.5px; color: var(--muted); padding: 2px 0; font-weight: 600; }
+.adhan-ov .inner { text-align: center; align-items: center; }
 .langbtn { font-weight: 700; font-size: 14px; }
 :lang(bn) .en, .en[lang="bn"] { font-family: "Hind Siliguri", "Noto Sans Bengali", system-ui, sans-serif; }
 .virtue { margin-top: 10px; padding: 14px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; line-height: 1.6; }
@@ -413,6 +437,7 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
     <button data-act="tab" data-tab="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 6h14M5 12h14M5 18h9"/></svg>My Zikr</button>
     <button data-act="tab" data-tab="discover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>Discover</button>
     <button data-act="tab" data-tab="reflections" id="tab-refl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.6 3.4 4.2-.4-.4 4.2L21 12l-3.4 2.6.4 4.2-4.2-.4L12 21l-2.6-3.4-4.2.4.4-4.2L3 12l3.4-2.6-.4-4.2 4.2.4z"/></svg>Reflections</button>
+    <button data-act="tab" data-tab="times"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 21V11a8 8 0 0 1 16 0v10M4 21h16M9 21v-5a3 3 0 0 1 6 0v5M12 3V1.5"/></svg>Prayer</button>
     <button data-act="tab" data-tab="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 20V12M12 20V5M19 20v-6"/></svg>Stats</button>
   </nav>
 </div>
@@ -425,6 +450,12 @@ const DATA = /*DATA*/;
 /*SOURCES*/
 /*QURAN*/
 /*ART*/
+/* adhan.js 4.4.6 by Batoul Apps (MIT) – prayer time calculation */
+/*ADHAN_LIB*/
+/* World cities with coordinates and time zones: city-timezones 1.3.4 (MIT). [name, country, lat, lng, tz], largest first */
+const CITIES = /*CITIES*/;
+/* "Beautiful adhan" by Adam-synagda, Wikimedia Commons, CC0 (public domain dedication); re-encoded as MP3. */
+const ADHAN_MP3 = "data:audio/mpeg;base64,/*ADHAN_MP3*/";
 
 /* ================= Library ================= */
 /* Authentic texts pulled from the sources (see sources.js). */
@@ -565,6 +596,8 @@ const ICONS = {
   more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/></svg>',
   search: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>',
   bookmark: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
+  bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"/></svg>',
+  bellOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 16V11a6 6 0 0 1 9.5-4.9M18 11v5l1.5 2H8M10 20.5a2 2 0 0 0 4 0M4 4l16 16"/></svg>',
   book: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5.5C6.5 4 9 4 12 5.5V20c-3-1.5-5.5-1.5-8 0zM12 5.5C15 4 17.5 4 20 5.5V20c-2.5-1.5-5-1.5-8 0z"/></svg>',
 };
 
@@ -806,7 +839,7 @@ const ui = { tab: "home", sub: null, period: "week", counterId: null, statOpen: 
 const $screen = document.getElementById("screen"), $layer = document.getElementById("layer");
 function render(animate) {
   document.querySelectorAll("#tabbar button").forEach(b => b.setAttribute("aria-current", b.dataset.tab === ui.tab ? "page" : "false"));
-  const html = ui.tab === "stats" ? statsHTML() : ui.tab === "reflections" ? reflectionsHTML() : ui.tab === "discover" ? (ui.sub ? subHTML(ui.sub) : discoverHTML()) : homeHTML();
+  const html = ui.tab === "times" ? timesHTML() : ui.tab === "stats" ? statsHTML() : ui.tab === "reflections" ? reflectionsHTML() : ui.tab === "discover" ? (ui.sub ? subHTML(ui.sub) : discoverHTML()) : homeHTML();
   $screen.innerHTML = html;
   if (animate) $screen.querySelector(".wrap")?.classList.add("enter");
   updateBadge();
@@ -948,6 +981,134 @@ function statsHTML() {
   return h + `</div>`;
 }
 
+/* ================= Prayer times and adhan =================
+   Times are calculated on the device with adhan.js for the chosen place and method.
+   The adhan plays while this page is open. A web page cannot run or make sound once it is
+   closed or the phone puts it to sleep; that needs an installed app. */
+const PT_NAMES = [["fajr", "Fajr"], ["sunrise", "Sunrise"], ["dhuhr", "Dhuhr"], ["asr", "Asr"], ["maghrib", "Maghrib"], ["isha", "Isha"]];
+const PT_METHODS = [["MuslimWorldLeague", "Muslim World League"], ["Karachi", "University of Islamic Sciences, Karachi"], ["UmmAlQura", "Umm al-Qura, Makkah"],
+  ["Egyptian", "Egyptian General Authority"], ["NorthAmerica", "ISNA (North America)"], ["MoonsightingCommittee", "Moonsighting Committee"],
+  ["Dubai", "Dubai"], ["Kuwait", "Kuwait"], ["Qatar", "Qatar"], ["Singapore", "Singapore"], ["Turkey", "Diyanet (Turkey)"], ["Tehran", "Tehran"]];
+const METHOD_BY_COUNTRY = { Bangladesh: "Karachi", India: "Karachi", Pakistan: "Karachi", Afghanistan: "Karachi", "Saudi Arabia": "UmmAlQura", Yemen: "UmmAlQura",
+  "United Arab Emirates": "Dubai", Kuwait: "Kuwait", Qatar: "Qatar", Egypt: "Egyptian", Sudan: "Egyptian", Libya: "Egyptian", "United States of America": "NorthAmerica",
+  Canada: "NorthAmerica", "United Kingdom": "MoonsightingCommittee", Turkey: "Turkey", Iran: "Tehran", Singapore: "Singapore", Malaysia: "Singapore", Indonesia: "Singapore", Brunei: "Singapore" };
+const HANAFI_COUNTRIES = new Set(["Bangladesh", "India", "Pakistan", "Afghanistan", "Turkey"]);
+const cityObj = c => ({ name: c[0], country: c[1], lat: c[2], lng: c[3], tz: c[4] });
+function defaultPlace() {
+  let tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
+  const c = CITIES.find(x => x[4] === tz) || CITIES.find(x => x[0] === "Makkah" || x[0] === "Mecca") || CITIES[0];
+  return { ...cityObj(c), guessed: true };
+}
+const place = () => S.loc || (S.loc = defaultPlace());
+const ptMethod = () => S.ptMethod || METHOD_BY_COUNTRY[place().country] || "MuslimWorldLeague";
+const ptMadhab = () => S.ptMadhab || (HANAFI_COUNTRIES.has(place().country) ? "hanafi" : "shafi");
+const tzParts = (d, tz) => { const o = {}; for (const p of new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "numeric", day: "numeric" }).formatToParts(d)) o[p.type] = +p.value; return o; };
+function prayerTimesFor(offsetDays = 0) {
+  if (typeof adhan === "undefined") return null;
+  const pl = place(), t = tzParts(new Date(Date.now() + offsetDays * 864e5), pl.tz), date = new Date(t.year, t.month - 1, t.day);
+  const params = (adhan.CalculationMethod[ptMethod()] || adhan.CalculationMethod.MuslimWorldLeague)();
+  params.madhab = ptMadhab() === "hanafi" ? adhan.Madhab.Hanafi : adhan.Madhab.Shafi;
+  if (Math.abs(pl.lat) > 48) params.highLatitudeRule = adhan.HighLatitudeRule.recommended(new adhan.Coordinates(pl.lat, pl.lng));
+  const pt = new adhan.PrayerTimes(new adhan.Coordinates(pl.lat, pl.lng), date, params);
+  return { date, label: t, times: Object.fromEntries(PT_NAMES.map(([k]) => [k, pt[k]])) };
+}
+const fmtTime = d => new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit", timeZone: place().tz }).format(d);
+const fmtDay = (d, opts) => new Intl.DateTimeFormat(undefined, { timeZone: place().tz, ...opts }).format(d);
+function nextPrayer() {
+  for (let off = 0; off < 2; off++) { const t = prayerTimesFor(off); if (!t) return null; for (const [k] of PT_NAMES) if (k !== "sunrise" && t.times[k] > Date.now()) return { k, at: t.times[k] }; }
+  return null;
+}
+function currentPrayer() {   // the prayer whose time has most recently begun (for the after-prayer adhkar)
+  const t = prayerTimesFor(0); if (!t) return null; let cur = null;
+  for (const [k] of PT_NAMES) if (k !== "sunrise" && t.times[k] <= Date.now()) cur = k;
+  return cur || "isha";
+}
+const until = ms => { const m = Math.max(0, Math.round(ms / 60000)), h = Math.floor(m / 60); return h ? `${h}h ${m % 60}m` : `${m} min`; };
+const adhanOn = k => (S.adhanOn || {})[k] !== false;
+function timesHTML() {
+  const t = prayerTimesFor(0), pl = place();
+  if (!t) return `<div class="wrap">${topBar("Prayer times")}<div class="empty">Prayer times couldn't be calculated on this device.</div></div>`;
+  const nx = nextPrayer(), cur = currentPrayer(), week = Array.from({ length: 7 }, (_, i) => prayerTimesFor(i));
+  return `<div class="wrap">${topBar("Prayer")}
+    <button class="row ploc" data-act="pickplace" style="text-align:left"><span class="rt"><b>📍 ${esc(pl.name)}, ${esc(pl.country)}</b><small>${pl.guessed ? "Guessed from your time zone · tap to change" : "Tap to change"}</small></span><span class="muted" style="font-size:13px">${esc(fmtDay(new Date(), { weekday: "short", day: "numeric", month: "short" }))}</span></button>
+    ${nx ? `<section class="today-z pnext" style="${auroraVars(PT_NAMES.findIndex(x => x[0] === nx.k) * 55 + 20)}">${aurora()}
+      <span class="eyebrow">Next prayer</span><div class="pn-row"><b class="display">${PT_NAMES.find(x => x[0] === nx.k)[1]}</b><span class="pn-time">${fmtTime(nx.at)}</span></div>
+      <span class="muted" data-f="countdown">in ${until(nx.at - Date.now())}</span></section>` : ""}
+    <div class="list ptimes">${PT_NAMES.map(([k, n]) => {
+      const at = t.times[k], past = at <= Date.now(), isCur = k === cur, sr = k === "sunrise";
+      return `<div class="row prt ${past && !isCur ? "past" : ""} ${isCur ? "cur" : ""} ${nx && nx.k === k ? "nxt" : ""}">
+        <span class="rt"><b>${n}</b>${isCur ? `<small>Now</small>` : sr ? `<small>No adhan</small>` : ""}</span><span class="prt-time">${fmtTime(at)}</span>
+        ${sr ? `<span style="width:84px"></span>` : `<button class="icon-btn small ${adhanOn(k) ? "on" : ""}" data-act="adhantoggle" data-k="${k}" aria-label="${adhanOn(k) ? "Adhan on" : "Adhan off"} for ${n}">${adhanOn(k) ? ICONS.bell : ICONS.bellOff}</button>
+        <button class="btn ghost small" data-act="prayer" data-p="${k}">Adhkar</button>`}</div>`; }).join("")}</div>
+    <h2 class="sec">This week</h2>
+    <div class="pweek"><table><thead><tr><th></th>${PT_NAMES.filter(x => x[0] !== "sunrise").map(([, n]) => `<th>${n}</th>`).join("")}</tr></thead><tbody>
+      ${week.map((w, i) => `<tr class="${i ? "" : "today"}"><td>${esc(fmtDay(w.times.dhuhr, { weekday: "short", day: "numeric" }))}</td>${PT_NAMES.filter(x => x[0] !== "sunrise").map(([k]) => `<td>${fmtTime(w.times[k]).replace(/\s?[AP]M$/i, "")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    <h2 class="sec">Settings</h2>
+    <div class="panel psettings">
+      <label><span>Calculation</span><select data-set="method">${PT_METHODS.map(([k, n]) => `<option value="${k}" ${k === ptMethod() ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+      <label><span>Asr</span><select data-set="madhab"><option value="shafi" ${ptMadhab() === "shafi" ? "selected" : ""}>Standard (Shafi‘i, Maliki, Hanbali)</option><option value="hanafi" ${ptMadhab() === "hanafi" ? "selected" : ""}>Hanafi</option></select></label>
+      <div class="btn-row" style="justify-content:flex-start"><button class="btn ghost small" data-act="adhantest">${adhanPlaying() ? "Stop adhan" : "Play the adhan"}</button></div>
+    </div>
+    <p class="note">The adhan plays at each prayer time while this page is open, even on another tab of the app. Phones stop web pages when they are closed or in the background, so it can't sound then; keep the page open, or use your phone's prayer app for alarms. Times: adhan.js (Batoul Apps). Adhan recording: “Beautiful adhan” by Adam-synagda, Wikimedia Commons (CC0).</p></div>`;
+}
+function openPlacePicker() {
+  $layer.insertAdjacentHTML("beforeend", `<div class="scrim" data-act="closeplace" style="z-index:40"></div><div class="sheet" style="z-index:41" role="dialog" aria-label="Choose a place"><div class="in">
+    <div class="top"><span></span><b>Your location</b><button class="textbtn" data-act="closeplace">Done</button></div>
+    ${navigator.geolocation ? `<button class="btn small" data-act="geoloc" style="margin-bottom:10px">Use my location</button>` : ""}
+    <label class="field">${ICONS.search}<input id="place-q" autocomplete="off" placeholder="City, e.g. Dhaka, Sylhet, London"></label>
+    <div class="list" id="place-list" style="margin-top:10px"></div></div></div>`);
+  const draw = q => {
+    const k = searchKey(q || ""), low = (q || "").trim().toLowerCase(), plain = t => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const exact = CITIES.filter(c => plain(c[0]).startsWith(low)), sound = CITIES.filter(c => !plain(c[0]).startsWith(low) && searchKey(c[0]).startsWith(k));
+    const res = low.length < 2 ? [] : exact.slice(0, 12).concat(sound.slice(0, 6), CITIES.filter(c => !exact.includes(c) && !sound.includes(c) && searchKey(c[0] + c[1]).includes(k)).slice(0, 4));
+    document.getElementById("place-list").innerHTML = res.map(c => `<button class="row" data-act="setplace" data-c="${CITIES.indexOf(c)}" style="text-align:left"><span class="rt"><b>${esc(c[0])}</b><small>${esc(c[1])}</small></span></button>`).join("") || (q.trim().length >= 2 ? `<div class="empty">No city found. Try the nearest larger city.</div>` : "");
+  };
+  draw(""); const inp = document.getElementById("place-q"); inp.oninput = () => draw(inp.value); setTimeout(() => inp.focus(), 300);
+}
+const closePlacePicker = () => $layer.querySelectorAll('.sheet[aria-label="Choose a place"], .scrim[data-act="closeplace"]').forEach(e => e.remove());
+function setPlace(p) { S.loc = p; delete S.ptMethod; delete S.ptMadhab; save(); closePlacePicker(); if (ui.tab === "times") rerenderKeepScroll(); toast("Location set", `${p.name}, ${p.country}`); }
+function useGeolocation() {
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude: lat, longitude: lng } = pos.coords; let best = null, bd = 1e9;
+    for (const c of CITIES) { const d = (c[2] - lat) ** 2 + ((c[3] - lng) * Math.cos(lat * Math.PI / 180)) ** 2; if (d < bd) { bd = d; best = c; } }
+    setPlace({ ...cityObj(best), lat: +lat.toFixed(4), lng: +lng.toFixed(4), name: best[0] });
+  }, () => toast("Location not available", "Search for your city instead"), { timeout: 10000, maximumAge: 6e5 });
+}
+/* ---------- the adhan ---------- */
+let adhanAudio = null, adhanUnlocked = false;
+const adhanPlaying = () => !!(adhanAudio && !adhanAudio.paused);
+function getAdhanAudio() { if (!adhanAudio) { adhanAudio = new Audio(ADHAN_MP3); adhanAudio.preload = "auto"; adhanAudio.onended = () => { document.querySelector(".adhan-ov")?.remove(); if (ui.tab === "times") rerenderKeepScroll(); }; } return adhanAudio; }
+// Browsers only allow sound after a tap, so the first tap anywhere quietly prepares the adhan.
+document.addEventListener("pointerdown", () => {
+  if (adhanUnlocked) return; adhanUnlocked = true;
+  try { const a = getAdhanAudio(); a.muted = true; a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; adhanUnlocked = false; }); } catch (e) {}
+}, true);
+function playAdhan(k) {
+  const a = getAdhanAudio(); a.currentTime = 0; a.muted = false;
+  document.querySelector(".adhan-ov")?.remove();
+  const n = k ? PT_NAMES.find(x => x[0] === k)[1] : "";
+  document.body.insertAdjacentHTML("beforeend", `<section class="overlay adhan-ov" role="dialog" aria-label="Adhan" style="${auroraVars(200, 40)}"><div class="inner" style="justify-content:center;min-height:100%">
+    <span class="eyebrow">${k ? "It is time for" : "The adhan"}</span>${k ? `<h1 class="display" style="font-size:44px">${n}</h1><p class="muted">${fmtTime(prayerTimesFor(0)?.times[k] || new Date())} · ${esc(place().name)}</p>` : ""}
+    <div class="ar" style="font-size:40px;margin:14px 0">اللَّهُ أَكْبَرُ</div>
+    <div class="btn-row"><button class="btn" data-act="adhanstop">Stop adhan</button>${k ? `<button class="btn ghost" data-act="prayerafter" data-p="${k}">After-prayer adhkar</button>` : ""}</div>
+    <p class="adhan-hint muted" hidden>Tap “Play” to hear it: your browser needs a tap first.</p><button class="btn small adhan-play" data-act="adhanplay" hidden>Play</button></div></section>`);
+  a.play().catch(() => { const ov = document.querySelector(".adhan-ov"); ov?.querySelector(".adhan-hint")?.removeAttribute("hidden"); ov?.querySelector(".adhan-play")?.removeAttribute("hidden"); });
+  if (navigator.vibrate) try { navigator.vibrate([400, 200, 400]); } catch (e) {}
+}
+function stopAdhan() { if (adhanAudio) { adhanAudio.pause(); adhanAudio.currentTime = 0; } document.querySelector(".adhan-ov")?.remove(); }
+function adhanTick() {
+  const t = prayerTimesFor(0); if (!t) return;
+  const day = `${t.label.year}-${t.label.month}-${t.label.day}`, played = S.adhanPlayed = S.adhanPlayed || {};
+  for (const [k] of PT_NAMES) {
+    if (k === "sunrise" || !adhanOn(k)) continue;
+    const late = Date.now() - t.times[k];
+    if (late >= 0 && late < 5 * 60000 && !played[day + k]) { played[day + k] = 1; for (const x in played) if (!x.startsWith(day)) delete played[x]; save(); playAdhan(k); break; }
+  }
+  const cd = document.querySelector('[data-f="countdown"]'), nx = cd && nextPrayer(); if (cd && nx) cd.textContent = `in ${until(nx.at - Date.now())}`;
+}
+setInterval(adhanTick, 15000); setTimeout(adhanTick, 1500);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) adhanTick(); });
+
 /* ================= After-prayer adhkar =================
    Hisn al-Muslim chapter 25 ("After salam"), in the book's order. The book's own notes set the
    prayer-specific parts: the Quls three times after Fajr and Maghrib, Hisn 72 ten times after
@@ -966,6 +1127,7 @@ function prayerList(p, all) {
   return all ? list : list.filter(x => x.on);
 }
 function guessPrayer() {
+  try { const c = currentPrayer(); if (c) return c; } catch (e) {}
   const h = new Date().getHours() + new Date().getMinutes() / 60;
   return h >= 4 && h < 11.5 ? "fajr" : h < 15.5 ? "dhuhr" : h < 18 ? "asr" : h < 19.75 ? "maghrib" : "isha";
 }
@@ -1118,7 +1280,7 @@ const closePrayerAdd = () => $layer.querySelectorAll('.sheet[aria-label="Add to 
 function prayerCardHTML() {
   const done = prayerToday(), g = guessPrayer();
   return `<section class="today-z after-card" style="${auroraVars((DAY_INDEX * 37 + 120) % 360)}">${aurora()}
-    <div class="row1"><span><span class="eyebrow">After prayer</span><br><b>Adhkar after salam</b></span><button class="btn ghost small" data-act="prayer" data-p="${g}">Start ${pName(g)}</button></div>
+    <div class="row1"><span><span class="eyebrow">After prayer</span><br><b>Adhkar after salam</b>${(() => { try { const nx = nextPrayer(); return nx ? `<br><button class="textbtn pnext-link" data-act="tab" data-tab="times">${PT_NAMES.find(x => x[0] === nx.k)[1]} at ${fmtTime(nx.at)} · ${esc(place().name)}</button>` : ""; } catch (e) { return ""; } })()}</span><button class="btn ghost small" data-act="prayer" data-p="${g}">Start ${pName(g)}</button></div>
     <div class="pchips">${PRAYERS.map(([k, n]) => `<button class="pchip ${done[k] ? "done" : ""} ${k === g ? "now" : ""}" data-act="prayer" data-p="${k}">${done[k] ? "✓ " : ""}${n}</button>`).join("")}</div></section>`;
 }
 
@@ -1221,14 +1383,30 @@ function countCurrent() {
 function plusOne() { const d = $counter?.querySelector("#deck"); if (!d) return; const el = document.createElement("span"); el.className = "plus1"; el.textContent = "+1"; d.appendChild(el); setTimeout(() => el.remove(), 950); }
 function glowAt(e) { const top = $counter.querySelector(".card.top"), r = top.getBoundingClientRect(), el = document.createElement("span"); el.className = "glow"; el.style.left = (e.clientX - r.left) + "px"; el.style.top = (e.clientY - r.top) + "px"; top.appendChild(el); setTimeout(() => el.remove(), 750); }
 const HOLD_MS = 320;
-/* Hold a card to enter reading mode; it stays until Back is tapped. */
+/* Hold a card to enter reading mode; it stays until Back is tapped.
+   The text scrolls (a bar on the right shows where you are) and a full-width strip along the
+   bottom moves on: swipe it up (or tap it) to count, or for the next ayah in the Quran. */
 function enterReading(top, host) {
   top.classList.add("reading"); host.classList.add("reading");
-  if (!top.querySelector(".readback")) top.insertAdjacentHTML("beforeend", `<button class="readback" data-act="exitread" aria-label="Leave reading mode">${ICONS.back}<span>Back</span></button>
-    <button class="readnext" data-act="readnext" aria-label="${host === $reader ? "Next ayah" : "Count and go on"}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14l6-6 6 6"/></svg><span>${host === $reader ? "Next" : "Swipe"}</span></button>`);
+  if (!top.querySelector(".readback")) {
+    const next = host === $reader ? "Swipe up here for the next ayah" : "Swipe up here to count";
+    top.insertAdjacentHTML("beforeend", `<button class="readback" data-act="exitread" aria-label="Leave reading mode">${ICONS.back}<span>Back</span></button>
+    <div class="rscroll" aria-hidden="true"><i></i></div>
+    <div class="readnext" data-act="readnext" role="button" tabindex="0" aria-label="${next}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14l6-6 6 6"/></svg>
+      <b>${next}</b><span class="rn-scroll">↕ Drag the text above to scroll</span></div>`);
+    const box = top.querySelector(".ctext"), bar = top.querySelector(".rscroll"), thumb = bar.querySelector("i");
+    const upd = () => {
+      const can = box.scrollHeight > box.clientHeight + 2; top.classList.toggle("can-scroll", can); if (!can) return;
+      const ratio = box.clientHeight / box.scrollHeight, h = Math.max(28, bar.clientHeight * ratio);
+      thumb.style.height = h + "px"; thumb.style.transform = `translateY(${(bar.clientHeight - h) * (box.scrollTop / (box.scrollHeight - box.clientHeight))}px)`;
+      top.classList.toggle("scrolled", box.scrollTop > 4);
+    };
+    box.addEventListener("scroll", upd, { passive: true }); setTimeout(upd, 40); setTimeout(upd, 400);
+  }
   if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) {}
 }
-/* The "Swipe up" handle in reading mode: tap it or flick it up to count and move on, without going Back first. */
+/* The strip: tap it, or swipe it up (the card follows your finger), to count and move on. */
 function readNext() {
   const inReader = !!$reader?.querySelector(".card.top.reading"), inPrayer = !!$prayer?.querySelector(".card.top.reading");
   exitReading();
@@ -1237,17 +1415,26 @@ function readNext() {
   if ($counter && !animating) { tick(false); commitUp($counter.querySelector("#deck").clientHeight, 260); }
 }
 let rnDown = null, rnSkipClick = false;
-document.addEventListener("pointerdown", e => { const b = e.target.closest(".readnext"); rnDown = b ? { y: e.clientY } : null; }, true);
+document.addEventListener("pointerdown", e => {
+  const b = e.target.closest(".readnext"); rnDown = b ? { y: e.clientY, card: b.closest(".card") } : null;
+  if (rnDown) { rnDown.card.style.transition = "none"; try { b.setPointerCapture(e.pointerId); } catch (x) {} }
+}, true);
+document.addEventListener("pointermove", e => {
+  if (!rnDown) return; const dy = Math.min(0, e.clientY - rnDown.y);
+  rnDown.card.style.transform = `translateY(${dy * 0.8}px)`; rnDown.card.classList.toggle("rn-armed", dy < -40);
+}, true);
 document.addEventListener("pointerup", e => {
-  if (!rnDown) return; const dy = e.clientY - rnDown.y; rnDown = null;
-  if (dy < -24) { rnSkipClick = true; setTimeout(() => { rnSkipClick = false; }, 350); readNext(); }   // flicked up
+  if (!rnDown) return; const { card, y } = rnDown, dy = e.clientY - y; rnDown = null; card.classList.remove("rn-armed");
+  if (dy < -40) { rnSkipClick = true; setTimeout(() => { rnSkipClick = false; }, 350); readNext(); return; }
+  if (Math.abs(dy) > 6) { rnSkipClick = true; setTimeout(() => { rnSkipClick = false; }, 350); }   // a short drag is not a tap
+  card.style.transition = "transform .35s cubic-bezier(.2,1.4,.4,1)"; card.style.transform = "";
 }, true);
 function exitReading() {
   for (const host of [$counter, $reader, $prayer]) {
     if (!host || !host.isConnected) continue;
     host.classList.remove("reading");
     host.querySelectorAll(".card.reading").forEach(top => {
-      top.classList.remove("reading"); top.style.transform = ""; top.querySelectorAll(".readback, .readnext").forEach(e => e.remove());
+      top.classList.remove("reading"); top.style.transform = ""; top.querySelectorAll(".readback, .readnext, .rscroll").forEach(e => e.remove()); top.classList.remove("can-scroll", "scrolled");
       if (!top.classList.contains("long")) top.querySelector(".ctext")?.scrollTo({ top: 0, behavior: "smooth" });
     });
   }
@@ -1734,6 +1921,11 @@ function saveAdd() {
 }
 
 /* ================= Events ================= */
+document.addEventListener("change", e => {
+  const el = e.target.closest("[data-set]"); if (!el) return;
+  if (el.dataset.set === "method") S.ptMethod = el.value; else if (el.dataset.set === "madhab") S.ptMadhab = el.value;
+  save(); rerenderKeepScroll(); toast("Prayer times updated", `${PT_METHODS.find(x => x[0] === ptMethod())[1]} · Asr ${ptMadhab() === "hanafi" ? "Hanafi" : "standard"}`);
+});
 function rerenderKeepScroll() { const y = $screen.scrollTop; render(); $screen.scrollTop = y; }
 document.addEventListener("click", e => {
   const b = e.target.closest("[data-act]"); if (!b) return;
@@ -1767,6 +1959,15 @@ document.addEventListener("click", e => {
     case "preset": form.target = +b.dataset.n; drawAdd(); break;
     case "save": saveAdd(); break;
     case "close": closeCounter(); break;
+    case "pickplace": openPlacePicker(); break;
+    case "closeplace": closePlacePicker(); break;
+    case "setplace": setPlace(cityObj(CITIES[+b.dataset.c])); break;
+    case "geoloc": useGeolocation(); break;
+    case "adhantoggle": { const o = S.adhanOn = S.adhanOn || {}; o[b.dataset.k] = !adhanOn(b.dataset.k); save(); rerenderKeepScroll(); toast(o[b.dataset.k] ? "Adhan on" : "Adhan off", PT_NAMES.find(x => x[0] === b.dataset.k)[1]); break; }
+    case "adhantest": if (adhanPlaying()) stopAdhan(); else playAdhan(null); rerenderKeepScroll(); break;
+    case "adhanstop": stopAdhan(); if (ui.tab === "times") rerenderKeepScroll(); break;
+    case "adhanplay": getAdhanAudio().play().catch(() => {}); b.hidden = true; b.previousElementSibling?.setAttribute("hidden", ""); break;
+    case "prayerafter": stopAdhan(); openPrayer(b.dataset.p); break;
     case "prayer": openPrayer(b.dataset.p); break;
     case "pclose": closePrayer(); break;
     case "pselect": P.p = b.dataset.p; drawPrayer(); break;

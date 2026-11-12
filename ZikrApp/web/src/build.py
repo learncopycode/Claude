@@ -17,6 +17,9 @@ parts = {
     "/*HISN_BN_TITLES*/": dump(j("hisn_bn_titles.json")), "/*HADITH_BN*/": dump(j("hadith_bn.json")),
     "/*QURAN_BN*/": json.dumps(gz(open(os.path.join(HERE, "quran_bn.json"), "rb").read())),
     "/*TAFSIR_GZ*/": json.dumps(taf),
+    "/*ADHAN_LIB*/": r("adhan.umd.min.js").replace("</", "<\\/").replace("//# sourceMappingURL=adhan.umd.min.js.map", ""),
+    "/*CITIES*/": dump(j("cities.json")),
+    "/*ADHAN_MP3*/": base64.b64encode(open(os.path.join(HERE, "adhan.mp3"), "rb").read()).decode(),
 }
 out = app
 for k, v in parts.items():
