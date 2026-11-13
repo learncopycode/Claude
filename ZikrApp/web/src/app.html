@@ -354,6 +354,15 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .pnote { font-size: 13.5px; margin: 0 0 12px; line-height: 1.5; }
 .prow .pnum { flex: 0 0 22px; font-weight: 700; font-size: 13px; color: var(--faint); text-align: center; }
 .prow .rt { flex: 1; min-width: 0; } .prow .rt b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } .prow .rar { flex: 0 1 32%; min-width: 0; font-size: 17px; }
+.plist .prow { transition: transform .2s ease, box-shadow .2s, background .2s; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.plist.sorting .prow.dragging { transition: none; z-index: 5; position: relative; box-shadow: 0 14px 30px rgba(0,0,0,.18); border-color: var(--accent); }
+.prow.pressing { transform: scale(.98); background: color-mix(in srgb, var(--accent) 8%, var(--card)); transition: transform .45s ease, background .45s ease; }
+.phandle { flex: 0 0 40px; height: 40px; display: grid; place-items: center; color: var(--faint); touch-action: none; cursor: grab; margin-right: -6px; }
+.phandle svg { width: 22px; height: 22px; } .prow.dragging .phandle { color: var(--accent); cursor: grabbing; }
+.pedit-head { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; } .pedit-head .ar { font-size: 22px; color: var(--accent); line-height: 1.8; max-height: 4.2em; overflow: hidden; }
+.pstep { display: flex; align-items: center; gap: 10px; margin: 8px 0; } .pstep .icon-btn { font-size: 24px; font-weight: 600; }
+.pstep input { flex: 1; min-width: 0; text-align: center; font-size: 30px; font-weight: 700; padding: 8px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg-2); color: var(--text); font-family: inherit; }
+.pdel { width: 100%; margin-top: 16px; background: transparent; color: #d64545; border: 1px solid color-mix(in srgb, #d64545 45%, transparent); }
 .prow.off { opacity: .5; } .prow.off .rar { text-decoration: line-through; text-decoration-color: var(--faint); }
 .pfoot { padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); max-width: 600px; width: 100%; margin: 0 auto; box-sizing: border-box; }
 .pfoot .pstart { width: 100%; padding: 15px 20px; font-size: 16px; } .pstart[disabled] { opacity: .5; }
@@ -1122,11 +1131,21 @@ function prayerDefaults(p) {
     ["t-allahuakbar", 33], ["t-tahlil", 1], ["h71", 1], ["h70", fm ? 3 : 1], ...(fm ? [["h72", 10]] : []), ...(p === "fajr" ? [["h73", 1]] : [])]
     .filter(([id]) => BY_ID[id]);
 }
+/* Once a list is edited (reordered, a count changed, a zikr added or removed) it is kept per prayer
+   in S.prayerCustom as [id, count] pairs, in order. Until then it follows the book. */
 function prayerList(p, all) {
+  const custom = (S.prayerCustom || {})[p];
+  if (custom) return custom.filter(([id]) => BY_ID[id]).map(([id, n]) => ({ id, n, on: true }));
   const off = (S.prayerOff || {})[p] || [], extra = ((S.prayerAdd || {})[p] || []).filter(([id]) => BY_ID[id]);
   const list = prayerDefaults(p).concat(extra).map(([id, n]) => ({ id, n, on: !off.includes(id) }));
   return all ? list : list.filter(x => x.on);
 }
+function editablePrayerList(p) {
+  const c = S.prayerCustom = S.prayerCustom || {};
+  if (!c[p]) c[p] = prayerList(p).map(x => [x.id, x.n]);
+  return c[p];
+}
+const prayerEdited = p => !!(S.prayerCustom || {})[p] || !!((S.prayerOff || {})[p] || []).length || !!((S.prayerAdd || {})[p] || []).length;
 function guessPrayer() {
   try { const c = currentPrayer(); if (c) return c; } catch (e) {}
   const h = new Date().getHours() + new Date().getMinutes() / 60;
@@ -1150,16 +1169,17 @@ function drawPrayer() {
   if (!$prayer) return;
   if (P.stage === "list") {
     const list = prayerList(P.p, true), on = list.filter(x => x.on), total = on.reduce((a, x) => a + x.n, 0);
+    setTimeout(bindPrayerList, 0);
     $prayer.innerHTML = `<div class="chead"><button class="icon-btn" data-act="pclose" aria-label="Close">${ICONS.back}</button>
         <div class="grow"><b class="ptitle">After prayer</b></div><span style="width:42px"></span></div>
       <div class="pscroll"><div class="pwrap">${prayerSegHTML()}
-        <p class="muted pnote">${P.p === guessPrayer() ? `<b class="pnow">It's ${esc(pName(P.p))} time now.</b> ` : ""}After ${esc(pName(P.p))}, in the order of Hisn al-Muslim. Swipe through them top to bottom.${prayerToday()[P.p] ? ` <b>Done today ✓</b>` : ""}</p>
-        <div class="list">${list.map((x, k) => { const d = BY_ID[x.id]; return `<div class="row prow ${x.on ? "" : "off"}">
+        <p class="muted pnote">${P.p === guessPrayer() ? `<b class="pnow">It's ${esc(pName(P.p))} time now.</b> ` : ""}After ${esc(pName(P.p))}, ${prayerEdited(P.p) ? "in your order" : "in the order of Hisn al-Muslim"}. Swipe through them top to bottom.${prayerToday()[P.p] ? ` <b>Done today ✓</b>` : ""}</p>
+        <div class="list plist">${on.map((x, k) => { const d = BY_ID[x.id]; return `<div class="row prow" data-idx="${k}">
           <span class="pnum">${k + 1}</span>
-          <span class="rt"><b>${esc(d.title)}</b><small>×${x.n} · ${esc(d.source)}</small></span><span class="rar ar">${esc(d.arabic)}</span>
-          <button class="addbtn ${x.on ? "on" : ""}" data-act="ptoggle" data-id="${x.id}" aria-label="${x.on ? "Leave out" : "Include"}">${x.on ? "✓" : "+"}</button></div>`; }).join("")}</div>
-        <button class="btn ghost small" data-act="padd" style="margin-top:12px">+ Add a zikr</button>
-        <p class="note">Tap ✓ to leave one out. The Quls are said three times after Fajr and Maghrib, as the book says.</p></div></div>
+          <span class="rt"><b>${esc(d.title)}</b><small><span class="pcount">×${x.n}</span> · ${esc(d.source)}</small></span><span class="rar ar">${esc(d.arabic)}</span>
+          <span class="phandle" aria-label="Drag to reorder" role="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 8h14M5 12h14M5 16h14"/></svg></span></div>`; }).join("")}</div>
+        <div class="btn-row" style="justify-content:flex-start;margin-top:12px"><button class="btn ghost small" data-act="padd">+ Add a zikr</button>${prayerEdited(P.p) ? `<button class="btn ghost small" data-act="preorder">Reset to the book's order</button>` : ""}</div>
+        <p class="note">Drag ≡ to reorder. Hold a zikr to change its count or remove it. Each prayer keeps its own list.</p></div></div>
       <div class="pfoot"><button class="btn pstart" data-act="pstart" ${on.length ? "" : "disabled"}>Start · ${on.length} adhkar · ${fmt(total)} counts</button></div>`;
     return;
   }
@@ -1265,6 +1285,64 @@ function bindPrayerDeck() {
     const top = topCard(); top.style.transition = "transform 0.5s cubic-bezier(.2,1.4,.4,1)"; top.style.transform = "none"; pSetBack(0, 450);
   };
 }
+/* ---------- editing the list: drag ≡ to reorder, hold a row to edit ---------- */
+function bindPrayerList() {
+  const box = $prayer?.querySelector(".plist"); if (!box) return;
+  const rows = () => [...box.querySelectorAll(".prow")];
+  let press = null, drag = null;
+  box.onpointerdown = e => {
+    const row = e.target.closest(".prow"); if (!row) return;
+    if (e.target.closest(".phandle")) {   // start dragging this row
+      e.preventDefault();
+      const rs = rows(), from = rs.indexOf(row), rects = rs.map(r => r.getBoundingClientRect());
+      const sc = $prayer.querySelector(".pscroll");
+      drag = { row, from, to: from, y: e.clientY, lastY: e.clientY, rs, rects, h: rects[from].height + 8, sc, s0: sc.scrollTop };
+      const auto = () => {   // scroll the list when the finger is near its top or bottom edge
+        if (!drag) return; const r = sc.getBoundingClientRect(), edge = 70;
+        const v = drag.lastY < r.top + edge ? -Math.ceil((r.top + edge - drag.lastY) / 6) : drag.lastY > r.bottom - edge ? Math.ceil((drag.lastY - (r.bottom - edge)) / 6) : 0;
+        if (v) { const before = sc.scrollTop; sc.scrollTop += v; if (sc.scrollTop !== before) place(); }
+        requestAnimationFrame(auto);
+      };
+      requestAnimationFrame(auto);
+      row.classList.add("dragging"); box.classList.add("sorting"); row.setPointerCapture(e.pointerId);
+      if (navigator.vibrate) try { navigator.vibrate(8); } catch (x) {}
+      return;
+    }
+    press = { row, x: e.clientX, y: e.clientY, t: setTimeout(() => { press = null; if (navigator.vibrate) try { navigator.vibrate(12); } catch (x) {} openPrayerEdit(+row.dataset.idx); }, 480) };
+    row.classList.add("pressing");
+  };
+  function place() {   // position the dragged row under the finger and open a gap where it would land
+    const ds = drag.sc.scrollTop - drag.s0, dy = drag.lastY - drag.y + ds, mid = drag.rects[drag.from].top + drag.rects[drag.from].height / 2 + dy;
+    let to = 0;   // the dragged row's new place = how many other rows sit above its middle
+    drag.rects.forEach((r, i) => { if (i !== drag.from && mid > r.top + r.height / 2) to++; });
+    drag.to = to;
+    drag.row.style.transform = `translateY(${dy}px)`;
+    drag.rs.forEach((r, i) => { if (r === drag.row) return; const shift = drag.from < i && i <= to ? -drag.h : to <= i && i < drag.from ? drag.h : 0; r.style.transform = shift ? `translateY(${shift}px)` : ""; });
+  }
+  box.onpointermove = e => {
+    if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 8) { clearTimeout(press.t); press.row.classList.remove("pressing"); press = null; }
+    if (!drag) return; drag.lastY = e.clientY; place();
+  };
+  box.onpointerup = box.onpointercancel = () => {
+    if (press) { clearTimeout(press.t); press.row.classList.remove("pressing"); press = null; }
+    if (!drag) return; const { from, to } = drag; drag = null; box.classList.remove("sorting");
+    if (from !== to) { const l = editablePrayerList(P.p); const [m] = l.splice(from, 1); l.splice(to, 0, m); save(); }
+    const y = $prayer.querySelector(".pscroll")?.scrollTop; drawPrayer(); if (y) $prayer.querySelector(".pscroll").scrollTop = y;
+  };
+  box.oncontextmenu = e => e.preventDefault();
+}
+function openPrayerEdit(idx) {
+  const l = prayerList(P.p), x = l[idx]; if (!x) return; const d = BY_ID[x.id];
+  $layer.insertAdjacentHTML("beforeend", `<div class="scrim" data-act="closepedit" style="z-index:40"></div><div class="sheet" style="z-index:41" role="dialog" aria-label="Edit zikr"><div class="in">
+    <div class="top"><button class="textbtn" data-act="closepedit" style="color:var(--muted);font-weight:600">Cancel</button><b>After ${esc(pName(P.p))} · #${idx + 1}</b><button class="textbtn" data-act="peditsave" data-idx="${idx}">Save</button></div>
+    <div class="pedit-head"><b>${esc(d.title)}</b><div class="ar">${esc(d.arabic)}</div><small class="muted">${esc(d.source)}${d.count ? ` · the book says ×${d.count}` : ""}</small></div>
+    <div class="eyebrow" style="margin-top:14px">How many times</div>
+    <div class="pstep"><button class="icon-btn" data-act="pstep" data-d="-1" aria-label="One less">−</button><input id="pedit-n" type="number" inputmode="numeric" min="1" max="9999" value="${x.n}"><button class="icon-btn" data-act="pstep" data-d="1" aria-label="One more">+</button></div>
+    <div class="presets">${[1, 3, 7, 10, 33, 100].map(n => `<button data-act="pset" data-n="${n}" aria-pressed="${x.n === n}">${n}</button>`).join("")}</div>
+    <button class="btn pdel" data-act="pdelete" data-idx="${idx}">Remove from after ${esc(pName(P.p))}</button></div></div>`);
+}
+const closePrayerEdit = () => $layer.querySelectorAll('.sheet[aria-label="Edit zikr"], .scrim[data-act="closepedit"]').forEach(e => e.remove());
+function redrawPrayerKeep() { const y = $prayer?.querySelector(".pscroll")?.scrollTop; drawPrayer(); if (y) $prayer.querySelector(".pscroll").scrollTop = y; }
 function openPrayerAdd() {
   const have = new Set(prayerList(P.p, true).map(x => x.id));
   const pool = chapterOf[25].items.concat(S.items.map(i => BY_ID[i.libraryID]).filter(Boolean)).filter((d, i, a) => !have.has(d.id) && a.findIndex(x => x.id === d.id) === i);
@@ -1978,8 +2056,14 @@ document.addEventListener("click", e => {
     case "pback": P.stage = "list"; keepAwake(false); drawPrayer(); break;
     case "pskip": if (!pAnimating) pNext(220); break;
     case "padd": openPrayerAdd(); break;
+    case "preorder": if (S.prayerCustom) delete S.prayerCustom[P.p]; if (S.prayerOff) delete S.prayerOff[P.p]; if (S.prayerAdd) delete S.prayerAdd[P.p]; save(); redrawPrayerKeep(); toast("Back to the book's order", `After ${pName(P.p)}`); break;
+    case "closepedit": closePrayerEdit(); break;
+    case "pstep": { const i = document.getElementById("pedit-n"); i.value = Math.max(1, Math.min(9999, (parseInt(i.value, 10) || 0) + +b.dataset.d)); document.querySelectorAll('.sheet [data-act="pset"]').forEach(x => x.setAttribute("aria-pressed", x.dataset.n === i.value)); break; }
+    case "pset": { const i = document.getElementById("pedit-n"); i.value = b.dataset.n; document.querySelectorAll('.sheet [data-act="pset"]').forEach(x => x.setAttribute("aria-pressed", x === b)); break; }
+    case "peditsave": { const n = Math.max(1, Math.min(9999, parseInt(document.getElementById("pedit-n").value, 10) || 1)), l = editablePrayerList(P.p); if (l[+b.dataset.idx]) l[+b.dataset.idx][1] = n; save(); closePrayerEdit(); redrawPrayerKeep(); break; }
+    case "pdelete": { const l = editablePrayerList(P.p), [gone] = l.splice(+b.dataset.idx, 1); save(); closePrayerEdit(); redrawPrayerKeep(); if (gone) toast("Removed", `${BY_ID[gone[0]].title} · after ${pName(P.p)}`); break; }
     case "closepadd": closePrayerAdd(); break;
-    case "paddpick": { const d = BY_ID[id]; const add = (S.prayerAdd = S.prayerAdd || {})[P.p] = (S.prayerAdd[P.p] || []); add.push([id, d.count || 1]); save(); closePrayerAdd(); drawPrayer(); toast("Added", `${d.title} · after ${pName(P.p)}`); break; }
+    case "paddpick": { const d = BY_ID[id]; editablePrayerList(P.p).push([id, d.count || 1]); save(); closePrayerAdd(); drawPrayer(); toast("Added", `${d.title} · after ${pName(P.p)}`); break; }
     case "reader": openReader(); break;
     case "closereader": closeReader(); break;
     case "surahs": openSurahs(); break;
