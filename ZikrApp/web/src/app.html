@@ -377,7 +377,8 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .after-card .pchips { display: flex; gap: 6px; margin-top: 10px; position: relative; }
 .pchip { flex: 1; padding: 9px 2px; border-radius: 12px; background: var(--bg-2); border: 1px solid var(--line); font-size: 12.5px; font-weight: 600; color: var(--text); white-space: nowrap; }
 .pchip.now { border-color: var(--accent); } .pchip.done { background: color-mix(in srgb, var(--accent) 18%, var(--bg-2)); color: var(--accent); }
-.ploc { margin: 4px 0 12px; }
+.ploc { margin: 4px 0 12px; display: flex; flex-direction: column; gap: 10px; } .ploc .rt { display: flex; flex-direction: column; gap: 2px; }
+.ploc .rt b { font-size: 16px; } .ploc small { font-size: 12.5px; color: var(--muted); } .ploc .ptz b { color: var(--accent); font-weight: 600; }
 .pnext { display: flex; flex-direction: column; gap: 2px; }
 .pnext .pn-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; position: relative; }
 .pnext .pn-row b { font-size: 30px; } .pnext .pn-time { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -1004,11 +1005,14 @@ const METHOD_BY_COUNTRY = { Bangladesh: "Karachi", India: "Karachi", Pakistan: "
   Canada: "NorthAmerica", "United Kingdom": "MoonsightingCommittee", Turkey: "Turkey", Iran: "Tehran", Singapore: "Singapore", Malaysia: "Singapore", Indonesia: "Singapore", Brunei: "Singapore" };
 const HANAFI_COUNTRIES = new Set(["Bangladesh", "India", "Pakistan", "Afghanistan", "Turkey"]);
 const cityObj = c => ({ name: c[0], country: c[1], lat: c[2], lng: c[3], tz: c[4] });
-function defaultPlace() {
-  let tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
+const deviceTz = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) { return "UTC"; } };
+function placeFromTz(tz) {   // the largest city in this time zone
   const c = CITIES.find(x => x[4] === tz) || CITIES.find(x => x[0] === "Makkah" || x[0] === "Mecca") || CITIES[0];
-  return { ...cityObj(c), guessed: true };
+  return { ...cityObj(c), source: "timezone" };
 }
+const defaultPlace = () => placeFromTz(deviceTz());
+const placeSource = pl => pl.source || (pl.guessed ? "timezone" : "manual");
+const tzLabel = tz => { try { const n = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" }).formatToParts(new Date()).find(p => p.type === "timeZoneName"); return `${tz.replace(/_/g, " ")}${n ? " · " + n.value : ""}`; } catch (e) { return tz; } };
 const place = () => S.loc || (S.loc = defaultPlace());
 const ptMethod = () => S.ptMethod || METHOD_BY_COUNTRY[place().country] || "MuslimWorldLeague";
 const ptMadhab = () => S.ptMadhab || (HANAFI_COUNTRIES.has(place().country) ? "hanafi" : "shafi");
@@ -1040,7 +1044,10 @@ function timesHTML() {
   if (!t) return `<div class="wrap">${topBar("Prayer times")}<div class="empty">Prayer times couldn't be calculated on this device.</div></div>`;
   const nx = nextPrayer(), cur = currentPrayer(), week = Array.from({ length: 7 }, (_, i) => prayerTimesFor(i));
   return `<div class="wrap">${topBar("Prayer")}
-    <button class="row ploc" data-act="pickplace" style="text-align:left"><span class="rt"><b>📍 ${esc(pl.name)}, ${esc(pl.country)}</b><small>${pl.guessed ? "Guessed from your time zone · tap to change" : "Tap to change"}</small></span><span class="muted" style="font-size:13px">${esc(fmtDay(new Date(), { weekday: "short", day: "numeric", month: "short" }))}</span></button>
+    <div class="panel ploc"><div class="ploc-top"><span class="rt"><b>📍 ${esc(pl.name)}, ${esc(pl.country)}</b>
+        <small>${({ gps: "From your location", timezone: "From your time zone", manual: "Chosen by you" })[placeSource(pl)]} · ${esc(fmtDay(new Date(), { weekday: "short", day: "numeric", month: "short" }))}</small>
+        <small class="ptz">🕒 ${esc(tzLabel(pl.tz))}${pl.tz !== deviceTz() ? ` · <b>your phone is on ${esc(tzLabel(deviceTz()))}</b>` : ""}</small></span></div>
+      <div class="btn-row" style="justify-content:flex-start"><button class="btn small" data-act="detectplace">Detect location &amp; time zone</button><button class="btn ghost small" data-act="pickplace">Choose a city</button></div></div>
     ${nx ? `<section class="today-z pnext" style="${auroraVars(PT_NAMES.findIndex(x => x[0] === nx.k) * 55 + 20)}">${aurora()}
       <span class="eyebrow">Next prayer</span><div class="pn-row"><b class="display">${PT_NAMES.find(x => x[0] === nx.k)[1]}</b><span class="pn-time">${fmtTime(nx.at)}</span></div>
       <span class="muted" data-f="countdown">in ${until(nx.at - Date.now())}</span></section>` : ""}
@@ -1076,14 +1083,38 @@ function openPlacePicker() {
   draw(""); const inp = document.getElementById("place-q"); inp.oninput = () => draw(inp.value); setTimeout(() => inp.focus(), 300);
 }
 const closePlacePicker = () => $layer.querySelectorAll('.sheet[aria-label="Choose a place"], .scrim[data-act="closeplace"]').forEach(e => e.remove());
-function setPlace(p) { S.loc = p; delete S.ptMethod; delete S.ptMadhab; save(); closePlacePicker(); if (ui.tab === "times") rerenderKeepScroll(); toast("Location set", `${p.name}, ${p.country}`); }
-function useGeolocation() {
+function setPlace(p, quiet) {
+  const old = S.loc, changed = !old || old.name !== p.name || old.tz !== p.tz || Math.abs(old.lat - p.lat) > 0.05 || Math.abs(old.lng - p.lng) > 0.05;
+  if (!old || old.country !== p.country) { delete S.ptMethod; delete S.ptMadhab; }   // a new country gets its usual method
+  S.loc = p; save(); closePlacePicker();
+  if (ui.tab === "times" || ui.tab === "home") rerenderKeepScroll();
+  if (!quiet || changed) toast(p.source === "gps" ? "Location detected" : p.source === "timezone" ? "Time zone detected" : "Location set", `${p.name}, ${p.country} · ${tzLabel(p.tz)}`);
+}
+/* Find where you are: the phone's location if it allows it, otherwise its time zone. The time zone is always the
+   phone's own, so the adhan sounds at the right local time. A city you picked by hand is kept until you detect again. */
+let detecting = false;
+function detectPlace(manual) {
+  if (detecting) return; detecting = true;
+  const tz = deviceTz(), viaTz = why => { detecting = false; setPlace({ ...placeFromTz(tz), tz }, !manual); if (manual && why) toast("Used your time zone", why); };
+  if (!navigator.geolocation) return viaTz("Location isn't available here");
+  if (manual) toast("Detecting…", "Allow location if your phone asks");
   navigator.geolocation.getCurrentPosition(pos => {
+    detecting = false;
     const { latitude: lat, longitude: lng } = pos.coords; let best = null, bd = 1e9;
     for (const c of CITIES) { const d = (c[2] - lat) ** 2 + ((c[3] - lng) * Math.cos(lat * Math.PI / 180)) ** 2; if (d < bd) { bd = d; best = c; } }
-    setPlace({ ...cityObj(best), lat: +lat.toFixed(4), lng: +lng.toFixed(4), name: best[0] });
-  }, () => toast("Location not available", "Search for your city instead"), { timeout: 10000, maximumAge: 6e5 });
+    setPlace({ ...cityObj(best), lat: +lat.toFixed(4), lng: +lng.toFixed(4), tz, source: "gps", at: Date.now() }, !manual);
+  }, err => viaTz(err && err.code === 1 ? "Location permission was not given" : "Location isn't available right now"), { timeout: 12000, maximumAge: 10 * 60000 });
 }
+const useGeolocation = () => detectPlace(true);
+// On opening, and when you come back to the app: detect again unless you chose a city yourself.
+function autoDetectPlace() {
+  const pl = S.loc;
+  if (!pl || placeSource(pl) !== "manual") detectPlace(false);
+  else if (pl.tz !== deviceTz()) toast("Your time zone changed", `Phone: ${tzLabel(deviceTz())} · tap Detect on the Prayer page`);
+}
+setTimeout(autoDetectPlace, 800);
+let lastTz = deviceTz();
+document.addEventListener("visibilitychange", () => { if (!document.hidden && deviceTz() !== lastTz) { lastTz = deviceTz(); autoDetectPlace(); } });
 /* ---------- the adhan ---------- */
 let adhanAudio = null, adhanUnlocked = false;
 const adhanPlaying = () => !!(adhanAudio && !adhanAudio.paused);
@@ -2041,7 +2072,8 @@ document.addEventListener("click", e => {
     case "close": closeCounter(); break;
     case "pickplace": openPlacePicker(); break;
     case "closeplace": closePlacePicker(); break;
-    case "setplace": setPlace(cityObj(CITIES[+b.dataset.c])); break;
+    case "setplace": setPlace({ ...cityObj(CITIES[+b.dataset.c]), source: "manual" }); break;
+    case "detectplace": detectPlace(true); break;
     case "geoloc": useGeolocation(); break;
     case "adhantoggle": { const o = S.adhanOn = S.adhanOn || {}; o[b.dataset.k] = !adhanOn(b.dataset.k); save(); rerenderKeepScroll(); toast(o[b.dataset.k] ? "Adhan on" : "Adhan off", PT_NAMES.find(x => x[0] === b.dataset.k)[1]); break; }
     case "adhantest": if (adhanPlaying()) stopAdhan(); else playAdhan(null); rerenderKeepScroll(); break;
