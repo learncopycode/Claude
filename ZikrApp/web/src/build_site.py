@@ -1,11 +1,11 @@
-"""Builds the installable web app (PWA) into <repo>/zikr/ for GitHub Pages.
+"""Builds the installable web app (PWA) into ZikrApp/app/ for GitHub Pages.
 Run after build.py:  python3 build_site.py
 It wraps the built page (../index.html) in a full HTML document with the app icon, manifest and an
 offline service worker, so it can be added to the home screen and opened like an app."""
 import hashlib, os, shutil
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
-OUT = os.path.join(REPO, "zikr")
+OUT = os.path.join(REPO, "ZikrApp", "app")
 page = open(os.path.join(HERE, "..", "index.html"), encoding="utf8").read()
 version = hashlib.sha1(page.encode()).hexdigest()[:10]
 head = """<!doctype html>

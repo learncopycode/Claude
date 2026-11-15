@@ -1,6 +1,6 @@
 # Zikr for iPhone (no Mac needed)
 
-**Version 1.1.** The iPhone app is the same app as `zikr/` in a native shell (Capacitor 8). The version
+**Version 1.1.** The iPhone app is the same app as `../app/` in a native shell (Capacitor 8). The version
 number is `appVersion` in `package.json`; change it there for the next update (e.g. 1.2).
 
 **The adhan.** At each prayer time for the place detected when the app starts, the full adhan plays
@@ -37,7 +37,7 @@ it to TestFlight; everything below can be done from a phone browser.
 
 ## Build
 
-Any push that changes `zikr/` or this folder builds and uploads a new version. To build without a
+Any push that changes `ZikrApp/app/` or this folder builds and uploads a new version. To build without a
 change: Actions → "iPhone app → TestFlight" → Run workflow (the button appears once this file is on
 the default branch), or re-run the last run.
 
@@ -47,7 +47,7 @@ app on your iPhone and add yourself as an internal tester to install Zikr.
 ## Publish on the App Store
 
 App Store Connect → the app → fill in the description, keywords, support URL, a privacy policy URL
-(`https://learncopycode.github.io/Claude/zikr/privacy.html` once GitHub Pages is on), screenshots
+(`https://learncopycode.github.io/Claude/ZikrApp/app/privacy.html` once GitHub Pages is on), screenshots
 (6.9" iPhone; take them on your phone), age rating, and "App Privacy: Data Not Collected". Choose
 the build and Submit for Review.
 

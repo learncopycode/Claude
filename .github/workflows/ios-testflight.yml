@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main, claude/eloquent-ride-6vedsv]
-    paths: ["zikr/**", "ZikrApp/ios-app/**", ".github/workflows/ios-testflight.yml"]
+    paths: ["ZikrApp/app/**", "ZikrApp/ios-app/**", ".github/workflows/ios-testflight.yml"]
 
 concurrency:
   group: ios-testflight-${{ github.ref }}

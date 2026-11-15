@@ -4,7 +4,7 @@
   "version": "1.1.0",
   "description": "Zikr as an iPhone app: the web app in a native shell (Capacitor), with adhan notifications.",
   "scripts": {
-    "www": "rm -rf www && mkdir -p www && cp ../../zikr/index.html ../../zikr/manifest.webmanifest ../../zikr/icon-*.png ../../zikr/icon.svg www/"
+    "www": "rm -rf www && mkdir -p www && cp ../app/index.html ../app/manifest.webmanifest ../app/icon-*.png ../app/icon.svg www/"
   },
   "dependencies": {
     "@capacitor/core": "8.6.0",
