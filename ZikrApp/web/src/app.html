@@ -1208,7 +1208,9 @@ async function scheduleAdhanAlarms(list) {
 async function doScheduleNativeAdhan() {
   const LN = nativeLN(); if (!LN && !NATIVE()) return;
   const list = [];
-  for (let d = 0; d < 8 && list.length < 60; d++) {
+  // 30 days ahead, so the alarms keep coming every day even if the app is not opened for weeks;
+  // every time the app opens they are set again from the detected place and the latest times.
+  for (let d = 0; d < 30 && list.length < 150; d++) {
     const t = prayerTimesFor(d); if (!t) break;
     PT_NAMES.forEach(([k, n], i) => {
       if (k === "sunrise" || !adhanOn(k) || t.times[k] <= Date.now() + 5000) return;
