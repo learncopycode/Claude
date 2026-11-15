@@ -90,6 +90,13 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .chip b { font-size: 13px; font-weight: 600; }
 .chip .ar { font-size: 16px; color: var(--accent); line-height: 1.7; text-align: right; }
 .chip.on { border-color: var(--accent); }
+.mydrop { border-radius: 20px; background: var(--card); border: 1px solid var(--line); overflow: hidden; }
+.mydrop-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 13px 14px 13px 16px; text-align: left; color: var(--text); }
+.mydrop-t { flex: 1; min-width: 0; display: flex; flex-direction: column; } .mydrop-t b { font-family: var(--font-display); font-weight: 400; font-size: 19px; } .mydrop-t small { font-size: 12.5px; color: var(--muted); }
+.mydrop-dots { display: flex; gap: 4px; } .mydrop-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
+.mydrop-chev { width: 20px; height: 20px; color: var(--muted); transition: transform .3s ease; } .mydrop.open .mydrop-chev { transform: rotate(180deg); }
+.mydrop-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .35s ease; } .mydrop.open .mydrop-body { grid-template-rows: 1fr; }
+.mydrop-in { overflow: hidden; min-height: 0; } .mydrop .zlist { border: 0; border-top: 1px solid var(--line); border-radius: 0; } .mydrop .empty { margin: 0 14px 14px; }
 .zlist { display: flex; flex-direction: column; border-radius: 20px; background: var(--card); border: 1px solid var(--line); overflow: hidden; }
 .zrow { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); transition: background 0.2s; }
 .zrow:last-child { border-bottom: 0; }
@@ -888,14 +895,15 @@ function momentSuggestion() {
 }
 function homeHTML() {
   const m = momentSuggestion(), items = S.items.slice().sort((a, b) => (b.updated || b.createdAt) - (a.updated || a.createdAt)), h0 = hueOf(DAY_INDEX * 37).h;
+  const open = !!S.myOpen, todayTotal = items.reduce((a, it) => a + todayOf(it), 0);
+  // My zikr: a compact dropdown at the top, closed until you open it (it remembers).
   let h = `<div class="wrap">${topBar("Zikr")}
-    <section class="today-z" style="${auroraVars(h0)}">${aurora()}
-      <div class="row1"><span><span class="eyebrow">Today's zikr</span><br><b>${m.title}</b></span><button class="btn ghost small" data-act="addall">Add these</button></div>
-      <div class="chips">${m.items.map(d => `<button class="chip ${added(d) ? "on" : ""}" data-act="lib" data-id="${d.id}"><b>${esc(d.title)}</b><span class="ar">${esc(d.arabic)}</span></button>`).join("")}${m.total > m.items.length ? `<button class="chip" data-act="sub" data-sub="${m.sub}"><b>See all ${m.total}</b><span class="muted" style="font-size:12px">Hisn al-Muslim</span></button>` : ""}</div>
-    </section>
-    ${prayerCardHTML()}
-    ${quranCardHTML()}
-    <h2 class="sec">My zikr <small>${items.length}</small></h2>`;
+    <section class="mydrop ${open ? "open" : ""}">
+      <button class="mydrop-head" data-act="mytoggle" aria-expanded="${open}">
+        <span class="mydrop-t"><b>My zikr</b><small>${items.length} zikr${items.length === 1 ? "" : "s"}${todayTotal ? ` · ${fmt(todayTotal)} today` : ""}</small></span>
+        <span class="mydrop-dots">${items.slice(0, 6).map(it => `<i style="--c:${colorOf(it.total)}"></i>`).join("")}</span>
+        <svg class="mydrop-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div class="mydrop-body"><div class="mydrop-in">`;
   if (items.length) {
     h += `<div class="zlist">` + items.map(it => {
       const td = todayOf(it);
@@ -904,7 +912,14 @@ function homeHTML() {
         <span class="zc"><b>${td ? fmt(td) : "–"}</b><small>${td ? "today" : "not yet today"}</small></span></button>`;
     }).join("") + `</div>`;
   } else h += `<div class="empty">Your list is empty. Tap + to search for a dua, or add one from Discover.</div>`;
-  return h + `<p class="note">Counts are saved in this browser.</p></div>`;
+  h += `</div></div></section>
+    ${prayerCardHTML()}
+    ${quranCardHTML()}
+    <section class="today-z" style="${auroraVars(h0)}">${aurora()}
+      <div class="row1"><span><span class="eyebrow">Today's zikr</span><br><b>${m.title}</b></span><button class="btn ghost small" data-act="addall">Add these</button></div>
+      <div class="chips">${m.items.map(d => `<button class="chip ${added(d) ? "on" : ""}" data-act="lib" data-id="${d.id}"><b>${esc(d.title)}</b><span class="ar">${esc(d.arabic)}</span></button>`).join("")}${m.total > m.items.length ? `<button class="chip" data-act="sub" data-sub="${m.sub}"><b>See all ${m.total}</b><span class="muted" style="font-size:12px">Hisn al-Muslim</span></button>` : ""}</div>
+    </section>`;
+  return h + `<p class="note">Counts are saved on this device.</p></div>`;
 }
 
 /* ---------- Discover ---------- */
@@ -1076,7 +1091,7 @@ function timesHTML() {
       <label><span>Asr</span><select data-set="madhab"><option value="shafi" ${ptMadhab() === "shafi" ? "selected" : ""}>Standard (Shafi‘i, Maliki, Hanbali)</option><option value="hanafi" ${ptMadhab() === "hanafi" ? "selected" : ""}>Hanafi</option></select></label>
       <div class="btn-row" style="justify-content:flex-start"><button class="btn ghost small" data-act="adhantest">${adhanPlaying() ? "Stop adhan" : "Play the adhan"}</button></div>
     </div>
-    <p class="note">The adhan plays at each prayer time while this page is open, even on another tab of the app. Phones stop web pages when they are closed or in the background, so it can't sound then; keep the page open, or use your phone's prayer app for alarms. Times: adhan.js (Batoul Apps). Adhan recording: “Beautiful adhan” by Adam-synagda, Wikimedia Commons (CC0).</p></div>`;
+    <p class="note">${NATIVE() ? "The adhan comes as a notification at each prayer time, even when the app is closed (iPhone plays the first 30 seconds); tap it to hear the full adhan. With the app open it plays in full." : "The adhan plays at each prayer time while this page is open, even on another tab of the app. Phones stop web pages when they are closed or in the background, so it can't sound then; the iPhone app version can."} Times: adhan.js (Batoul Apps). Adhan recording: “Beautiful adhan” by Adam-synagda, Wikimedia Commons (CC0).</p></div>`;
 }
 function openPlacePicker() {
   $layer.insertAdjacentHTML("beforeend", `<div class="scrim" data-act="closeplace" style="z-index:40"></div><div class="sheet" style="z-index:41" role="dialog" aria-label="Choose a place"><div class="in">
@@ -1094,6 +1109,7 @@ function openPlacePicker() {
 }
 const closePlacePicker = () => $layer.querySelectorAll('.sheet[aria-label="Choose a place"], .scrim[data-act="closeplace"]').forEach(e => e.remove());
 function setPlace(p, quiet) {
+  setTimeout(() => typeof scheduleNativeAdhan === "function" && scheduleNativeAdhan(), 0);
   const old = S.loc, changed = !old || old.name !== p.name || old.tz !== p.tz || Math.abs(old.lat - p.lat) > 0.05 || Math.abs(old.lng - p.lng) > 0.05;
   if (!old || old.country !== p.country) { delete S.ptMethod; delete S.ptMadhab; }   // a new country gets its usual method
   S.loc = p; save(); closePlacePicker();
@@ -1159,6 +1175,53 @@ function adhanTick() {
   const cd = document.querySelector('[data-f="countdown"]'), nx = cd && nextPrayer(); if (cd && nx) cd.textContent = `in ${until(nx.at - Date.now())}`;
 }
 setInterval(adhanTick, 15000); setTimeout(adhanTick, 1500);
+
+/* ---------- In the iPhone app: adhan notifications that sound even when the app is closed ----------
+   iOS lets a notification play up to 30 seconds of sound, so it plays the opening of the adhan
+   (adhan.caf, built into the app); tapping it opens the app and plays the full adhan. */
+const NATIVE = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+// The page has no build step, so it talks to the native LocalNotifications plugin through Capacitor's bridge.
+// (Dates are passed as Date objects; the bridge hands them to iOS as dates.)
+function nativeLN() {
+  if (!NATIVE()) return null; const C = window.Capacitor;
+  if (C.Plugins?.LocalNotifications) return C.Plugins.LocalNotifications;
+  if (typeof C.nativePromise !== "function") return null;
+  const call = (m, o) => C.nativePromise("LocalNotifications", m, o || {});
+  return { checkPermissions: () => call("checkPermissions"), requestPermissions: () => call("requestPermissions"), getPending: () => call("getPending"),
+    cancel: o => call("cancel", o), schedule: o => call("schedule", o), addListener: (ev, fn) => C.addListener("LocalNotifications", ev, fn) };
+}
+let nativeTimer = null;
+function scheduleNativeAdhan() { clearTimeout(nativeTimer); nativeTimer = setTimeout(doScheduleNativeAdhan, 400); }
+async function doScheduleNativeAdhan() {
+  const LN = nativeLN(); if (!LN) return;
+  try {
+    let perm = await LN.checkPermissions();
+    if (perm.display !== "granted" && perm.display !== "denied") perm = await LN.requestPermissions();
+    if (perm.display !== "granted") return;
+    const pending = await LN.getPending();
+    if (pending.notifications.length) await LN.cancel({ notifications: pending.notifications.map(n => ({ id: n.id })) });
+    const list = [];
+    for (let d = 0; d < 8 && list.length < 60; d++) {   // iOS keeps at most 64 waiting
+      const t = prayerTimesFor(d); if (!t) break;
+      PT_NAMES.forEach(([k, n], i) => {
+        if (k === "sunrise" || !adhanOn(k) || t.times[k] <= Date.now() + 5000) return;
+        list.push({ id: d * 10 + i + 1, title: `${n} · ${place().name}`, body: `It is time for ${n} (${fmtTime(t.times[k])}). Tap to hear the full adhan.`,
+          schedule: { at: t.times[k], allowWhileIdle: true }, sound: "adhan.caf", extra: { k, at: +t.times[k] } });
+      });
+    }
+    if (list.length) await LN.schedule({ notifications: list.slice(0, 60) });
+  } catch (e) {}
+}
+if (NATIVE()) {
+  setTimeout(scheduleNativeAdhan, 2500);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) scheduleNativeAdhan(); });
+  try {
+    nativeLN()?.addListener("localNotificationActionPerformed", ev => {
+      const x = ev?.notification?.extra || {};
+      if (x.k && Date.now() - (x.at || 0) < 20 * 60000) playAdhan(x.k);   // opened from the adhan notification: play it in full
+    });
+  } catch (e) {}
+}
 document.addEventListener("visibilitychange", () => { if (!document.hidden) adhanTick(); });
 
 /* ================= After-prayer adhkar =================
@@ -2066,6 +2129,7 @@ function saveAdd() {
 document.addEventListener("change", e => {
   const el = e.target.closest("[data-set]"); if (!el) return;
   if (el.dataset.set === "method") S.ptMethod = el.value; else if (el.dataset.set === "madhab") S.ptMadhab = el.value;
+  scheduleNativeAdhan();
   save(); rerenderKeepScroll(); toast("Prayer times updated", `${PT_METHODS.find(x => x[0] === ptMethod())[1]} · Asr ${ptMadhab() === "hanafi" ? "Hanafi" : "standard"}`);
 });
 function rerenderKeepScroll() { const y = $screen.scrollTop; render(); $screen.scrollTop = y; }
@@ -2101,12 +2165,13 @@ document.addEventListener("click", e => {
     case "preset": form.target = +b.dataset.n; drawAdd(); break;
     case "save": saveAdd(); break;
     case "close": closeCounter(); break;
+    case "mytoggle": { S.myOpen = !S.myOpen; save(); const sec = b.closest(".mydrop"); sec.classList.toggle("open", S.myOpen); b.setAttribute("aria-expanded", S.myOpen); break; }
     case "pickplace": openPlacePicker(); break;
     case "closeplace": closePlacePicker(); break;
     case "setplace": setPlace({ ...cityObj(CITIES[+b.dataset.c]), source: "manual" }); break;
     case "detectplace": detectPlace(true); break;
     case "geoloc": useGeolocation(); break;
-    case "adhantoggle": { const o = S.adhanOn = S.adhanOn || {}; o[b.dataset.k] = !adhanOn(b.dataset.k); save(); rerenderKeepScroll(); toast(o[b.dataset.k] ? "Adhan on" : "Adhan off", PT_NAMES.find(x => x[0] === b.dataset.k)[1]); break; }
+    case "adhantoggle": { const o = S.adhanOn = S.adhanOn || {}; o[b.dataset.k] = !adhanOn(b.dataset.k); save(); scheduleNativeAdhan(); rerenderKeepScroll(); toast(o[b.dataset.k] ? "Adhan on" : "Adhan off", PT_NAMES.find(x => x[0] === b.dataset.k)[1]); break; }
     case "adhantest": if (adhanPlaying()) stopAdhan(); else playAdhan(null); rerenderKeepScroll(); break;
     case "adhanstop": stopAdhan(); if (ui.tab === "times") rerenderKeepScroll(); break;
     case "adhanplay": getAdhanAudio().play().catch(() => {}); b.hidden = true; b.previousElementSibling?.setAttribute("hidden", ""); break;

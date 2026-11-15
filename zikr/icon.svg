@@ -1,23 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <radialGradient id="bg" cx="35%" cy="25%" r="90%">
-      <stop offset="0" stop-color="#1f6f5c"/><stop offset=".55" stop-color="#0f4a3e"/><stop offset="1" stop-color="#082a24"/>
-    </radialGradient>
-    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffe29a"/><stop offset=".5" stop-color="#e9b44c"/><stop offset="1" stop-color="#c98a26"/>
-    </linearGradient>
+    <radialGradient id="a1" cx="18%" cy="16%" r="62%"><stop offset="0" stop-color="#bfeedd" stop-opacity=".85"/><stop offset="1" stop-color="#bfeedd" stop-opacity="0"/></radialGradient>
+    <radialGradient id="a2" cx="88%" cy="30%" r="58%"><stop offset="0" stop-color="#ffd9c2" stop-opacity=".8"/><stop offset="1" stop-color="#ffd9c2" stop-opacity="0"/></radialGradient>
+    <radialGradient id="a3" cx="55%" cy="96%" r="60%"><stop offset="0" stop-color="#dcd2ff" stop-opacity=".8"/><stop offset="1" stop-color="#dcd2ff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3cf7a"/><stop offset=".55" stop-color="#d9a03c"/><stop offset="1" stop-color="#b9792a"/></linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5fbf9f"/><stop offset=".5" stop-color="#d9a03c"/><stop offset="1" stop-color="#9c88e6"/></linearGradient>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#b9792a" flood-opacity=".25"/></filter>
   </defs>
-  <rect width="512" height="512" fill="url(#bg)"/>
-  <g fill="url(#gold)">
-    <circle cx="256" cy="256" r="170" fill="none" stroke="url(#gold)" stroke-width="6" stroke-dasharray="1 23" stroke-linecap="round"/>
-  </g>
-  <g transform="translate(256 256)">
-    <rect x="-104" y="-104" width="208" height="208" rx="10" fill="url(#gold)"/>
-    <rect x="-104" y="-104" width="208" height="208" rx="10" fill="url(#gold)" transform="rotate(45)"/>
-    <rect x="-80" y="-80" width="160" height="160" rx="6" fill="#0f4a3e"/>
-    <rect x="-80" y="-80" width="160" height="160" rx="6" fill="#0f4a3e" transform="rotate(45)"/>
+  <rect width="512" height="512" fill="#fffdf9"/>
+  <rect width="512" height="512" fill="url(#a1)"/><rect width="512" height="512" fill="url(#a2)"/><rect width="512" height="512" fill="url(#a3)"/>
+  <circle cx="256" cy="256" r="172" fill="none" stroke="url(#ring)" stroke-width="7" stroke-dasharray="1 23" stroke-linecap="round" opacity=".9"/>
+  <g transform="translate(256 256)" filter="url(#sh)">
+    <rect x="-104" y="-104" width="208" height="208" rx="12" fill="url(#gold)"/>
+    <rect x="-104" y="-104" width="208" height="208" rx="12" fill="url(#gold)" transform="rotate(45)"/>
+    <rect x="-82" y="-82" width="164" height="164" rx="8" fill="#fffdf9"/>
+    <rect x="-82" y="-82" width="164" height="164" rx="8" fill="#fffdf9" transform="rotate(45)"/>
     <circle r="46" fill="url(#gold)"/>
-    <circle r="30" fill="#0f4a3e"/>
-    <circle r="12" fill="url(#gold)"/>
+    <circle r="31" fill="#fffdf9"/>
+    <circle r="13" fill="url(#ring)"/>
   </g>
 </svg>

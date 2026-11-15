@@ -12,7 +12,7 @@ head = """<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0f4a3e">
+<meta name="theme-color" content="#fffdf9">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Zikr">
@@ -27,7 +27,7 @@ head = """<!doctype html>
 """
 os.makedirs(OUT, exist_ok=True)
 open(os.path.join(OUT, "index.html"), "w", encoding="utf8").write(head + page + "\n</body></html>\n")
-for f in ["manifest.webmanifest", "icon.svg", "icon-180.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png"]:
+for f in ["manifest.webmanifest", "privacy.html", "icon.svg", "icon-180.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png"]:
     shutil.copy(os.path.join(HERE, "site", f), os.path.join(OUT, f))
 open(os.path.join(OUT, "sw.js"), "w", encoding="utf8").write(open(os.path.join(HERE, "site", "sw.js"), encoding="utf8").read().replace("__VERSION__", version))
 print("built", OUT, "version", version, f"{os.path.getsize(os.path.join(OUT, 'index.html')) / 1e6:.2f} MB")
