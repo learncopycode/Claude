@@ -269,7 +269,7 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .reader .bm.on { color: var(--accent); border-color: var(--accent); }
 .lastread { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding: 2px 8px; border-radius: 99px; background: var(--accent); color: var(--on-accent); font-size: 10px; letter-spacing: 0.06em; }
 .lastread svg { width: 11px; height: 11px; }
-.qstar-row { display: flex; justify-content: center; margin-bottom: 4px; } .qstar-row .qstar { margin: 0; font-size: 12px; padding: 5px 12px; letter-spacing: .02em; }
+.qstar-row { display: flex; justify-content: center; margin-bottom: 4px; transition: opacity .3s ease, transform .3s ease; } .qstar-row.gone { opacity: 0; transform: scale(.6); } .qstar-row .qstar { margin: 0; font-size: 12px; padding: 5px 12px; letter-spacing: .02em; }
 .qstar-row .qstar i { font-size: 15px; }
 .hstar { color: #e2962b; font-size: 14px; }
 .lastread.qstar { background: linear-gradient(135deg, #f6c64a, #e2962b); color: #3b2604; font-weight: 700; box-shadow: 0 2px 10px rgba(226, 150, 43, .45); animation: starIn .6s cubic-bezier(.2,1.6,.4,1) both; }
@@ -1678,6 +1678,11 @@ function toggleBookmark(p) {
 const starAt = p => !!S.quranStar && S.quranStar.s === p.s && S.quranStar.a === p.a;
 function placeStar() { if (S.quranPos) { S.quranStar = { ...S.quranPos }; save(); } }
 function clearStar() { if (S.quranStar) { S.quranStar = null; save(); } }
+// The star fades as soon as you start swiping from its ayah (either direction).
+function fadeStar() {
+  const el = $reader?.querySelector("#rdeck .card.top .qstar-row"); if (!el) return;
+  clearStar(); el.classList.add("gone"); setTimeout(() => el.remove(), 350);
+}
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) placeStar();
   else if ($reader && starAt(quranPos()) && !rAnimating) drawReader();   // back in the app: show the star
@@ -1767,7 +1772,7 @@ function bindReader() {
     if (!drag || rAnimating) return;
     if (drag.reading) { const r = drag.reading; r.box.scrollTop -= e.clientY - r.lastY; r.lastY = e.clientY; return; }
     const dy = e.clientY - drag.y; drag.dy = dy; drag.lastY = e.clientY;
-    if (Math.abs(dy) > 8 && !drag.moved) { drag.moved = true; clearTimeout(drag.timer); }
+    if (Math.abs(dy) > 8 && !drag.moved) { drag.moved = true; clearTimeout(drag.timer); fadeStar(); }
     drag.samples.push([e.clientY, performance.now()]); if (drag.samples.length > 5) drag.samples.shift();
     if (!drag.moved) return;
     const h = deck.clientHeight, off = dy > 0 ? dy * 0.6 : dy, prog = Math.min(1, Math.max(0, -off / h));
