@@ -90,3 +90,14 @@ All tafsir editions are embedded in the page gzipped per surah and unpacked when
 
 The adhan plays while the page is open. Browsers stop pages that are closed or in the background, so a
 web page can't sound the adhan then; that needs an installed app.
+
+## Installable app (GitHub Pages)
+
+`python3 build_site.py` (after `build.py`) writes `zikr/` at the repository root: the page wrapped in a full HTML
+document with the app icon (`site/icon.svg`, PNGs rendered from it), `manifest.webmanifest`, and `sw.js`, a service
+worker that keeps the app on the phone so it opens offline and picks up updates on the next launch.
+
+Serve it with GitHub Pages ("Deploy from a branch", folder `/ (root)`); it is then at `https://<user>.github.io/<repo>/zikr/`.
+On iPhone open that link in Safari, tap Share → Add to Home Screen.
+
+Off claude.ai the page has no access to Claude, so reflections show the Al-Mukhtasar tafsir instead of a written reflection.
