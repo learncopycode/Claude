@@ -1,8 +1,19 @@
 # Zikr for iPhone (no Mac needed)
 
-The iPhone app is the same app as `zikr/` in a native shell (Capacitor 8), plus adhan
-notifications that sound even when the app is closed (iOS plays up to 30 seconds; tapping the
-notification opens the app and plays the full adhan). GitHub's Mac computers build it and send
+**Version 1.1.** The iPhone app is the same app as `zikr/` in a native shell (Capacitor 8). The version
+number is `appVersion` in `package.json`; change it there for the next update (e.g. 1.2).
+
+**The adhan.** At each prayer time for the place detected when the app starts, the full adhan plays
+on its own, even when the app is closed or the phone is locked:
+- iOS 26 and later: as a system alarm (AlarmKit, `native/AdhanAlarmPlugin.swift`) with the whole
+  2½-minute adhan (`resources/adhan_full.caf`). Stop it from the lock screen like any alarm. The
+  app asks once for permission to set alarms.
+- Older iOS, or if alarms aren't allowed: a notification with the first 30 seconds (Apple's limit
+  for notification sounds); press the side button to silence it, tap it to hear the full adhan.
+- With the app open, the full adhan plays in the app.
+
+If the AlarmKit plugin doesn't compile with the Xcode on GitHub's Mac, the build says so and builds
+again without it, so there is always an app to test. GitHub's Mac computers build it and send
 it to TestFlight; everything below can be done from a phone browser.
 
 ## One-time setup
@@ -45,7 +56,9 @@ the build and Submit for Review.
 - `capacitor.config.json` – app id, name, colours
 - `resources/AppIcon-1024.png`, `resources/Splash-2732.png` – icon and launch screen
 - `resources/adhan.caf` – the first 29.5 s of the adhan (CC0 recording, faded out) for notifications
+- `resources/adhan_full.caf` – the full adhan (154 s) for alarms
+- `native/AdhanAlarmPlugin.swift` – the alarm plugin (AlarmKit), registered by `prepare-ios.sh`
 - `scripts/prepare-ios.sh` – makes the Xcode project on the Mac runner (icon, launch screen,
   location text, iPhone-only, adhan sound)
-- `../../.github/workflows/ios-testflight.yml` – builds, signs (automatic signing with the API key)
-  and uploads
+- `scripts/build-upload.sh`, `../../.github/workflows/ios-testflight.yml` – build, sign (automatic
+  signing with the API key) and upload

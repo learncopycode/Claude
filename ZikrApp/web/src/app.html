@@ -919,7 +919,7 @@ function homeHTML() {
       <div class="row1"><span><span class="eyebrow">Today's zikr</span><br><b>${m.title}</b></span><button class="btn ghost small" data-act="addall">Add these</button></div>
       <div class="chips">${m.items.map(d => `<button class="chip ${added(d) ? "on" : ""}" data-act="lib" data-id="${d.id}"><b>${esc(d.title)}</b><span class="ar">${esc(d.arabic)}</span></button>`).join("")}${m.total > m.items.length ? `<button class="chip" data-act="sub" data-sub="${m.sub}"><b>See all ${m.total}</b><span class="muted" style="font-size:12px">Hisn al-Muslim</span></button>` : ""}</div>
     </section>`;
-  return h + `<p class="note">Counts are saved on this device.</p></div>`;
+  return h + `<p class="note">Counts are saved on this device. · Zikr v${APP_VERSION}</p></div>`;
 }
 
 /* ---------- Discover ---------- */
@@ -1091,7 +1091,7 @@ function timesHTML() {
       <label><span>Asr</span><select data-set="madhab"><option value="shafi" ${ptMadhab() === "shafi" ? "selected" : ""}>Standard (Shafi‘i, Maliki, Hanbali)</option><option value="hanafi" ${ptMadhab() === "hanafi" ? "selected" : ""}>Hanafi</option></select></label>
       <div class="btn-row" style="justify-content:flex-start"><button class="btn ghost small" data-act="adhantest">${adhanPlaying() ? "Stop adhan" : "Play the adhan"}</button></div>
     </div>
-    <p class="note">${NATIVE() ? "The adhan comes as a notification at each prayer time, even when the app is closed (iPhone plays the first 30 seconds); tap it to hear the full adhan. With the app open it plays in full." : "The adhan plays at each prayer time while this page is open, even on another tab of the app. Phones stop web pages when they are closed or in the background, so it can't sound then; the iPhone app version can."} Times: adhan.js (Batoul Apps). Adhan recording: “Beautiful adhan” by Adam-synagda, Wikimedia Commons (CC0).</p></div>`;
+    <p class="note">${NATIVE() ? (S.nativeAlarms ? "The full adhan rings as an alarm at each prayer time, even when the app is closed or the phone is locked. Stop it from the lock screen like any alarm." : "The adhan comes as a notification at each prayer time, even when the app is closed (iPhone plays the first 30 seconds; press the side button to silence it); tap it to hear the full adhan. With the app open it plays in full.") : "The adhan plays at each prayer time while this page is open, even on another tab of the app. Phones stop web pages when they are closed or in the background, so it can't sound then; the iPhone app version can."} Times: adhan.js (Batoul Apps). Adhan recording: “Beautiful adhan” by Adam-synagda, Wikimedia Commons (CC0).</p></div>`;
 }
 function openPlacePicker() {
   $layer.insertAdjacentHTML("beforeend", `<div class="scrim" data-act="closeplace" style="z-index:40"></div><div class="sheet" style="z-index:41" role="dialog" aria-label="Choose a place"><div class="in">
@@ -1169,6 +1169,7 @@ function adhanTick() {
   const day = `${t.label.year}-${t.label.month}-${t.label.day}`, played = S.adhanPlayed = S.adhanPlayed || {};
   for (const [k] of PT_NAMES) {
     if (k === "sunrise" || !adhanOn(k)) continue;
+    if (NATIVE() && S.nativeAlarms) continue;   // the system alarm plays the full adhan
     const late = Date.now() - t.times[k];
     if (late >= 0 && late < 5 * 60000 && !played[day + k]) { played[day + k] = 1; for (const x in played) if (!x.startsWith(day)) delete played[x]; save(); playAdhan(k); break; }
   }
@@ -1192,24 +1193,39 @@ function nativeLN() {
 }
 let nativeTimer = null;
 function scheduleNativeAdhan() { clearTimeout(nativeTimer); nativeTimer = setTimeout(doScheduleNativeAdhan, 400); }
+// The full adhan as a system alarm (iOS 26+): rings at the time even when the app is closed or the phone is
+// locked, for the whole adhan. Older iOS, or if alarms aren't allowed: a notification with the first 30 seconds.
+const alarmCall = (m, o) => window.Capacitor.nativePromise("AdhanAlarm", m, o || {});
+async function scheduleAdhanAlarms(list) {
+  try {
+    const a = await alarmCall("available"); if (!a || !a.available) return false;
+    const p = await alarmCall("requestPermission"); if (!p || p.state !== "granted") return false;
+    await alarmCall("cancelAll");
+    const r = await alarmCall("schedule", { alarms: list.map(x => ({ atMs: +x.schedule.at, title: x.title })) });
+    return !!(r && r.scheduled);
+  } catch (e) { return false; }
+}
 async function doScheduleNativeAdhan() {
-  const LN = nativeLN(); if (!LN) return;
+  const LN = nativeLN(); if (!LN && !NATIVE()) return;
+  const list = [];
+  for (let d = 0; d < 8 && list.length < 60; d++) {
+    const t = prayerTimesFor(d); if (!t) break;
+    PT_NAMES.forEach(([k, n], i) => {
+      if (k === "sunrise" || !adhanOn(k) || t.times[k] <= Date.now() + 5000) return;
+      list.push({ id: d * 10 + i + 1, title: `${n} · ${place().name}`, body: `It is time for ${n} (${fmtTime(t.times[k])}). Tap to hear the full adhan.`,
+        schedule: { at: t.times[k], allowWhileIdle: true }, sound: "adhan.caf", extra: { k, at: +t.times[k] } });
+    });
+  }
+  const alarms = await scheduleAdhanAlarms(list);
+  if (S.nativeAlarms !== alarms) { S.nativeAlarms = alarms; save(); if (ui.tab === "times") rerenderKeepScroll(); }
+  if (!LN) return;
   try {
     let perm = await LN.checkPermissions();
-    if (perm.display !== "granted" && perm.display !== "denied") perm = await LN.requestPermissions();
+    if (!alarms && perm.display !== "granted" && perm.display !== "denied") perm = await LN.requestPermissions();
     if (perm.display !== "granted") return;
     const pending = await LN.getPending();
     if (pending.notifications.length) await LN.cancel({ notifications: pending.notifications.map(n => ({ id: n.id })) });
-    const list = [];
-    for (let d = 0; d < 8 && list.length < 60; d++) {   // iOS keeps at most 64 waiting
-      const t = prayerTimesFor(d); if (!t) break;
-      PT_NAMES.forEach(([k, n], i) => {
-        if (k === "sunrise" || !adhanOn(k) || t.times[k] <= Date.now() + 5000) return;
-        list.push({ id: d * 10 + i + 1, title: `${n} · ${place().name}`, body: `It is time for ${n} (${fmtTime(t.times[k])}). Tap to hear the full adhan.`,
-          schedule: { at: t.times[k], allowWhileIdle: true }, sound: "adhan.caf", extra: { k, at: +t.times[k] } });
-      });
-    }
-    if (list.length) await LN.schedule({ notifications: list.slice(0, 60) });
+    if (!alarms && list.length) await LN.schedule({ notifications: list.slice(0, 60) });   // iOS keeps at most 64 waiting
   } catch (e) {}
 }
 if (NATIVE()) {
@@ -1567,6 +1583,7 @@ function countCurrent() {
 }
 function plusOne() { const d = $counter?.querySelector("#deck"); if (!d) return; const el = document.createElement("span"); el.className = "plus1"; el.textContent = "+1"; d.appendChild(el); setTimeout(() => el.remove(), 950); }
 function glowAt(e) { const top = $counter.querySelector(".card.top"), r = top.getBoundingClientRect(), el = document.createElement("span"); el.className = "glow"; el.style.left = (e.clientX - r.left) + "px"; el.style.top = (e.clientY - r.top) + "px"; top.appendChild(el); setTimeout(() => el.remove(), 750); }
+const APP_VERSION = "1.1";
 const HOLD_MS = 320;
 /* Hold a card to enter reading mode; it stays until Back is tapped.
    The text scrolls (a bar on the right shows where you are) and a full-width strip along the
