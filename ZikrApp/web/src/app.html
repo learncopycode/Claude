@@ -269,6 +269,13 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 .reader .bm.on { color: var(--accent); border-color: var(--accent); }
 .lastread { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding: 2px 8px; border-radius: 99px; background: var(--accent); color: var(--on-accent); font-size: 10px; letter-spacing: 0.06em; }
 .lastread svg { width: 11px; height: 11px; }
+.qstar-row { display: flex; justify-content: center; margin-bottom: 4px; } .qstar-row .qstar { margin: 0; font-size: 12px; padding: 5px 12px; letter-spacing: .02em; }
+.qstar-row .qstar i { font-size: 15px; }
+.hstar { color: #e2962b; font-size: 14px; }
+.lastread.qstar { background: linear-gradient(135deg, #f6c64a, #e2962b); color: #3b2604; font-weight: 700; box-shadow: 0 2px 10px rgba(226, 150, 43, .45); animation: starIn .6s cubic-bezier(.2,1.6,.4,1) both; }
+.lastread.qstar i { font-style: normal; font-size: 12px; display: inline-block; animation: twinkle 2.4s ease-in-out infinite; }
+@keyframes starIn { from { opacity: 0; transform: scale(.4) rotate(-20deg); } }
+@keyframes twinkle { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.25) rotate(15deg); } }
 .tlbtn { font-weight: 700; font-size: 14px; color: var(--faint); }
 .tlbtn.on { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
 /* Tafsir view: the ayah fades out and the commentary fills the card. */
@@ -1113,6 +1120,7 @@ function autoDetectPlace() {
   else if (pl.tz !== deviceTz()) toast("Your time zone changed", `Phone: ${tzLabel(deviceTz())} · tap Detect on the Prayer page`);
 }
 setTimeout(autoDetectPlace, 800);
+if (S.readerOpen) setTimeout(() => { if (!$reader) openReader(); }, 0);
 let lastTz = deviceTz();
 document.addEventListener("visibilitychange", () => { if (!document.hidden && deviceTz() !== lastTz) { lastTz = deviceTz(); autoDetectPlace(); } });
 /* ---------- the adhan ---------- */
@@ -1664,15 +1672,27 @@ function toggleBookmark(p) {
   else S.quranBookmarks = [{ s: p.s, a: p.a, date: new Date().toISOString() }, ...bookmarks()];
   save(); return isBookmarked(p);
 }
+/* Where you stopped: the reader saves its place after every swipe. Each time the app is closed (or put in
+   the background) a star is placed on the ayah you were on; it shows when you come back and goes with your
+   next swipe, until the next time the app is closed. */
+const starAt = p => !!S.quranStar && S.quranStar.s === p.s && S.quranStar.a === p.a;
+function placeStar() { if (S.quranPos) { S.quranStar = { ...S.quranPos }; save(); } }
+function clearStar() { if (S.quranStar) { S.quranStar = null; save(); } }
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) placeStar();
+  else if ($reader && starAt(quranPos()) && !rAnimating) drawReader();   // back in the app: show the star
+});
+window.addEventListener("pagehide", placeStar);
+if (S.quranPos && S.quranStar === undefined) placeStar();   // first run with stars: mark the saved place
 function openReader(p) {
-  // Opening without a destination resumes the last ayah read, marked "Where you left off".
+  // Opening without a destination resumes the last ayah read.
   ui.resumed = !p && !!S.quranPos;
-  S.quranPos = p || quranPos(); save();
+  S.quranPos = p || quranPos(); S.readerOpen = true; save();
   if (!$reader) { $reader = document.createElement("section"); $reader.className = "counter reader"; $reader.setAttribute("aria-label", "Quran reader"); $layer.appendChild($reader); }
   drawReader(); keepAwake(true);
 }
 function closeReader() {
-  if (!$reader) return; const el = $reader; $reader = null; keepAwake(false);
+  if (!$reader) return; const el = $reader; $reader = null; keepAwake(false); S.readerOpen = false; save();
   el.classList.add("out"); setTimeout(() => el.remove(), 280); render();
 }
 function ayahCardHTML(p, role) {
@@ -1682,10 +1702,10 @@ function ayahCardHTML(p, role) {
   const h = (p.s * 37 + p.a * 3) % 360;
   const bism = p.a === 1 && p.s !== 1 && p.s !== 9 ? `<div class="bism ar">${BISMILLAH}</div>` : "";
   return `<div class="card ${role}" style="${auroraVars(h)}">${aurora()}
-    <div class="ctop"><span class="lbl">${esc(m[1])} · ${p.s}:${p.a}${role === "top" && ui.resumed ? ` <span class="lastread">${ICONS.bookmark} Where you left off</span>` : ""}</span>
+    <div class="ctop"><span class="lbl">${esc(m[1])} · ${p.s}:${p.a}</span>
       <button class="srcchip" data-act="tafsir" aria-label="Tafsir of this ayah">${ICONS.book}Tafsir</button>
       <button class="srcchip bm ${isBookmarked(p) ? "on" : ""}" data-act="bm" data-s="${p.s}" data-a="${p.a}" aria-label="${isBookmarked(p) ? "Remove bookmark" : "Bookmark this ayah"}">${ICONS.bookmark}</button></div>
-    <div class="ctext">${bism}<div class="arb ar" style="font-size:${size}px">${ar} <span class="ayno">﴿${arNum(p.a)}﴾</span></div>
+    <div class="ctext">${role === "top" && starAt(p) ? `<div class="qstar-row"><span class="lastread qstar"><i>★</i> You stopped here</span></div>` : ""}${bism}<div class="arb ar" style="font-size:${size}px">${ar} <span class="ayno">﴿${arNum(p.a)}﴾</span></div>
       ${S.tlQuran ? `<div class="tl" style="font-size:15.5px">${esc(tl)}</div>` : ""}<div class="en" style="font-size:15px" ${BN() && QBN ? 'lang="bn"' : ""}>${esc(en)}</div></div>
     <div class="longhint">Hold to read and scroll · swipe for the next ayah</div>
     <div class="cband"><span class="meta"><b>Ayah ${p.a} of ${m[3]}</b><span>${esc(m[2])} · ${m[4] === "meccan" ? "Makki" : "Madani"}</span></span>
@@ -1715,7 +1735,7 @@ function rSetBack(progress, ms) {
 function readerGo(dir) {
   const next = stepAyah(quranPos(), dir); if (!next) return toast(dir > 0 ? "Sadaqallahul-‘Azim" : "This is the first ayah", dir > 0 ? "You have reached the end of the Quran." : "Al-Fatihah 1:1", 150);
   if (dir > 0) { S.quranDays = S.quranDays || {}; S.quranDays[dayKey()] = ayahsReadToday() + 1; if (navigator.vibrate) try { navigator.vibrate(6); } catch (e) {} }
-  S.quranPos = next; save();
+  S.quranPos = next; S.quranStar = null; save();   // the star goes with the next swipe
   if (dir > 0 && next.a === 1) toast(`Surah ${QURAN_META[next.s - 1][1]}`, QURAN_META[next.s - 1][2], (next.s * 37) % 360);
 }
 function readerNext(dur = 260) {
@@ -1871,7 +1891,7 @@ function quranCardHTML() {
   const started = !!S.quranPos, p = quranPos(), m = QURAN_META[p.s - 1], pct = ayahIndex(p) / 6236 * 100;
   return `<button class="today-z quran-card" data-act="reader" style="${auroraVars((p.s * 37 + p.a * 3) % 360)};text-align:left">${aurora()}
     <span class="row1"><span><span class="eyebrow">The Quran</span><br><b>${started ? "Continue reading" : "Read ayah by ayah"}</b></span><span class="ar" style="font-size:22px">${esc(m[0])}</span></span>
-    <span class="qmeta">${started ? ICONS.bookmark + " " : ""}${esc(m[1])} · ayah ${p.a} of ${m[3]}${ayahsReadToday() ? ` · ${ayahsReadToday()} read today` : ""}${bookmarks().length ? ` · ${bookmarks().length} bookmark${bookmarks().length === 1 ? "" : "s"}` : ""}</span>
+    <span class="qmeta">${started ? (starAt(p) ? `<span class="hstar">★</span> ` : ICONS.bookmark + " ") : ""}${esc(m[1])} · ayah ${p.a} of ${m[3]}${ayahsReadToday() ? ` · ${ayahsReadToday()} read today` : ""}${bookmarks().length ? ` · ${bookmarks().length} bookmark${bookmarks().length === 1 ? "" : "s"}` : ""}</span>
     <span class="prog"><i style="width:${pct.toFixed(2)}%"></i></span></button>`;
 }
 
