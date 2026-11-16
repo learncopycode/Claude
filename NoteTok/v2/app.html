@@ -1,0 +1,1009 @@
+<title>NoteTok</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* NoteTok v2 · notes in the Google Keep style, read as a swipeable feed of posts.
+   Layout: one screen at a time (home grid · post feed · editor · review · mind map), each fixed full-screen. */
+:root {
+  /* dark first (Keep's dark), light below */
+  --bg: #202124; --surface: #2d2e31; --raise: #35363a; --line: #5f6368; --soft-line: #3c4043;
+  --text: #e8eaed; --muted: #9aa0a6; --faint: #80868b; --accent: #8ab4f8; --on-accent: #202124;
+  --danger: #f28b82; --good: #81c995; --star: #fdd663;
+  --coral: #77172e; --peach: #692b17; --sand: #7c4a03; --mint: #264d3b; --sage: #0c625d;
+  --fog: #256377; --storm: #284255; --dusk: #472e5b; --blossom: #6c394f; --clay: #4b443a;
+  --font: -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --display: -apple-system, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --r: 10px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #ffffff; --surface: #f1f3f4; --raise: #ffffff; --line: #e0e0e0; --soft-line: #eceff1;
+  --text: #202124; --muted: #5f6368; --faint: #80868b; --accent: #1a73e8; --on-accent: #ffffff;
+  --danger: #d93025; --good: #188038; --star: #f9ab00;
+  --coral: #faafa8; --peach: #f39f76; --sand: #fff8b8; --mint: #e2f6d3; --sage: #b4ddd3;
+  --fog: #d4e4ed; --storm: #aeccdc; --dusk: #d3bfdb; --blossom: #f6e2dd; --clay: #e9e3d4;
+  color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #ffffff; --surface: #f1f3f4; --raise: #ffffff; --line: #e0e0e0; --soft-line: #eceff1;
+  --text: #202124; --muted: #5f6368; --faint: #80868b; --accent: #1a73e8; --on-accent: #ffffff;
+  --danger: #d93025; --good: #188038; --star: #f9ab00;
+  --coral: #faafa8; --peach: #f39f76; --sand: #fff8b8; --mint: #e2f6d3; --sage: #b4ddd3;
+  --fog: #d4e4ed; --storm: #aeccdc; --dusk: #d3bfdb; --blossom: #f6e2dd; --clay: #e9e3d4;
+  color-scheme: light; }
+
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 15px;
+  overflow: hidden; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%; overscroll-behavior: none; }
+/* No page zoom anywhere (only the mind map zooms, inside its canvas). */
+html, body, button, a, input, textarea { touch-action: manipulation; }
+* { box-sizing: border-box; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+/* 16px+ on every field so iPhone never zooms in when typing */
+input, textarea { font: inherit; font-size: 16px; color: var(--text); background: none; border: 0; outline: none; width: 100%; padding: 0; resize: none; }
+input::placeholder, textarea::placeholder { color: var(--faint); }
+svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.ib { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: var(--muted); }
+.ib:active { background: var(--raise); }
+.ib.on { color: var(--text); }
+.muted { color: var(--muted); }
+
+/* note colours */
+.n-coral { --note: var(--coral); } .n-peach { --note: var(--peach); } .n-sand { --note: var(--sand); }
+.n-mint { --note: var(--mint); } .n-sage { --note: var(--sage); } .n-fog { --note: var(--fog); }
+.n-storm { --note: var(--storm); } .n-dusk { --note: var(--dusk); } .n-blossom { --note: var(--blossom); } .n-clay { --note: var(--clay); }
+
+/* ---------- screens ---------- */
+.screen { position: fixed; left: 0; right: 0; top: var(--vvt, 0px); height: var(--vvh, 100%); display: flex; flex-direction: column; background: var(--bg);
+  padding-top: env(safe-area-inset-top, 0px); }
+.screen.over { z-index: 10; animation: up .24s cubic-bezier(.2,.8,.2,1); }
+.screen.over.out { animation: down .2s ease forwards; }
+@keyframes up { from { transform: translateY(16px); opacity: 0; } }
+@keyframes down { to { transform: translateY(16px); opacity: 0; } }
+
+/* ---------- home ---------- */
+.home-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  padding: 8px max(12px, env(safe-area-inset-right, 0px)) 110px max(12px, env(safe-area-inset-left, 0px)); }
+.searchbar { display: flex; align-items: center; gap: 4px; height: 52px; margin: 6px max(12px, env(safe-area-inset-right, 0px)) 2px max(12px, env(safe-area-inset-left, 0px));
+  padding: 0 4px 0 6px; border-radius: 28px; background: var(--surface); }
+.searchbar input { flex: 1; min-width: 0; font-size: 17px; padding: 0 4px; }
+.avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 15px;
+  background: var(--accent); color: var(--on-accent); margin: 0 4px; }
+.sec-label { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: .04em; margin: 18px 12px 8px; }
+.masonry { columns: 2; column-gap: 10px; }
+.masonry.list { columns: 1; }
+.card { break-inside: avoid; display: block; width: 100%; text-align: left; margin: 0 0 10px; padding: 14px 16px;
+  border: 1px solid var(--line); border-radius: var(--r); background: var(--note, transparent); overflow: hidden; position: relative; }
+.card[class*="n-"] { border-color: transparent; }
+.card:active { transform: scale(.985); } .card { cursor: pointer; }
+.card h3 { margin: 0 0 6px; font-size: 16.5px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.card .body { font-size: 15px; line-height: 1.42; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 10; -webkit-box-orient: vertical; overflow: hidden; }
+.card .cl { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 15px; }
+.card .cl li { display: flex; gap: 8px; align-items: flex-start; }
+.card .cl li.done { color: var(--muted); text-decoration: line-through; }
+.card .cl .box { width: 15px; height: 15px; margin-top: 3px; border: 1.6px solid var(--muted); border-radius: 3px; flex: none; }
+.card .cl li.done .box { background: var(--muted); }
+.card img.thumb { display: block; width: calc(100% + 32px); margin: -14px -16px 12px; max-height: 220px; object-fit: cover; }
+.card .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chip { font-size: 12.5px; padding: 3px 10px; border-radius: 999px; background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
+.card .meta { display: flex; gap: 10px; margin-top: 8px; font-size: 12.5px; color: var(--muted); }
+.link-row { display: flex; align-items: center; gap: 10px; margin: 10px -16px -14px; padding: 10px 14px; border-top: 1px solid var(--soft-line); background: color-mix(in srgb, var(--bg) 35%, transparent); }
+.link-row .lg { width: 40px; height: 40px; border-radius: 6px; display: grid; place-items: center; background: var(--raise); color: var(--muted); flex: none; overflow: hidden; }
+.link-row .lg img { width: 100%; height: 100%; object-fit: cover; }
+.link-row b { display: block; font-weight: 500; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.link-row small { color: var(--muted); font-size: 12.5px; }
+.link-row > span { min-width: 0; flex: 1; }
+
+/* review banner + resurfaced note */
+.review-banner { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; margin: 8px 0 4px; padding: 14px 16px;
+  border-radius: 14px; background: var(--surface); }
+.review-banner .ring { --p: 0; width: 44px; height: 44px; border-radius: 50%; flex: none; display: grid; place-items: center;
+  background: conic-gradient(var(--accent) calc(var(--p) * 1%), var(--soft-line) 0); }
+.review-banner .ring span { width: 34px; height: 34px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-size: 13px; font-weight: 600; }
+.review-banner b { display: block; font-size: 16px; font-weight: 600; }
+.review-banner small { color: var(--muted); font-size: 13px; }
+.review-banner .go { margin-left: auto; color: var(--accent); font-weight: 600; font-size: 14.5px; }
+.resurface { margin: 10px 0 0; }
+.resurface .sec-label { margin-top: 10px; display: flex; align-items: center; gap: 6px; }
+
+/* bottom bar + new-note button */
+.bottombar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 4px;
+  padding: 6px max(10px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));
+  background: var(--surface); }
+.fab { position: fixed; z-index: 6; right: max(18px, env(safe-area-inset-right, 0px)); bottom: calc(34px + env(safe-area-inset-bottom, 0px));
+  width: 60px; height: 60px; border-radius: 18px; display: grid; place-items: center; background: var(--raise);
+  box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+.fab svg { width: 30px; height: 30px; stroke-width: 2.6; }
+.fab svg .p1 { stroke: #ea8f6b; } .fab svg .p2 { stroke: #8ab4f8; }
+
+/* drawer */
+.scrim { position: fixed; inset: 0; z-index: 30; background: rgba(0,0,0,.5); animation: fade .2s; }
+@keyframes fade { from { opacity: 0; } }
+.drawer { position: fixed; z-index: 31; top: 0; bottom: 0; left: 0; width: min(300px, 84vw); background: var(--bg);
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 0 calc(16px + env(safe-area-inset-bottom, 0px)) env(safe-area-inset-left, 0px);
+  display: flex; flex-direction: column; overflow-y: auto; animation: slide .22s cubic-bezier(.2,.8,.2,1); }
+@keyframes slide { from { transform: translateX(-100%); } }
+.drawer .brand { font-family: var(--display); font-size: 22px; font-weight: 500; padding: 8px 24px 14px; }
+.drawer .brand small { font-size: 12px; color: var(--muted); margin-left: 6px; }
+.drawer button { display: flex; align-items: center; gap: 22px; width: calc(100% - 12px); padding: 14px 24px; border-radius: 0 28px 28px 0; text-align: left; font-size: 15px; }
+.drawer button.on { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.drawer button .n { margin-left: auto; color: var(--muted); font-size: 13px; }
+.drawer hr { border: 0; border-top: 1px solid var(--soft-line); margin: 8px 0; }
+.drawer .lbl-h { font-size: 12px; color: var(--muted); padding: 10px 24px 4px; letter-spacing: .04em; }
+
+/* ---------- post feed (full-screen, swipe up/down) ---------- */
+.topbar { display: flex; align-items: center; gap: 4px; height: 52px; padding: 0 max(6px, env(safe-area-inset-right, 0px)) 0 max(6px, env(safe-area-inset-left, 0px)); flex: none; }
+.topbar .t { flex: 1; min-width: 0; font-size: 15px; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+.feed { flex: 1; overflow-y: auto; scroll-snap-type: y mandatory; overscroll-behavior: contain; scrollbar-width: none; }
+.feed::-webkit-scrollbar { display: none; }
+.post { min-height: 100%; scroll-snap-align: start; padding: 4px max(12px, env(safe-area-inset-right, 0px)) 20px max(12px, env(safe-area-inset-left, 0px)); display: flex; }
+.post-card { width: 100%; max-width: 620px; margin: 0 auto; align-self: flex-start; border-radius: 14px; background: var(--note, var(--surface)); overflow: hidden; }
+.post-head { display: flex; align-items: center; gap: 10px; padding: 14px 14px 6px; }
+.post-head .avatar { margin: 0; width: 40px; height: 40px; }
+.post-head b { display: block; font-size: 15px; font-weight: 600; }
+.post-head small { color: var(--muted); font-size: 12.5px; }
+.post-head > span:not(.avatar) { flex: 1; min-width: 0; } .avatar { flex: none; }
+.post-body { padding: 6px 16px 12px; }
+.post-body h2 { font-family: var(--display); font-size: 21px; font-weight: 600; line-height: 1.28; margin: 2px 0 8px; text-wrap: balance; overflow-wrap: anywhere; }
+.post-body .txt { font-size: 16px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.post-body .txt a, .thought a { color: var(--accent); text-decoration: none; overflow-wrap: anywhere; }
+.post-body .cl { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 2px; }
+.post-body .cl label { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; font-size: 16px; line-height: 1.4; }
+.post-body .cl input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--accent); flex: none; }
+.post-body .cl .done span { color: var(--muted); text-decoration: line-through; }
+.post-img { display: block; width: 100%; max-height: 70vh; object-fit: contain; background: rgba(0,0,0,.25); }
+.post-links { display: grid; }
+.post-links .link-row { margin: 0; border-top: 1px solid var(--soft-line); }
+.post-stats { display: flex; justify-content: space-between; padding: 10px 16px; font-size: 13.5px; color: var(--muted); }
+.post-actions { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--soft-line); border-bottom: 1px solid var(--soft-line); margin: 0 12px; }
+.post-actions button { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 0; font-size: 14px; font-weight: 500; color: var(--muted); border-radius: 6px; }
+.post-actions button svg { width: 20px; height: 20px; }
+.post-actions button.on { color: var(--danger); }
+.post-actions button:active { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.thoughts { padding: 10px 14px 14px; display: grid; gap: 8px; }
+.thought { display: flex; gap: 8px; }
+.thought .avatar { width: 30px; height: 30px; font-size: 12px; margin: 0; }
+.thought .bubble { background: color-mix(in srgb, var(--text) 9%, transparent); border-radius: 16px; padding: 8px 12px; max-width: 100%; min-width: 0; }
+.thought .bubble p { margin: 0; font-size: 15px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.thought small { display: block; color: var(--muted); font-size: 12px; margin: 3px 0 0 12px; }
+.add-thought { display: flex; gap: 8px; align-items: center; }
+.add-thought input { flex: 1; min-width: 0; padding: 9px 14px; border-radius: 20px; background: color-mix(in srgb, var(--text) 9%, transparent); }
+.swipe-hint { text-align: center; color: var(--faint); font-size: 12.5px; padding: 14px 0 4px; }
+
+/* review controls under the post */
+.review-bar { flex: none; display: flex; gap: 10px; padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: var(--bg); border-top: 1px solid var(--soft-line); }
+.review-bar button { flex: 1; padding: 13px 10px; border-radius: 24px; font-weight: 600; font-size: 15px; background: var(--surface); }
+.review-bar button.primary { background: var(--accent); color: var(--on-accent); }
+.review-bar button small { display: block; font-weight: 400; font-size: 11.5px; opacity: .8; margin-top: 1px; }
+.progress { height: 3px; background: var(--soft-line); flex: none; margin: 0 16px; border-radius: 3px; overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+.done-card { margin: auto; max-width: 420px; text-align: center; padding: 30px 24px; display: grid; gap: 10px; justify-items: center; }
+.done-card .big { font-family: var(--display); font-size: 30px; font-weight: 600; }
+.btn { padding: 12px 22px; border-radius: 24px; font-weight: 600; background: var(--accent); color: var(--on-accent); }
+.btn.ghost { background: var(--surface); color: var(--text); }
+
+/* ---------- editor (Keep layout) ---------- */
+.editor { background: var(--note, var(--bg)); }
+.ed-scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 8px max(18px, env(safe-area-inset-right, 0px)) 24px max(18px, env(safe-area-inset-left, 0px)); }
+.ed-title { font-family: var(--display); font-size: 24px !important; line-height: 1.3; margin: 10px 0 12px; }
+.ed-body { font-size: 17px !important; line-height: 1.5; min-height: 40vh; }
+.ed-imgs { display: grid; gap: 6px; margin: 0 -18px 12px; }
+.ed-imgs figure { margin: 0; position: relative; }
+.ed-imgs img { display: block; width: 100%; max-height: 60vh; object-fit: contain; background: rgba(0,0,0,.2); }
+.ed-imgs .x { position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; display: grid; place-items: center; }
+.ed-list { display: grid; }
+.ed-item { display: flex; align-items: flex-start; gap: 10px; padding: 4px 0; }
+.ed-item input[type=checkbox] { width: 20px; height: 20px; margin: 4px 0 0; accent-color: var(--accent); flex: none; }
+.ed-item textarea { flex: 1; font-size: 17px; line-height: 1.45; padding: 2px 0; }
+.ed-item.done textarea { color: var(--muted); text-decoration: line-through; }
+.ed-item .del { width: 30px; height: 30px; color: var(--muted); display: grid; place-items: center; }
+.ed-add { display: flex; align-items: center; gap: 10px; color: var(--muted); padding: 8px 0; font-size: 16px; }
+.ed-labels { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 6px; }
+.ed-labels .chip { display: inline-flex; align-items: center; gap: 4px; }
+.ed-remind { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 5px 10px; border-radius: 999px; background: color-mix(in srgb, var(--text) 10%, transparent); margin-top: 8px; }
+.ed-bar { flex: none; display: flex; align-items: center; gap: 2px; padding: 4px max(6px, env(safe-area-inset-right, 0px)) calc(4px + var(--kb-safe, env(safe-area-inset-bottom, 0px))) max(6px, env(safe-area-inset-left, 0px));
+  background: var(--note, var(--bg)); }
+.ed-bar .edited { flex: 1; text-align: center; font-size: 12.5px; color: var(--muted); }
+.panel { flex: none; padding: 10px max(14px, env(safe-area-inset-right, 0px)) 10px max(14px, env(safe-area-inset-left, 0px)); background: var(--surface); border-top: 1px solid var(--soft-line); }
+.swatches { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px; scrollbar-width: none; }
+.swatch { width: 40px; height: 40px; border-radius: 50%; flex: none; background: var(--note, var(--bg)); border: 2px solid var(--line); }
+.swatch.on { border-color: var(--accent); }
+.menu { display: grid; }
+.menu button { display: flex; align-items: center; gap: 18px; padding: 13px 6px; font-size: 16px; text-align: left; }
+.menu button.danger { color: var(--danger); }
+
+/* ---------- mind map ---------- */
+.map-wrap { flex: 1; position: relative; overflow: hidden; touch-action: none; }
+.map-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+.map-tools { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 8px; }
+.map-tools button { width: 46px; height: 46px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-size: 22px; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+.map-hint { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); right: 80px; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); text-align: left; color: var(--faint); font-size: 12.5px; pointer-events: none; }
+.pill { padding: 9px 16px; border-radius: 20px; background: var(--surface); font-weight: 500; font-size: 14px; }
+
+/* ---------- sheets ---------- */
+.sheet { position: fixed; z-index: 31; left: 0; right: 0; bottom: 0; max-height: 88%; overflow-y: auto; background: var(--raise); border-radius: 18px 18px 0 0;
+  padding: 18px max(18px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px)); animation: up .22s cubic-bezier(.2,.8,.2,1);
+  display: grid; gap: 14px; }
+.sheet h3 { margin: 0; font-family: var(--display); font-size: 19px; font-weight: 600; }
+.field { display: grid; gap: 6px; } .field > span { font-size: 13px; color: var(--muted); }
+.field input, .field select { padding: 11px 12px; border-radius: 10px; background: var(--surface); font-size: 16px; color: var(--text); border: 0; }
+.seg { display: flex; gap: 6px; } .seg button { flex: 1; padding: 10px; border-radius: 10px; background: var(--surface); font-size: 14.5px; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.row-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.toast { position: fixed; z-index: 50; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--text); color: var(--bg);
+  padding: 11px 18px; border-radius: 10px; font-size: 14px; max-width: 90vw; animation: up .2s; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
+.empty { text-align: center; color: var(--muted); padding: 60px 20px; display: grid; gap: 10px; justify-items: center; }
+.empty svg { width: 90px; height: 90px; stroke-width: 1; color: var(--faint); }
+.busy { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--muted); border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -3px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (min-width: 720px) { .masonry { columns: 3; } }
+@media (min-width: 1040px) { .masonry { columns: 4; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01s !important; transition: none !important; } }
+</style>
+
+<div id="app"></div>
+<div id="layer"></div>
+<input id="img-input" type="file" accept="image/*" hidden>
+
+<script>
+"use strict";
+/* ================= icons ================= */
+const P = {
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  grid: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
+  rows: '<rect x="4" y="5" width="16" height="6" rx="1.5"/><rect x="4" y="13" width="16" height="6" rx="1.5"/>',
+  back: '<path d="M15 5l-7 7 7 7"/>',
+  close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  pin: '<path d="M9 4h6l-1 6 3 3H7l3-3zM12 13v7"/>',
+  pinOn: '<path d="M9 4h6l-1 6 3 3H7l3-3zM12 13v7" fill="currentColor"/>',
+  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"/><path d="M12 8v4M10 10h4"/>',
+  archive: '<rect x="4" y="5" width="16" height="4" rx="1"/><path d="M5.5 9v10h13V9M12 12v5M9.5 14.5L12 17l2.5-2.5"/>',
+  unarchive: '<rect x="4" y="5" width="16" height="4" rx="1"/><path d="M5.5 9v10h13V9M12 17v-5M9.5 14.5L12 12l2.5 2.5"/>',
+  plusBox: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 8v8M8 12h8"/>',
+  palette: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.2-1-1.6-1-2.6 0-1 .8-1.7 1.8-1.7H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7.5" r="1.2"/><circle cx="14.5" cy="7.5" r="1.2"/>',
+  more: '<circle cx="12" cy="5.5" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="18.5" r="1.3" fill="currentColor"/>',
+  check: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 12l3 3 5-6"/>',
+  image: '<rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M5 17l5-5 4 4 2-2 3 3"/>',
+  feed: '<rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M10.5 9.5v5l4-2.5z"/>',
+  review: '<path d="M4 12a8 8 0 1 0 2.3-5.6"/><path d="M4 4v4h4"/><path d="M12 8v4l3 2"/>',
+  map: '<circle cx="12" cy="5" r="2.2"/><circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="18" r="2.2"/><path d="M11 7l-5 9M13 7l5 9M7.2 18h9.6"/>',
+  bulb: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V17h5v-1.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/>',
+  label: '<path d="M4 6v5.5L12.5 20l7-7L11 4H6a2 2 0 0 0-2 2z"/><circle cx="8" cy="8" r="1.2"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 13.5l1.4 1.1-2 3.4-1.7-.6a7 7 0 0 1-2 1.2L14.8 20h-4l-.3-1.4a7 7 0 0 1-2-1.2l-1.7.6-2-3.4 1.4-1.1a7 7 0 0 1 0-3l-1.4-1.1 2-3.4 1.7.6a7 7 0 0 1 2-1.2L10.8 4h4l.3 1.4a7 7 0 0 1 2 1.2l1.7-.6 2 3.4-1.4 1.1a7 7 0 0 1 0 3z"/>',
+  heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
+  heartOn: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" fill="currentColor"/>',
+  thought: '<path d="M5 18l1.5-3.2A7 7 0 1 1 9 17.5z"/>',
+  share: '<path d="M12 4v11M8 8l4-4 4 4M5 13v6h14v-6"/>',
+  edit: '<path d="M5 19h4L19 9l-4-4L5 15z"/><path d="M13.5 6.5l4 4"/>',
+  trash: '<path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/>',
+  copy: '<rect x="8" y="8" width="11" height="12" rx="1.5"/><path d="M5 16V5.5A1.5 1.5 0 0 1 6.5 4H15"/>',
+  globe: '<circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13.5 0 16M12 4c-2.5 2.5-2.5 13.5 0 16"/>',
+  spark: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/>',
+  calendar: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
+  done: '<path d="M5 12.5l4.5 4.5L19 7"/>',
+  again: '<path d="M4 12a8 8 0 1 0 2.3-5.6"/><path d="M4 4v4h4"/>',
+};
+const ic = (n, cls = "i") => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${P[n]}</svg>`;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const $ = (s, el = document) => el.querySelector(s);
+const DAY = 864e5;
+const startOfDay = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return +d; };
+const dayKey = (t = Date.now()) => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+const uid = () => "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+/* ================= storage =================
+   Notes in IndexedDB (falls back to localStorage, then to memory); settings in localStorage. */
+const COLORS = ["", "coral", "peach", "sand", "mint", "sage", "fog", "storm", "dusk", "blossom", "clay"];
+let NOTES = [];
+const S = Object.assign({ name: "", layout: "grid", reviewSize: 5, theme: "auto", streak: { day: "", n: 0 }, today: null, seeded: false }, (() => { try { return JSON.parse(localStorage.getItem("nt2.settings")) || {}; } catch (e) { return {}; } })());
+const saveS = () => { try { localStorage.setItem("nt2.settings", JSON.stringify(S)); } catch (e) {} };
+let idb = null;
+function openDB() {
+  return new Promise(res => {
+    try {
+      const r = indexedDB.open("notetok2", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("notes", { keyPath: "id" });
+      r.onsuccess = () => { idb = r.result; res(); };
+      r.onerror = () => res();
+    } catch (e) { res(); }
+  });
+}
+async function loadNotes() {
+  await openDB();
+  if (idb) {
+    NOTES = await new Promise(res => { try { const q = idb.transaction("notes").objectStore("notes").getAll(); q.onsuccess = () => res(q.result || []); q.onerror = () => res([]); } catch (e) { res([]); } });
+  } else { try { NOTES = JSON.parse(localStorage.getItem("nt2.notes")) || []; } catch (e) { NOTES = []; } }
+}
+function persist(n, touch = true) {
+  if (touch) n.updatedAt = Date.now();
+  if (!NOTES.includes(n)) NOTES.push(n);
+  if (idb) { try { idb.transaction("notes", "readwrite").objectStore("notes").put(n); return; } catch (e) {} }
+  try { localStorage.setItem("nt2.notes", JSON.stringify(NOTES)); } catch (e) {}
+}
+function removeNote(n) {
+  NOTES = NOTES.filter(x => x !== n);
+  for (const o of NOTES) if (o.links) o.links = o.links.filter(l => l.to !== n.id);
+  if (idb) { try { idb.transaction("notes", "readwrite").objectStore("notes").delete(n.id); return; } catch (e) {} }
+  try { localStorage.setItem("nt2.notes", JSON.stringify(NOTES)); } catch (e) {}
+}
+function makeNote(o = {}) {
+  const now = Date.now();
+  return Object.assign({ id: uid(), title: "", body: "", items: null, images: [], color: "", pinned: false, archived: false, labels: [],
+    createdAt: now, updatedAt: now, liked: false, thoughts: [], links: [], review: { stage: 0, due: startOfDay(now) + DAY, seen: 0 } }, o);
+}
+
+/* ================= smart resurfacing =================
+   Each note comes back after growing gaps (1, 3, 7, 16, 35, 90 days) like flashcards.
+   "Remembered" moves it to the next gap; "Again" brings it back tomorrow.
+   The daily review is a short, finite set: notes that are due, topped up with notes you haven't seen for longest. */
+const GAPS = [1, 3, 7, 16, 35, 90];
+function reviewed(n, remembered) {
+  const st = remembered ? Math.min((n.review?.stage ?? 0) + 1, GAPS.length - 1) : 0;
+  n.review = { stage: st, due: startOfDay(Date.now()) + GAPS[remembered ? st : 0] * DAY, seen: Date.now() };
+  persist(n, false);
+}
+const live = () => NOTES.filter(n => !n.archived);
+function todaysReview() {
+  const k = dayKey();
+  if (!S.today || S.today.day !== k) {
+    const end = startOfDay(Date.now()) + DAY, size = S.reviewSize || 5;
+    const due = live().filter(n => (n.review?.due ?? 0) < end).sort((a, b) => (a.review?.due ?? 0) - (b.review?.due ?? 0));
+    const ids = due.slice(0, size).map(n => n.id);
+    if (ids.length < size) {
+      const old = live().filter(n => !ids.includes(n.id) && Date.now() - n.createdAt > 2 * DAY)
+        .sort((a, b) => (a.review?.seen || a.createdAt) - (b.review?.seen || b.createdAt));
+      for (const n of old) { if (ids.length >= size) break; ids.push(n.id); }
+    }
+    S.today = { day: k, ids, done: [] }; saveS();
+  }
+  const ids = S.today.ids.filter(id => NOTES.some(n => n.id === id && !n.archived));
+  return { ids, done: S.today.done.filter(id => ids.includes(id)) };
+}
+function resurfaced() {   // one older note to bring back on the home screen
+  const r = todaysReview(), left = r.ids.filter(id => !r.done.includes(id));
+  const n = NOTES.find(x => x.id === (left[0] || r.ids[0]));
+  return n && Date.now() - n.createdAt > DAY ? n : null;
+}
+function ago(t) {
+  const d = Math.round((startOfDay(Date.now()) - startOfDay(t)) / DAY);
+  if (d <= 0) return "Today"; if (d === 1) return "Yesterday"; if (d < 7) return `${d} days ago`;
+  if (d < 30) return `${Math.round(d / 7)} week${d < 11 ? "" : "s"} ago`; if (d < 365) return `${Math.round(d / 30)} month${d < 45 ? "" : "s"} ago`;
+  return `${Math.round(d / 365)} year${d < 545 ? "" : "s"} ago`;
+}
+const fmtDate = t => new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric", year: new Date(t).getFullYear() === new Date().getFullYear() ? undefined : "numeric" });
+const fmtTime = t => new Date(t).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+
+/* ================= text helpers ================= */
+const URL_RE = /\bhttps?:\/\/[^\s<>"')]+/gi;
+function linkify(text) {
+  return esc(text).replace(/\bhttps?:\/\/[^\s<&"')]+/gi, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+}
+function linksOf(n) {
+  const all = [n.body, ...(n.items || []).map(i => i.text)].join("\n").match(URL_RE) || [];
+  return [...new Set(all)].slice(0, 3).map(u => {
+    let host = u; try { host = new URL(u).hostname.replace(/^www\./, ""); } catch (e) {}
+    const yt = /(?:youtube\.com\/(?:shorts\/|watch\?v=|embed\/)|youtu\.be\/)([\w-]{6,})/.exec(u);
+    return { url: u, host, title: yt ? "YouTube video" : (host.split(".").slice(-2, -1)[0] || host).replace(/^./, c => c.toUpperCase()), thumb: yt ? `https://i.ytimg.com/vi/${yt[1]}/hqdefault.jpg` : "" };
+  });
+}
+const linkRowHTML = l => `<a class="link-row" href="${esc(l.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+  <span class="lg">${l.thumb ? `<img src="${esc(l.thumb)}" alt="" onerror="this.replaceWith(document.createRange().createContextualFragment('${ic("globe").replace(/"/g, "&quot;")}'))">` : ic("globe")}</span>
+  <span><b>${esc(l.title)}</b><small>${esc(l.host)}</small></span></a>`;
+const noteText = n => [n.title, n.body, ...(n.items || []).map(i => i.text), ...(n.labels || []), ...(n.thoughts || []).map(t => t.text)].join(" ").toLowerCase();
+const allLabels = () => [...new Set(NOTES.flatMap(n => n.labels || []))].sort((a, b) => a.localeCompare(b));
+const initial = () => (S.name || "Me").trim().charAt(0).toUpperCase();
+const isEmpty = n => !n.title.trim() && !n.body.trim() && !(n.items || []).some(i => i.text.trim()) && !n.images.length;
+
+/* ================= toast ================= */
+let toastT;
+function toast(msg) {
+  document.querySelector(".toast")?.remove(); clearTimeout(toastT);
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t);
+  toastT = setTimeout(() => t.remove(), 2600);
+}
+
+/* ================= home ================= */
+const ui = { view: "notes", label: null, q: "" };
+function cardHTML(n) {
+  const links = linksOf(n), img = n.images[0];
+  const items = n.items ? n.items.slice(0, 8) : null;
+  return `<div class="card ${n.color ? "n-" + n.color : ""}" role="button" tabindex="0" data-open="${n.id}">
+    ${img ? `<img class="thumb" src="${img}" alt="">` : ""}
+    ${n.title ? `<h3>${esc(n.title)}</h3>` : ""}
+    ${items ? `<ul class="cl">${items.map(i => `<li class="${i.done ? "done" : ""}"><span class="box"></span><span>${esc(i.text)}</span></li>`).join("")}${n.items.length > 8 ? `<li class="muted">+ ${n.items.length - 8} more</li>` : ""}</ul>`
+      : n.body ? `<div class="body">${esc(n.body)}</div>` : ""}
+    ${n.labels.length ? `<div class="chips">${n.labels.slice(0, 4).map(l => `<span class="chip">${esc(l)}</span>`).join("")}</div>` : ""}
+    ${n.liked || n.thoughts.length ? `<div class="meta">${n.liked ? "♥" : ""}${n.thoughts.length ? `<span>💬 ${n.thoughts.length}</span>` : ""}</div>` : ""}
+    ${links.length ? links.slice(0, 2).map(linkRowHTML).join("") : ""}
+  </div>`;
+}
+function visibleNotes() {
+  let list = NOTES.filter(n => ui.view === "archive" ? n.archived : !n.archived);
+  if (ui.label) list = list.filter(n => n.labels.includes(ui.label));
+  const q = ui.q.trim().toLowerCase();
+  if (q) list = list.filter(n => q.split(/\s+/).every(w => noteText(n).includes(w)));
+  return list.sort((a, b) => b.updatedAt - a.updatedAt);
+}
+function homeBodyHTML() {
+  const list = visibleNotes(), pinned = list.filter(n => n.pinned), others = list.filter(n => !n.pinned);
+  const r = todaysReview(), left = r.ids.length - r.done.length, sur = ui.view === "notes" && !ui.label && !ui.q ? resurfaced() : null;
+  const cols = S.layout === "list" ? "masonry list" : "masonry";
+  const title = ui.view === "archive" ? "Archive" : ui.label ? ui.label : "";
+  return `${title ? `<div class="sec-label" style="font-size:15px;color:var(--text);margin-top:10px">${esc(title)}</div>` : ""}
+      ${ui.view === "notes" && !ui.q && !ui.label && r.ids.length ? `<button class="review-banner" data-act="review">
+        <span class="ring" style="--p:${Math.round((r.done.length / r.ids.length) * 100)}"><span>${left || "✓"}</span></span>
+        <span><b>${left ? "Daily review" : "Review done"}</b><small>${left ? `${left} note${left === 1 ? "" : "s"} to look back on today` : "See you tomorrow"}${S.streak.n > 1 ? ` · ${S.streak.n}-day streak` : ""}</small></span>
+        <span class="go">${left ? "Start" : "Again"}</span></button>` : ""}
+      ${sur ? `<div class="resurface"><div class="sec-label">${ic("review", "i").replace('class="i"', 'class="i" style="width:16px;height:16px"')} From ${esc(ago(sur.createdAt).toLowerCase())}</div><div class="${cols}">${cardHTML(sur)}</div></div>` : ""}
+      ${list.length ? `
+        ${pinned.length ? `<div class="sec-label">Pinned</div><div class="${cols}">${pinned.map(cardHTML).join("")}</div>` : ""}
+        ${others.length ? `${pinned.length ? `<div class="sec-label">Others</div>` : `<div style="height:8px"></div>`}<div class="${cols}">${others.map(cardHTML).join("")}</div>` : ""}`
+      : `<div class="empty">${ic(ui.view === "archive" ? "archive" : "bulb")}<span>${ui.q ? "No matching notes" : ui.view === "archive" ? "Your archived notes appear here" : "Notes you add appear here"}</span></div>`}`;
+}
+function renderHome() {
+  const app = $("#app");
+  const title = ui.view === "archive" ? "Archive" : ui.label ? ui.label : "";
+  app.innerHTML = `<section class="screen" id="home">
+    <div class="searchbar">
+      <button class="ib" data-act="drawer" aria-label="Menu">${ic("menu")}</button>
+      <input id="q" type="search" placeholder="${title ? "Search " + esc(title) : "Search your notes"}" value="${esc(ui.q)}" autocomplete="off" enterkeyhint="search">
+      <button class="ib" data-act="layout" aria-label="${S.layout === "list" ? "Grid view" : "List view"}">${ic(S.layout === "list" ? "grid" : "rows")}</button>
+      <button class="avatar" data-act="settings" aria-label="Settings">${esc(initial())}</button>
+    </div>
+    <div class="home-scroll" id="home-scroll">
+      ${homeBodyHTML()}
+    </div>
+    ${ui.view === "notes" ? `<nav class="bottombar">
+      <button class="ib" data-act="new-list" aria-label="New list">${ic("check")}</button>
+      <button class="ib" data-act="feed" aria-label="Swipe through notes">${ic("feed")}</button>
+      <button class="ib" data-act="map" aria-label="Mind map">${ic("map")}</button>
+      <button class="ib" data-act="new-image" aria-label="New note with image">${ic("image")}</button>
+    </nav>
+    <button class="fab" data-act="new" aria-label="New note"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke-linecap="round"><path class="p1" d="M12 5v14"/><path class="p2" d="M5 12h14"/></svg></button>` : ""}
+  </section>`;
+  const q = $("#q");
+  q.oninput = () => { ui.q = q.value; $("#home-scroll").innerHTML = homeBodyHTML(); };
+}
+
+/* ================= drawer + settings ================= */
+function openDrawer() {
+  const labels = allLabels(), r = todaysReview();
+  $("#layer").insertAdjacentHTML("beforeend", `<div class="scrim" data-act="close-layer"></div><nav class="drawer" aria-label="Menu">
+    <div class="brand">NoteTok<small>v2</small></div>
+    <button class="${ui.view === "notes" && !ui.label ? "on" : ""}" data-act="go-notes">${ic("bulb")}Notes</button>
+    <button data-act="review">${ic("review")}Daily review<span class="n">${r.ids.length - r.done.length || ""}</span></button>
+    <button data-act="feed">${ic("feed")}Swipe through notes</button>
+    <button data-act="map">${ic("map")}Mind map</button>
+    ${labels.length ? `<hr><div class="lbl-h">LABELS</div>${labels.map(l => `<button class="${ui.label === l ? "on" : ""}" data-act="go-label" data-l="${esc(l)}">${ic("label")}${esc(l)}<span class="n">${NOTES.filter(n => !n.archived && n.labels.includes(l)).length}</span></button>`).join("")}` : ""}
+    <hr>
+    <button class="${ui.view === "archive" ? "on" : ""}" data-act="go-archive">${ic("archive")}Archive</button>
+    <button data-act="settings">${ic("settings")}Settings</button>
+  </nav>`);
+}
+const closeLayer = () => { $("#layer").innerHTML = ""; };
+function openSettings() {
+  closeLayer();
+  $("#layer").insertAdjacentHTML("beforeend", `<div class="scrim" data-act="close-layer"></div><div class="sheet" role="dialog" aria-label="Settings">
+    <h3>Settings</h3>
+    <label class="field"><span>Your name (shown on your posts)</span><input id="set-name" value="${esc(S.name)}" placeholder="Your name" autocomplete="name"></label>
+    <div class="field"><span>Notes in the daily review</span><div class="seg">${[3, 5, 10].map(k => `<button data-act="set-size" data-k="${k}" aria-pressed="${S.reviewSize === k}">${k}</button>`).join("")}</div></div>
+    <div class="field"><span>Theme</span><div class="seg">${[["auto", "Phone"], ["dark", "Dark"], ["light", "Light"]].map(([k, l]) => `<button data-act="set-theme" data-k="${k}" aria-pressed="${S.theme === k}">${l}</button>`).join("")}</div></div>
+    <div class="row-btns">
+      <button class="btn ghost" data-act="import-v1">Import from NoteTok v1</button>
+      <button class="btn ghost" data-act="export">Save a backup</button>
+      ${NOTES.some(n => n.example) ? `<button class="btn ghost" data-act="del-examples">Remove example notes</button>` : ""}
+    </div>
+    <p class="muted" style="margin:0;font-size:13px;line-height:1.5">Notes are saved only on this device. ${aiReady === false ? "" : "✨ uses Claude to read screenshots, tidy notes and link them in the mind map."}</p>
+  </div>`);
+  const nm = $("#set-name"); nm.oninput = () => { S.name = nm.value; saveS(); };
+}
+function applyTheme() { if (S.theme === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", S.theme); }
+
+/* ================= post feed (full screen, swipe) ================= */
+let feedCtx = null;   // { ids, mode: "feed"|"review" }
+function postHTML(n, mode) {
+  const links = linksOf(n), d = new Date(n.createdAt);
+  return `<article class="post" data-id="${n.id}"><div class="post-card ${n.color ? "n-" + n.color : ""}">
+    <div class="post-head"><span class="avatar">${esc(initial())}</span>
+      <span><b>${esc(S.name || "You")}</b><small>${esc(fmtDate(d))} · ${esc(fmtTime(d))}${n.labels.length ? " · " + esc(n.labels.join(", ")) : ""}${mode === "review" ? " · " + esc(ago(n.createdAt)) : ""}</small></span>
+      <button class="ib" data-act="pin" data-id="${n.id}" aria-label="${n.pinned ? "Unpin" : "Pin"}">${ic(n.pinned ? "pinOn" : "pin")}</button></div>
+    <div class="post-body">
+      ${n.title ? `<h2>${esc(n.title)}</h2>` : ""}
+      ${n.items ? `<div class="cl">${n.items.map(i => `<label class="${i.done ? "done" : ""}"><input type="checkbox" data-tick="${n.id}" data-item="${i.id}" ${i.done ? "checked" : ""}><span>${linkify(i.text)}</span></label>`).join("")}</div>` : ""}
+      ${n.body ? `<div class="txt">${linkify(n.body)}</div>` : ""}
+    </div>
+    ${n.images.map(src => `<img class="post-img" src="${src}" alt="">`).join("")}
+    ${links.length ? `<div class="post-links">${links.map(linkRowHTML).join("")}</div>` : ""}
+    <div class="post-stats"><span>${n.liked ? "♥ You like this" : ""}</span><span>${n.thoughts.length ? `${n.thoughts.length} thought${n.thoughts.length === 1 ? "" : "s"}` : ""}</span></div>
+    <div class="post-actions">
+      <button class="${n.liked ? "on" : ""}" data-act="like" data-id="${n.id}">${ic(n.liked ? "heartOn" : "heart")}Like</button>
+      <button data-act="think" data-id="${n.id}">${ic("thought")}Thought</button>
+      <button data-act="share" data-id="${n.id}">${ic("share")}Share</button>
+      <button data-act="edit" data-id="${n.id}">${ic("edit")}Edit</button>
+    </div>
+    <div class="thoughts">
+      ${n.thoughts.map(t => `<div class="thought"><span class="avatar">${esc(initial())}</span><div><div class="bubble"><p>${linkify(t.text)}</p></div><small>${esc(ago(t.at))}</small></div></div>`).join("")}
+      <form class="add-thought" data-think-form="${n.id}"><span class="avatar" style="width:30px;height:30px;font-size:12px;margin:0">${esc(initial())}</span><input id="th-${n.id}" placeholder="Add a thought…" autocomplete="off" enterkeyhint="send"></form>
+    </div>
+  </div></article>`;
+}
+function openFeed(ids, start = 0, mode = "feed") {
+  closeLayer();
+  if (!ids.length) { toast(mode === "review" ? "Nothing to review today" : "No notes yet"); return; }
+  feedCtx = { ids, mode };
+  document.querySelector("#feed-screen")?.remove();
+  const el = document.createElement("section"); el.className = "screen over"; el.id = "feed-screen";
+  el.innerHTML = `<div class="topbar"><button class="ib" data-act="close-feed" aria-label="Back">${ic("back")}</button><span class="t" id="feed-pos"></span>
+    <button class="ib" data-act="post-more" aria-label="More">${ic("more")}</button></div>
+    ${mode === "review" ? `<div class="progress"><i id="rv-prog"></i></div>` : ""}
+    <div class="feed" id="feed">${ids.map(id => NOTES.find(n => n.id === id)).filter(Boolean).map(n => postHTML(n, mode)).join("")}
+      ${mode === "feed" ? `<div class="swipe-hint">You're all caught up</div>` : ""}</div>
+    ${mode === "review" ? `<div class="review-bar"><button data-act="rv-again">Again<small>show tomorrow</small></button><button class="primary" data-act="rv-ok">Remembered<small id="rv-next"></small></button></div>` : ""}`;
+  document.body.appendChild(el);
+  const feed = $("#feed");
+  feed.addEventListener("scroll", () => updateFeedPos(), { passive: true });
+  if (start) requestAnimationFrame(() => { const p = feed.children[start]; if (p) feed.scrollTop = p.offsetTop; updateFeedPos(); });
+  updateFeedPos();
+}
+function currentPost() {
+  const feed = $("#feed"); if (!feed) return null;
+  const posts = [...feed.querySelectorAll(".post")], y = feed.scrollTop + feed.clientHeight * 0.35;
+  let cur = posts[0]; for (const p of posts) if (p.offsetTop <= y) cur = p;
+  return cur;
+}
+function updateFeedPos() {
+  const p = currentPost(), pos = $("#feed-pos"); if (!p || !pos) return;
+  const i = feedCtx.ids.indexOf(p.dataset.id);
+  pos.textContent = `${i + 1} of ${feedCtx.ids.length}`;
+  if (feedCtx.mode === "review") {
+    const r = todaysReview(), n = NOTES.find(x => x.id === p.dataset.id);
+    $("#rv-prog").style.width = (r.done.length / Math.max(1, r.ids.length) * 100) + "%";
+    if (n) $("#rv-next").textContent = `next in ${GAPS[Math.min((n.review?.stage ?? 0) + 1, GAPS.length - 1)]} days`;
+  }
+}
+function closeFeed() { const el = $("#feed-screen"); if (!el) return; el.classList.add("out"); setTimeout(() => el.remove(), 200); feedCtx = null; renderHome(); }
+function refreshPost(n) {
+  const old = document.querySelector(`.post[data-id="${n.id}"]`); if (!old) return;
+  const tmp = document.createElement("div"); tmp.innerHTML = postHTML(n, feedCtx?.mode); old.replaceWith(tmp.firstElementChild);
+}
+function reviewAnswer(ok) {
+  const p = currentPost(); if (!p) return; const n = NOTES.find(x => x.id === p.dataset.id); if (!n) return;
+  reviewed(n, ok);
+  const r = todaysReview(); if (!S.today.done.includes(n.id)) S.today.done.push(n.id);
+  // streak: a day counts once every note of the day's review is done
+  if (r.ids.every(id => S.today.done.includes(id)) && S.streak.day !== dayKey()) {
+    S.streak = { day: dayKey(), n: S.streak.day === dayKey(Date.now() - DAY) ? S.streak.n + 1 : 1 };
+  }
+  saveS();
+  const feed = $("#feed"), next = p.nextElementSibling;
+  if (next && next.classList.contains("post")) feed.scrollTo({ top: next.offsetTop, behavior: "smooth" });
+  else showReviewDone();
+  updateFeedPos();
+}
+function showReviewDone() {
+  const r = todaysReview();
+  $("#feed").innerHTML = `<div class="done-card"><div class="big">Review done</div>
+    <p class="muted" style="margin:0">You looked back on ${r.done.length} note${r.done.length === 1 ? "" : "s"} today.${S.streak.n > 1 ? ` That's a ${S.streak.n}-day streak.` : ""} They'll come back when they're due.</p>
+    <button class="btn" data-act="close-feed">Back to notes</button></div>`;
+  document.querySelector(".review-bar")?.remove(); $("#rv-prog").style.width = "100%"; $("#feed-pos").textContent = "";
+}
+
+/* ================= editor (Keep layout) ================= */
+let ed = null;   // { n, isNew, panel }
+function openEditor(n, isNew = false) {
+  closeLayer();
+  ed = { n, isNew, panel: null };
+  document.querySelector("#editor")?.remove();
+  const el = document.createElement("section"); el.className = "screen over editor"; el.id = "editor";
+  document.body.appendChild(el); renderEditor(true);
+}
+function renderEditor(focus) {
+  const el = $("#editor"), n = ed.n; if (!el) return;
+  el.className = `screen over editor ${n.color ? "n-" + n.color : ""}`;
+  const due = n.review?.due;
+  el.innerHTML = `<div class="topbar"><button class="ib" data-act="ed-close" aria-label="Back">${ic("back")}</button><span class="t"></span>
+      <button class="ib ${n.pinned ? "on" : ""}" data-act="ed-pin" aria-label="${n.pinned ? "Unpin" : "Pin"}">${ic(n.pinned ? "pinOn" : "pin")}</button>
+      <button class="ib" data-act="ed-remind" aria-label="Bring back on a date">${ic("bell")}</button>
+      <button class="ib" data-act="ed-archive" aria-label="${n.archived ? "Unarchive" : "Archive"}">${ic(n.archived ? "unarchive" : "archive")}</button></div>
+    <div class="ed-scroll" id="ed-scroll">
+      ${n.images.length ? `<div class="ed-imgs">${n.images.map((src, i) => `<figure><img src="${src}" alt=""><button class="x" data-act="ed-img-del" data-i="${i}" aria-label="Remove image">${ic("close")}</button></figure>`).join("")}</div>` : ""}
+      <textarea id="ed-title" class="ed-title" rows="1" placeholder="Title" enterkeyhint="next">${esc(n.title)}</textarea>
+      ${n.items ? `<div class="ed-list" id="ed-list">${n.items.map(itemHTML).join("")}</div><button class="ed-add" data-act="ed-add-item">${ic("plusBox")}List item</button>`
+        : `<textarea id="ed-body" class="ed-body" placeholder="Note">${esc(n.body)}</textarea>`}
+      ${n.labels.length ? `<div class="ed-labels">${n.labels.map(l => `<span class="chip">${esc(l)}</span>`).join("")}</div>` : ""}
+      ${due && due > startOfDay(Date.now()) + DAY ? `<span class="ed-remind">${ic("review").replace('class="i"', 'class="i" style="width:15px;height:15px"')} Comes back ${esc(fmtDate(due))}</span>` : ""}
+    </div>
+    ${ed.panel ? panelHTML() : ""}
+    <div class="ed-bar"><button class="ib" data-act="ed-panel" data-p="add" aria-label="Add">${ic("plusBox")}</button>
+      <button class="ib" data-act="ed-panel" data-p="color" aria-label="Background">${ic("palette")}</button>
+      <span class="edited">${ed.isNew && isEmpty(n) ? "" : "Edited " + esc(fmtTime(n.updatedAt))}</span>
+      <button class="ib" data-act="ed-ai" aria-label="Tidy with AI">${ic("spark")}</button>
+      <button class="ib" data-act="ed-panel" data-p="more" aria-label="More">${ic("more")}</button></div>`;
+  wireEditor();
+  if (focus) setTimeout(() => { const f = ed.isNew ? (n.items ? document.querySelector(".ed-item textarea") : $("#ed-body")) : null; f?.focus(); }, 260);
+}
+const itemHTML = i => `<div class="ed-item ${i.done ? "done" : ""}" data-item="${i.id}"><input type="checkbox" ${i.done ? "checked" : ""} aria-label="Done">
+  <textarea rows="1" placeholder="List item" enterkeyhint="next">${esc(i.text)}</textarea><button class="del" data-act="ed-del-item" aria-label="Delete item">${ic("close")}</button></div>`;
+function panelHTML() {
+  if (ed.panel === "color") return `<div class="panel"><div class="swatches">${COLORS.map(c => `<button class="swatch ${c ? "n-" + c : ""} ${ed.n.color === c ? "on" : ""}" data-act="ed-color" data-c="${c}" aria-label="${c || "Default"}"></button>`).join("")}</div></div>`;
+  if (ed.panel === "add") return `<div class="panel menu">
+    <button data-act="ed-add-image">${ic("image")}Add image</button>
+    <button data-act="ed-toggle-list">${ic("check")}${ed.n.items ? "Turn into plain note" : "Tick boxes"}</button>
+    <button data-act="ed-label">${ic("label")}Labels</button></div>`;
+  if (ed.panel === "more") return `<div class="panel menu">
+    <button data-act="ed-copy">${ic("copy")}Make a copy</button>
+    <button data-act="ed-share">${ic("share")}Share as image</button>
+    <button class="danger" data-act="ed-delete">${ic("trash")}Delete</button></div>`;
+  return "";
+}
+const autosize = t => { t.style.height = "auto"; t.style.height = t.scrollHeight + "px"; };
+let saveT;
+function edSave(now) { clearTimeout(saveT); const go = () => { if (!isEmpty(ed.n) || NOTES.includes(ed.n)) persist(ed.n); const e = document.querySelector(".ed-bar .edited"); if (e && !isEmpty(ed.n)) e.textContent = "Edited " + fmtTime(ed.n.updatedAt); }; if (now) go(); else saveT = setTimeout(go, 400); }
+function wireEditor() {
+  const n = ed.n, t = $("#ed-title"), b = $("#ed-body");
+  autosize(t); t.oninput = () => { n.title = t.value.replace(/\n/g, " "); autosize(t); edSave(); };
+  t.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); (b || document.querySelector(".ed-item textarea"))?.focus(); } };
+  if (b) { autosize(b); b.oninput = () => { n.body = b.value; autosize(b); edSave(); }; }
+  document.querySelectorAll(".ed-item").forEach(row => {
+    const it = n.items.find(i => i.id === row.dataset.item), ta = row.querySelector("textarea"), cb = row.querySelector("input");
+    autosize(ta);
+    ta.oninput = () => { it.text = ta.value.replace(/\n/g, ""); autosize(ta); edSave(); };
+    ta.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); addItem(it); } else if (e.key === "Backspace" && !ta.value && n.items.length > 1) { e.preventDefault(); delItem(it.id, true); } };
+    cb.onchange = () => { it.done = cb.checked; row.classList.toggle("done", it.done); edSave(); };
+  });
+}
+function addItem(after) {
+  const n = ed.n, it = { id: uid(), text: "", done: false }, i = after ? n.items.indexOf(after) + 1 : n.items.length;
+  n.items.splice(i, 0, it);
+  const list = $("#ed-list"), tmp = document.createElement("div"); tmp.innerHTML = itemHTML(it);
+  const row = tmp.firstElementChild; list.insertBefore(row, list.children[i] || null); wireEditor(); row.querySelector("textarea").focus();
+}
+function delItem(id, focusPrev) {
+  const n = ed.n, i = n.items.findIndex(x => x.id === id); if (i < 0) return;
+  n.items.splice(i, 1); const row = document.querySelector(`.ed-item[data-item="${id}"]`); const prev = row?.previousElementSibling; row?.remove(); edSave();
+  if (focusPrev && prev) { const ta = prev.querySelector("textarea"); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+}
+function closeEditor() {
+  const n = ed.n; edSave(true);
+  if (isEmpty(n)) { if (NOTES.includes(n)) removeNote(n); if (!ed.isNew) toast("Empty note deleted"); }
+  const el = $("#editor"); el.classList.add("out"); setTimeout(() => el.remove(), 200);
+  ed = null;
+  if (feedCtx) { refreshPost(n); } else renderHome();
+}
+// Keep the editor's toolbar above the iPhone keyboard without the page jumping.
+function onViewport() {
+  const vv = window.visualViewport; if (!vv) return;
+  const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop), r = document.documentElement.style;
+  // every screen takes exactly the visible area, so the keyboard never covers the toolbar and nothing jumps
+  r.setProperty("--vvh", vv.height + "px"); r.setProperty("--vvt", vv.offsetTop + "px");
+  r.setProperty("--kb-safe", kb > 40 ? "0px" : "env(safe-area-inset-bottom, 0px)");
+}
+window.visualViewport?.addEventListener("resize", onViewport); window.visualViewport?.addEventListener("scroll", onViewport); onViewport();
+
+/* ================= images ================= */
+function readImage(file) {
+  return new Promise(res => {
+    const r = new FileReader();
+    r.onload = () => { const img = new Image(); img.onload = () => {
+      const MAX = 1400, s = Math.min(1, MAX / Math.max(img.width, img.height)), c = document.createElement("canvas");
+      c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      res(c.toDataURL("image/jpeg", .85)); }; img.onerror = () => res(null); img.src = r.result; };
+    r.onerror = () => res(null); r.readAsDataURL(file);
+  });
+}
+let imgTarget = null;
+$("#img-input").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  const src = await readImage(f); if (!src) { toast("That image couldn't be opened"); return; }
+  if (imgTarget === "new") { const n = makeNote({ images: [src] }); openEditor(n, true); persist(n); ed.isNew = true; toast("Tap ✨ to have Claude read it"); }
+  else if (ed) { ed.n.images.push(src); edSave(true); ed.panel = null; renderEditor(); }
+};
+// Paste a screenshot anywhere: it becomes a new note (or goes into the open note).
+document.addEventListener("paste", async e => {
+  const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith("image/")); if (!item) return;
+  e.preventDefault(); const src = await readImage(item.getAsFile()); if (!src) return;
+  if (ed) { ed.n.images.push(src); edSave(true); renderEditor(); } else { const n = makeNote({ images: [src] }); persist(n); openEditor(n, true); toast("Screenshot added. Tap ✨ to have Claude read it"); }
+});
+
+/* ================= AI (Claude, through the page's "ask Claude" capability) ================= */
+let aiReady = null, samplerP = null;
+function sampler() {
+  if (!samplerP) samplerP = (async () => { try { const s = window.claude?.use ? await window.claude.use("sample") : null; aiReady = !!s; return s; } catch (e) { aiReady = false; return null; } })();
+  return samplerP;
+}
+function b64ToBlob(dataUrl) { const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl); if (!m) return null; const s = atob(m[2]), a = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return new Blob([a], { type: m[1] }); }
+async function aiTidy() {
+  const n = ed.n, sample = await sampler();
+  if (!sample) { localTidy(n); return; }
+  const btn = document.querySelector('[data-act="ed-ai"]'); if (btn) btn.innerHTML = '<span class="busy"></span>';
+  try {
+    let images;
+    if (n.images.length) { const lim = await sample.limits().catch(() => ({})); if (lim && lim.images) images = n.images.slice(0, 2).map(b64ToBlob).filter(Boolean); }
+    const text = [n.title, n.body, ...(n.items || []).map(i => "- " + i.text)].filter(Boolean).join("\n");
+    const out = await sample.json(`You help tidy a personal note in a notes app. ${images ? "Read the attached image(s): a screenshot, photo or document. " : ""}
+Return JSON only: {"title": "short title, max 8 words", "body": "the note, cleaned up: keep every fact, fix typos, use short lines; if there is an image, include the important text from it", "labels": ["1-3 short lowercase labels"], "isList": true or false (true only if it is clearly a to-do or shopping list), "items": ["list items, only if isList"]}
+Do not invent anything that is not in the note${images ? " or the image" : ""}.
+
+NOTE:
+${text || "(no text, only the image)"}`, images ? { images } : {});
+    if (!n.title.trim() && out.title) n.title = String(out.title).slice(0, 90);
+    if (out.isList && Array.isArray(out.items) && out.items.length) n.items = out.items.map(t => ({ id: uid(), text: String(t), done: false }));
+    else if (out.body) { n.body = String(out.body); if (n.items && !(out.isList)) { n.items = null; } }
+    for (const l of (out.labels || []).slice(0, 3)) { const L = String(l).toLowerCase().trim(); if (L && !n.labels.includes(L)) n.labels.push(L); }
+    edSave(true); renderEditor(); toast("Tidied by Claude");
+  } catch (e) {
+    if (e && e.code === "not_granted") { aiReady = false; localTidy(n); } else toast(e?.message ? "Couldn't tidy: " + e.message : "Couldn't tidy this note");
+    renderEditor();
+  }
+}
+function localTidy(n) {   // without Claude: a title from the first line and labels from repeated words
+  const text = n.body || (n.items || []).map(i => i.text).join(" ");
+  if (!n.title.trim() && text.trim()) n.title = text.trim().split("\n")[0].slice(0, 60);
+  edSave(true); renderEditor(); toast("Claude isn't available here, so only a title was added");
+}
+
+/* ================= labels ================= */
+function openLabelSheet() {
+  const n = ed.n, all = [...new Set([...allLabels(), ...n.labels])];
+  closeLayer();
+  $("#layer").insertAdjacentHTML("beforeend", `<div class="scrim" data-act="close-layer"></div><div class="sheet" role="dialog" aria-label="Labels"><h3>Labels</h3>
+    <form class="field" id="lbl-form"><input id="lbl-new" placeholder="Enter label name" autocomplete="off" enterkeyhint="done"></form>
+    <div class="menu">${all.map(l => `<button data-act="lbl-toggle" data-l="${esc(l)}">${ic(n.labels.includes(l) ? "check" : "label")}${esc(l)}</button>`).join("") || `<p class="muted" style="margin:0">No labels yet</p>`}</div></div>`);
+  $("#lbl-form").onsubmit = e => { e.preventDefault(); const v = $("#lbl-new").value.trim().toLowerCase(); if (v && !n.labels.includes(v)) { n.labels.push(v); edSave(true); } openLabelSheet(); renderEditor(); };
+}
+function openRemindSheet() {
+  const n = ed.n, now = new Date(), opts = [["Tomorrow", 1], ["In a week", 7], ["In a month", 30], ["In 3 months", 90]];
+  closeLayer();
+  $("#layer").insertAdjacentHTML("beforeend", `<div class="scrim" data-act="close-layer"></div><div class="sheet" role="dialog" aria-label="Bring back"><h3>Bring this note back</h3>
+    <p class="muted" style="margin:0;font-size:14px">It comes back in your daily review on that day.</p>
+    <div class="menu">${opts.map(([l, d]) => `<button data-act="remind" data-d="${d}">${ic("calendar")}${l}<span class="muted" style="margin-left:auto;font-size:13px">${esc(fmtDate(startOfDay(+now) + d * DAY))}</span></button>`).join("")}</div>
+    <label class="field"><span>Or pick a date</span><input type="date" id="remind-date" min="${new Date(+now + DAY).toISOString().slice(0, 10)}"></label></div>`);
+  $("#remind-date").onchange = e => { if (e.target.value) setRemind(startOfDay(new Date(e.target.value + "T12:00").getTime())); };
+}
+function setRemind(t) {
+  const n = ed.n; n.review = { ...(n.review || {}), due: t }; edSave(true);
+  if (S.today) { S.today.ids = S.today.ids.filter(id => id !== n.id); saveS(); }
+  closeLayer(); renderEditor(); toast("Comes back " + fmtDate(t));
+}
+
+/* ================= share as image ================= */
+async function shareImage(n) {
+  const W = 1080, H = 1350, c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d");
+  const cs = getComputedStyle(document.documentElement);
+  const bg = n.color ? cs.getPropertyValue("--" + n.color).trim() : cs.getPropertyValue("--surface").trim(), fg = cs.getPropertyValue("--text").trim();
+  x.fillStyle = cs.getPropertyValue("--bg").trim(); x.fillRect(0, 0, W, H);
+  x.fillStyle = bg; x.beginPath(); x.roundRect ? x.roundRect(60, 60, W - 120, H - 120, 36) : x.rect(60, 60, W - 120, H - 120); x.fill();
+  x.fillStyle = fg; let y = 170; const L = 120, maxW = W - 240;
+  const wrap = (t, size, weight, lh, maxLines) => { x.font = `${weight} ${size}px -apple-system, Segoe UI, Roboto, sans-serif`; let lines = 0;
+    for (const para of String(t).split("\n")) { let line = ""; for (const w of para.split(/\s+/)) { const tt = line ? line + " " + w : w; if (x.measureText(tt).width > maxW && line) { x.fillText(line, L, y); y += lh; line = w; if (++lines >= maxLines) return; } else line = tt; }
+      x.fillText(line, L, y); y += lh; if (++lines >= maxLines) return; } };
+  if (n.title) { wrap(n.title, 60, 700, 74, 3); y += 20; }
+  const text = n.items ? n.items.map(i => (i.done ? "☑ " : "☐ ") + i.text).join("\n") : n.body;
+  if (text) wrap(text, 40, 400, 56, 14);
+  x.globalAlpha = .6; x.font = "500 30px -apple-system, Segoe UI, Roboto, sans-serif"; x.fillText("NoteTok", L, H - 110); x.globalAlpha = 1;
+  const blob = await new Promise(r => c.toBlob(r, "image/png")); const name = "note-" + (n.title || "share").toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 30) + ".png";
+  const file = new File([blob], name, { type: "image/png" });
+  try { if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: n.title }); return; } } catch (e) { if (e.name === "AbortError") return; }
+  const dl = window.claude?.use ? await window.claude.use("downloads").catch(() => null) : null;
+  if (dl) { try { await dl.save({ filename: name, data: blob }); } catch (e) {} return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+/* ================= mind map (the only place you can zoom) ================= */
+let MM = null;
+function openMap() {
+  closeLayer();
+  const el = document.createElement("section"); el.className = "screen over"; el.id = "map-screen";
+  el.innerHTML = `<div class="topbar"><button class="ib" data-act="close-map" aria-label="Back">${ic("back")}</button><span class="t">Mind map</span>
+    <button class="pill" data-act="map-ai">✨ Link with AI</button></div>
+    <div class="map-wrap" id="map-wrap"><canvas id="map"></canvas>
+      <div class="map-tools"><button data-act="map-zoom" data-z="1.25" aria-label="Zoom in">+</button><button data-act="map-zoom" data-z="0.8" aria-label="Zoom out">−</button><button data-act="map-fit" aria-label="Fit" style="font-size:15px">⤢</button></div>
+      <div class="map-hint">Pinch to zoom · drag to move · tap a note to open it</div></div>`;
+  document.body.appendChild(el);
+  const notes = live(), cv = $("#map"), wrap = $("#map-wrap"), ctx = cv.getContext("2d");
+  const W = () => wrap.clientWidth, H = () => wrap.clientHeight;
+  const nodes = notes.map((n, i) => { const a = i / Math.max(1, notes.length) * Math.PI * 2, r = 120 + (i % 3) * 40; return { n, x: Math.cos(a) * r, y: Math.sin(a) * r, vx: 0, vy: 0 }; });
+  const byId = new Map(nodes.map(o => [o.n.id, o]));
+  const edges = () => { const out = [], seen = new Set();
+    for (const o of nodes) for (const l of o.n.links || []) { const b = byId.get(l.to); const k = [o.n.id, l.to].sort().join("|"); if (b && !seen.has(k)) { seen.add(k); out.push({ a: o, b, why: l.why || "" }); } }
+    // notes that share a label are always linked too
+    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) { const k = [nodes[i].n.id, nodes[j].n.id].sort().join("|"); const s = nodes[i].n.labels.find(l => nodes[j].n.labels.includes(l)); if (s && !seen.has(k)) { seen.add(k); out.push({ a: nodes[i], b: nodes[j], why: s }); } }
+    return out; };
+  MM = { cam: { x: 0, y: 0, z: 1 }, nodes, edges: edges(), refresh() { this.edges = edges(); }, running: true };
+  const resize = () => { const d = devicePixelRatio || 1; cv.width = W() * d; cv.height = H() * d; ctx.setTransform(d, 0, 0, d, 0, 0); };
+  new ResizeObserver(resize).observe(wrap); resize();
+  const cs = getComputedStyle(document.documentElement), col = v => cs.getPropertyValue(v).trim();
+  const pts = new Map(); let drag = null, pinch = null;
+  const toWorld = (px, py) => ({ x: (px - W() / 2 - MM.cam.x) / MM.cam.z, y: (py - H() / 2 - MM.cam.y) / MM.cam.z });
+  const hit = (px, py) => { const p = toWorld(px, py); return nodes.find(o => Math.hypot(o.x - p.x, o.y - p.y) < 34); };
+  function step() {
+    for (const o of nodes) { o.vx -= o.x * .002; o.vy -= o.y * .002; }
+    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) { const a = nodes[i], b = nodes[j]; let dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy || 1, d = Math.sqrt(d2), f = Math.min(3000 / d2, 4); a.vx -= dx / d * f; a.vy -= dy / d * f; b.vx += dx / d * f; b.vy += dy / d * f; }
+    for (const e of MM.edges) { const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y, d = Math.hypot(dx, dy) || 1, f = (d - 150) * .004; e.a.vx += dx / d * f; e.a.vy += dy / d * f; e.b.vx -= dx / d * f; e.b.vy -= dy / d * f; }
+    for (const o of nodes) { if (drag && drag.node === o) continue; o.vx *= .85; o.vy *= .85; o.x += o.vx; o.y += o.vy; }
+  }
+  function draw() {
+    ctx.clearRect(0, 0, W(), H()); ctx.save(); ctx.translate(W() / 2 + MM.cam.x, H() / 2 + MM.cam.y); ctx.scale(MM.cam.z, MM.cam.z);
+    ctx.lineWidth = 1.3 / MM.cam.z; ctx.strokeStyle = col("--line"); ctx.fillStyle = col("--muted"); ctx.textAlign = "center";
+    for (const e of MM.edges) { ctx.beginPath(); ctx.moveTo(e.a.x, e.a.y); ctx.lineTo(e.b.x, e.b.y); ctx.stroke();
+      if (e.why && MM.cam.z > .8) { ctx.font = `${11}px -apple-system, sans-serif`; ctx.fillText(e.why, (e.a.x + e.b.x) / 2, (e.a.y + e.b.y) / 2 - 4); } }
+    for (const o of nodes) {
+      const w = 116, h = 46, x = o.x - w / 2, y = o.y - h / 2;
+      ctx.fillStyle = o.n.color ? col("--" + o.n.color) : col("--surface"); ctx.strokeStyle = col("--line");
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, 9) : ctx.rect(x, y, w, h); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = col("--text"); ctx.font = `600 12.5px -apple-system, sans-serif`;
+      let t = o.n.title || o.n.body || (o.n.items || []).map(i => i.text).join(", ") || "Image"; t = t.replace(/\s+/g, " ");
+      while (ctx.measureText(t).width > w - 16 && t.length > 3) t = t.slice(0, -2); if (t !== (o.n.title || "")) t = t.length < (o.n.title || o.n.body || "").length ? t + "…" : t;
+      ctx.fillText(t, o.x, o.y + 4);
+    }
+    ctx.restore();
+  }
+  (function loop() { if (!MM || !MM.running) return; step(); draw(); requestAnimationFrame(loop); })();
+  // pointers: one finger drags a note or the map, two fingers pinch-zoom
+  cv.onpointerdown = e => { cv.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: MM.cam.z, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, cam: { ...MM.cam } }; drag = null; }
+    else { const o = hit(e.offsetX, e.offsetY); drag = o ? { node: o, moved: false, sx: e.offsetX, sy: e.offsetY } : { pan: true, sx: e.offsetX, sy: e.offsetY, cx: MM.cam.x, cy: MM.cam.y, moved: false }; } };
+  cv.onpointermove = e => { if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    if (pinch && pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y); zoomAt(pinch.z * d / pinch.d, pinch.cx, pinch.cy, pinch.cam); return; }
+    if (!drag) return; if (Math.hypot(e.offsetX - drag.sx, e.offsetY - drag.sy) > 6) drag.moved = true;
+    if (drag.node) { const p = toWorld(e.offsetX, e.offsetY); drag.node.x = p.x; drag.node.y = p.y; drag.node.vx = drag.node.vy = 0; }
+    else { MM.cam.x = drag.cx + e.offsetX - drag.sx; MM.cam.y = drag.cy + e.offsetY - drag.sy; } };
+  cv.onpointerup = cv.onpointercancel = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null;
+    if (drag && !drag.moved && drag.node) { const id = drag.node.n.id; const ids = live().sort((a, b) => b.updatedAt - a.updatedAt).map(n => n.id); openFeed(ids, ids.indexOf(id)); }
+    if (!pts.size) drag = null; };
+  cv.onwheel = e => { e.preventDefault(); zoomAt(MM.cam.z * (e.deltaY < 0 ? 1.12 : .89), e.offsetX, e.offsetY); };
+  function zoomAt(z, px, py, base = MM.cam) { z = Math.max(.25, Math.min(4, z)); const wx = (px - W() / 2 - base.x) / base.z, wy = (py - H() / 2 - base.y) / base.z; MM.cam = { x: px - W() / 2 - wx * z, y: py - H() / 2 - wy * z, z }; }
+  MM.zoomAt = zoomAt; MM.W = W; MM.H = H;
+  MM.fit = () => { if (!nodes.length) return; const xs = nodes.map(o => o.x), ys = nodes.map(o => o.y); const w = Math.max(...xs) - Math.min(...xs) + 160, h = Math.max(...ys) - Math.min(...ys) + 120;
+    const z = Math.max(.25, Math.min(1.6, Math.min(W() / w, H() / h))); MM.cam = { z, x: -(Math.max(...xs) + Math.min(...xs)) / 2 * z, y: -(Math.max(...ys) + Math.min(...ys)) / 2 * z }; };
+  setTimeout(() => MM && MM.fit(), 900);
+}
+function closeMap() { if (MM) MM.running = false; MM = null; const el = $("#map-screen"); if (!el) return; el.classList.add("out"); setTimeout(() => el.remove(), 200); }
+async function mapAI() {
+  const btn = document.querySelector('[data-act="map-ai"]'), notes = live(); if (notes.length < 2) { toast("Add at least two notes first"); return; }
+  const sample = await sampler();
+  if (!sample) { toast("Claude isn't available here; notes are linked by shared labels"); return; }
+  btn.innerHTML = '<span class="busy"></span> Linking…';
+  try {
+    const digest = notes.map(n => ({ id: n.id, title: n.title, text: (n.body || (n.items || []).map(i => i.text).join(", ")).slice(0, 300), labels: n.labels }));
+    const out = await sample.json(`Link related personal notes for a mind map. Return JSON only: [{"a": "<id>", "b": "<id>", "why": "why they connect, max 4 words"}]. Only real connections (same topic, project, person or idea), at most ${Math.min(notes.length * 2, 30)} links, never a note to itself.\n\nNOTES:\n${JSON.stringify(digest)}`);
+    const ids = new Set(notes.map(n => n.id)); for (const n of notes) n.links = [];
+    let k = 0; for (const l of Array.isArray(out) ? out : []) { if (ids.has(l.a) && ids.has(l.b) && l.a !== l.b) { NOTES.find(n => n.id === l.a).links.push({ to: l.b, why: String(l.why || "").slice(0, 30) }); k++; } }
+    notes.forEach(n => persist(n, false)); MM?.refresh(); toast(`${k} link${k === 1 ? "" : "s"} found`);
+  } catch (e) { toast(e?.code === "not_granted" ? "Claude wasn't allowed; using shared labels" : "Couldn't link notes right now"); }
+  btn.innerHTML = "✨ Link with AI";
+}
+
+/* ================= import / export / examples ================= */
+async function importV1() {
+  try {
+    const db1 = await new Promise((res, rej) => { const r = indexedDB.open("notetok"); r.onsuccess = () => res(r.result); r.onerror = () => rej(); r.onupgradeneeded = () => { r.transaction.abort(); rej(); }; });
+    const v1 = await new Promise(res => { try { const q = db1.transaction("notes").objectStore("notes").getAll(); q.onsuccess = () => res(q.result || []); q.onerror = () => res([]); } catch (e) { res([]); } });
+    let k = 0;
+    for (const o of v1) {
+      if (NOTES.some(n => n.v1 === o.id)) continue;
+      const body = [o.summary, ...(o.keyPoints || []).map(p => "• " + p), o.text && o.text !== o.summary ? o.text : ""].filter(Boolean).join("\n");
+      persist(makeNote({ v1: o.id, title: o.title || "", body, images: o.image ? [o.image] : [], labels: o.tags || [], liked: !!o.liked, createdAt: o.createdAt || Date.now() })); k++;
+    }
+    closeLayer(); renderHome(); toast(k ? `Imported ${k} note${k === 1 ? "" : "s"} from v1` : "No v1 notes found on this device");
+  } catch (e) { closeLayer(); toast("No v1 notes found on this device"); }
+}
+async function exportNotes() {
+  const blob = new Blob([JSON.stringify({ app: "NoteTok", version: 2, exportedAt: new Date().toISOString(), notes: NOTES }, null, 1)], { type: "application/json" });
+  const name = `notetok-backup-${dayKey()}.json`;
+  const dl = window.claude?.use ? await window.claude.use("downloads").catch(() => null) : null;
+  if (dl) { try { await dl.save({ filename: name, data: blob }); } catch (e) {} return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function seedExamples() {
+  // Example notes so the app opens in a working state; Settings can remove them.
+  const d = n => Date.now() - n * DAY;
+  const ex = (o, ageDays) => makeNote(Object.assign({ example: true, createdAt: d(ageDays), updatedAt: d(Math.max(0, ageDays - 1)), review: { stage: 0, due: startOfDay(d(ageDays)) + DAY, seen: 0 } }, o));
+  NOTES = [
+    ex({ title: "Next read", body: "Summerscales et al., Science 311 (2006) 829\nJ. Am. Chem. Soc. 128 (2006)", pinned: true, labels: ["reading"] }, 21),
+    ex({ title: "Groceries", items: ["Dates", "Milk", "Basmati rice", "Lentils", "Green chillies"].map((t, i) => ({ id: uid(), text: t, done: i === 1 })), color: "sand" }, 2),
+    ex({ title: "How ancient knowledge survived", body: "Watch later\nhttps://youtube.com/shorts/fNiOPVPHq_s", labels: ["reading", "history"], color: "storm",
+         thoughts: [{ at: d(9), text: "Ask about the libraries of Baghdad." }] }, 12),
+    ex({ title: "Calls this week", items: ["Ismat", "Andrew", "Mahfuz after maghrib"].map(t => ({ id: uid(), text: t, done: false })), labels: ["people"] }, 5),
+    ex({ title: "Teach normal islamic things", body: "Start with salah, then small duas for daily life. Keep it short and kind.", labels: ["family"], color: "sage", liked: true }, 40),
+    ex({ title: "Flat budget", body: "Gulshan 60,000\nEskaton 42,000\nDifference 18,000 a month", labels: ["money"] }, 8),
+  ];
+  NOTES[2].links = [{ to: NOTES[0].id, why: "reading list" }];
+  NOTES.forEach(n => persist(n, false)); S.seeded = true; saveS();
+}
+
+/* ================= events ================= */
+document.addEventListener("click", e => {
+  const card = e.target.closest("[data-open]");
+  if (card) { const ids = visibleNotes().map(n => n.id); const id = card.dataset.open; const list = ids.includes(id) ? ids : [id, ...ids]; openFeed(list, list.indexOf(id)); return; }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const act = b.dataset.act, n = b.dataset.id ? NOTES.find(x => x.id === b.dataset.id) : null;
+  switch (act) {
+    case "drawer": openDrawer(); break;
+    case "close-layer": closeLayer(); break;
+    case "layout": S.layout = S.layout === "list" ? "grid" : "list"; saveS(); renderHome(); break;
+    case "settings": openSettings(); break;
+    case "set-size": S.reviewSize = +b.dataset.k; S.today = null; saveS(); openSettings(); renderHome(); break;
+    case "set-theme": S.theme = b.dataset.k; saveS(); applyTheme(); openSettings(); break;
+    case "go-notes": ui.view = "notes"; ui.label = null; closeLayer(); renderHome(); break;
+    case "go-archive": ui.view = "archive"; ui.label = null; closeLayer(); renderHome(); break;
+    case "go-label": ui.view = "notes"; ui.label = b.dataset.l; closeLayer(); renderHome(); break;
+    case "new": { const m = makeNote(); openEditor(m, true); break; }
+    case "new-list": { const m = makeNote({ items: [{ id: uid(), text: "", done: false }] }); openEditor(m, true); break; }
+    case "new-image": imgTarget = "new"; $("#img-input").click(); break;
+    case "feed": { const ids = visibleNotes().map(x => x.id); openFeed(ids, 0); break; }
+    case "review": { const r = todaysReview(); let ids = r.ids.filter(id => !r.done.includes(id)); if (!ids.length) ids = r.ids; openFeed(ids, 0, "review"); break; }
+    case "close-feed": closeFeed(); break;
+    case "rv-ok": reviewAnswer(true); break;
+    case "rv-again": reviewAnswer(false); break;
+    case "like": n.liked = !n.liked; persist(n, false); refreshPost(n); break;
+    case "pin": n.pinned = !n.pinned; persist(n, false); refreshPost(n); toast(n.pinned ? "Pinned" : "Unpinned"); break;
+    case "think": document.getElementById("th-" + n.id)?.focus(); break;
+    case "share": shareImage(n); break;
+    case "edit": openEditor(n); break;
+    case "post-more": { const p = currentPost(); const m = p && NOTES.find(x => x.id === p.dataset.id); if (!m) break;
+      $("#layer").innerHTML = `<div class="scrim" data-act="close-layer"></div><div class="sheet menu" role="dialog" aria-label="Note actions">
+        <button data-act="edit" data-id="${m.id}">${ic("edit")}Edit</button><button data-act="pin" data-id="${m.id}">${ic("pin")}${m.pinned ? "Unpin" : "Pin"}</button>
+        <button data-act="post-archive" data-id="${m.id}">${ic("archive")}${m.archived ? "Unarchive" : "Archive"}</button><button data-act="share" data-id="${m.id}">${ic("share")}Share as image</button>
+        <button class="danger" data-act="post-delete" data-id="${m.id}">${ic("trash")}Delete</button></div>`; break; }
+    case "post-archive": n.archived = !n.archived; persist(n); closeLayer(); closeFeed(); toast(n.archived ? "Note archived" : "Note unarchived"); break;
+    case "post-delete": removeNote(n); closeLayer(); closeFeed(); toast("Note deleted"); break;
+    case "ed-close": closeEditor(); break;
+    case "ed-pin": ed.n.pinned = !ed.n.pinned; edSave(true); renderEditor(); break;
+    case "ed-archive": ed.n.archived = !ed.n.archived; edSave(true); toast(ed.n.archived ? "Note archived" : "Note unarchived"); closeEditor(); if (feedCtx) closeFeed(); break;
+    case "ed-remind": openRemindSheet(); break;
+    case "remind": setRemind(startOfDay(Date.now()) + +b.dataset.d * DAY); break;
+    case "ed-panel": ed.panel = ed.panel === b.dataset.p ? null : b.dataset.p; renderEditor(); break;
+    case "ed-color": ed.n.color = b.dataset.c; edSave(true); renderEditor(); break;
+    case "ed-add-image": imgTarget = "editor"; $("#img-input").click(); break;
+    case "ed-img-del": ed.n.images.splice(+b.dataset.i, 1); edSave(true); renderEditor(); break;
+    case "ed-toggle-list": { const m = ed.n;
+      if (m.items) { m.body = m.items.map(i => i.text).filter(Boolean).join("\n"); m.items = null; }
+      else { m.items = (m.body || "").split("\n").filter(s => s.trim()).map(t => ({ id: uid(), text: t.replace(/^[-•*]\s*/, ""), done: false })); if (!m.items.length) m.items = [{ id: uid(), text: "", done: false }]; m.body = ""; }
+      ed.panel = null; edSave(true); renderEditor(); break; }
+    case "ed-add-item": addItem(null); break;
+    case "ed-del-item": delItem(b.closest(".ed-item").dataset.item); break;
+    case "ed-label": ed.panel = null; renderEditor(); openLabelSheet(); break;
+    case "lbl-toggle": { const l = b.dataset.l, m = ed.n; m.labels = m.labels.includes(l) ? m.labels.filter(x => x !== l) : [...m.labels, l]; edSave(true); openLabelSheet(); renderEditor(); break; }
+    case "ed-copy": { const c = makeNote(JSON.parse(JSON.stringify({ ...ed.n, id: undefined, createdAt: undefined, updatedAt: undefined, example: undefined }))); c.id = uid(); c.createdAt = c.updatedAt = Date.now(); persist(c); toast("Copy made"); ed.panel = null; renderEditor(); break; }
+    case "ed-share": shareImage(ed.n); break;
+    case "ed-delete": { const m = ed.n; removeNote(m); const el = $("#editor"); el?.remove(); ed = null; if (feedCtx) closeFeed(); else renderHome(); toast("Note deleted"); break; }
+    case "ed-ai": aiTidy(); break;
+    case "map": openMap(); break;
+    case "close-map": closeMap(); break;
+    case "map-zoom": MM?.zoomAt(MM.cam.z * +b.dataset.z, MM.W() / 2, MM.H() / 2); break;
+    case "map-fit": MM?.fit(); break;
+    case "map-ai": mapAI(); break;
+    case "import-v1": importV1(); break;
+    case "export": exportNotes(); break;
+    case "del-examples": NOTES.filter(x => x.example).forEach(removeNote); S.today = null; saveS(); closeLayer(); renderHome(); toast("Example notes removed"); break;
+  }
+});
+document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches?.(".card[data-open]")) e.target.click(); });
+document.addEventListener("change", e => {
+  const cb = e.target.closest("[data-tick]"); if (!cb) return;
+  const n = NOTES.find(x => x.id === cb.dataset.tick), it = n?.items?.find(i => i.id === cb.dataset.item); if (!it) return;
+  it.done = cb.checked; persist(n, false); cb.closest("label").classList.toggle("done", it.done);
+});
+document.addEventListener("submit", e => {
+  const f = e.target.closest("[data-think-form]"); if (!f) return; e.preventDefault();
+  const n = NOTES.find(x => x.id === f.dataset.thinkForm), inp = f.querySelector("input"), v = inp.value.trim(); if (!n || !v) return;
+  n.thoughts.push({ at: Date.now(), text: v }); persist(n); refreshPost(n); toast("Thought added");
+});
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if ($("#layer").innerHTML) closeLayer(); else if (ed) closeEditor(); else if ($("#map-screen")) closeMap(); else if (feedCtx) closeFeed();
+});
+// No pinch-zoom of the page on iPhone (the mind map handles its own pinch).
+document.addEventListener("gesturestart", e => { if (!e.target.closest?.("#map")) e.preventDefault(); }, { passive: false });
+document.addEventListener("dblclick", e => { if (!e.target.closest?.("#map")) e.preventDefault(); }, { passive: false });
+
+/* ================= start ================= */
+(async function start() {
+  applyTheme();
+  await loadNotes();
+  if (!NOTES.length && !S.seeded) seedExamples();
+  renderHome();
+  sampler();
+})();
+</script>
