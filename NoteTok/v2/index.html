@@ -228,6 +228,30 @@ svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-widt
 .map-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
 .map-tools { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 8px; }
 .map-tools button { width: 46px; height: 46px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-size: 22px; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+.mind-chips { flex: none; display: flex; gap: 6px; align-items: center; overflow-x: auto; scrollbar-width: none; padding: 2px max(12px, env(safe-area-inset-right, 0px)) 8px max(12px, env(safe-area-inset-left, 0px)); }
+.mind-chips::-webkit-scrollbar { display: none; }
+.mc-h { font-size: 12px; color: var(--muted); white-space: nowrap; margin-right: 2px; }
+.mc { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding: 7px 12px; border-radius: 999px; background: var(--surface); font-size: 13.5px; border: 1px solid transparent; }
+.mc i { width: 9px; height: 9px; border-radius: 50%; background: var(--tc); }
+.mc b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.mc em { font-style: normal; font-weight: 700; } .mc em.up { color: var(--good); } .mc em.down { color: var(--muted); }
+.mc.on { border-color: var(--tc); background: color-mix(in srgb, var(--tc) 18%, var(--surface)); }
+.time-row { flex: none; display: flex; align-items: center; gap: 12px; padding: 8px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); border-top: 1px solid var(--soft-line); font-size: 13px; color: var(--muted); }
+.time-row span { min-width: 108px; font-variant-numeric: tabular-nums; }
+.time-row input { flex: 1; accent-color: var(--accent); height: 30px; }
+.node-card { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); right: 76px; bottom: 14px; background: var(--raise); border-radius: 14px; padding: 12px 14px; display: grid; gap: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.4); animation: up .2s; }
+.node-card b { font-size: 16px; }
+.nc-top { display: flex; gap: 8px; align-items: center; font-size: 12.5px; flex-wrap: wrap; }
+.nc-theme { padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, var(--tc) 25%, transparent); color: var(--text); }
+.nc-conn { display: grid; gap: 2px; }
+.nc-conn button { display: grid; grid-template-columns: 46px 1fr; column-gap: 10px; align-items: center; text-align: left; padding: 5px 0; font-size: 14px; }
+.nc-conn .bar { grid-row: span 2; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--accent) var(--w), var(--soft-line) 0); }
+.nc-conn small { color: var(--muted); font-size: 12px; }
+.node-card .btn { padding: 9px 16px; font-size: 14px; }
+.ins-theme { display: flex; gap: 12px; } .ins-theme > span { width: 10px; height: 10px; border-radius: 50%; background: var(--tc); margin-top: 6px; flex: none; }
+.ins-theme p, .ins-next p { margin: 2px 0 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.ins { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 15px; line-height: 1.45; }
+.ins-next { padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .map-hint { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); right: 80px; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); text-align: left; color: var(--faint); font-size: 12.5px; pointer-events: none; }
 .pill { padding: 9px 16px; border-radius: 20px; background: var(--surface); font-weight: 500; font-size: 14px; }
 
@@ -800,89 +824,255 @@ async function shareImage(n) {
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 
-/* ================= mind map (the only place you can zoom) ================= */
+/* ================= mind map: what your mind is occupied with =================
+   How notes get connected (and how strongly):
+   1. On the device, always: every note is compared with every other by the words it uses (TF-IDF cosine
+      similarity, rare shared words count more than common ones). Strong matches become links, thicker when closer.
+   2. Shared labels always link.
+   3. "Ask Claude" reads the notes for meaning (not just shared words), weighs each link 1-3, groups notes into
+      themes and writes what it notices. Claude's links and themes replace the guesses from step 1 until notes change.
+   Attention ("heat"): how much you've touched a note lately (edits, thoughts, likes, reviews), fading over ~2 weeks.
+   It sets each note's size and glow, and each theme's share of your mind. */
+const STOP = new Set("a an the and or but if then so of to in on at by for with from as is are was were be been being it its this that these those i me my we our you your he she they them his her their not no yes do does did have has had will would can could should just very really more most some any all there here what when where which who how why also into over under out up down about than too only own same such both each few other again further once am im ive dont cant wont lets get got make made one two new like need use via www http https com".split(" "));
+function tokens(n) {
+  const t = [n.title, n.title, n.body, ...(n.items || []).map(i => i.text), ...(n.labels || []), ...(n.labels || []), ...(n.thoughts || []).map(t => t.text)].join(" ").toLowerCase()
+    .replace(/https?:\/\/\S+/g, u => { try { return " " + new URL(u).hostname.replace(/^www\./, "").split(".")[0] + " "; } catch (e) { return " "; } });
+  return (t.match(/[\p{L}\p{N}][\p{L}\p{N}'-]{1,}/gu) || []).map(w => w.replace(/'s$/, "")).filter(w => w.length > 2 && !STOP.has(w) && !/^\d+$/.test(w));
+}
+function similarity(notes) {   // TF-IDF vectors and cosine similarity, all on the device
+  const docs = notes.map(n => { const m = new Map(); for (const w of tokens(n)) m.set(w, (m.get(w) || 0) + 1); return m; });
+  const df = new Map(); for (const d of docs) for (const w of d.keys()) df.set(w, (df.get(w) || 0) + 1);
+  const N = notes.length;
+  const vecs = docs.map(d => { const v = new Map(); let norm = 0; for (const [w, c] of d) { const x = (1 + Math.log(c)) * Math.log(1 + N / df.get(w)); v.set(w, x); norm += x * x; } return { v, norm: Math.sqrt(norm) || 1 }; });
+  const sim = (i, j) => { const a = vecs[i], b = vecs[j]; let s = 0; const [sm, lg] = a.v.size < b.v.size ? [a.v, b.v] : [b.v, a.v]; for (const [w, x] of sm) { const y = lg.get(w); if (y) s += x * y; } return s / (a.norm * b.norm); };
+  const topTerms = i => [...vecs[i].v.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(e => e[0]);
+  const shared = (i, j) => { let best = "", bx = 0; for (const [w, x] of vecs[i].v) { const y = vecs[j].v.get(w); if (y && x * y > bx) { bx = x * y; best = w; } } return best; };
+  return { sim, topTerms, shared };
+}
+function activityTimes(n) { return [n.createdAt, n.updatedAt, ...(n.thoughts || []).map(t => t.at), n.review?.seen || 0].filter(Boolean); }
+function attention(n, now = Date.now()) {
+  const fresh = t => Math.exp(-(now - t) / (14 * DAY));
+  return fresh(n.updatedAt) + (n.thoughts || []).reduce((a, t) => a + .6 * fresh(t.at), 0) + (n.liked ? .3 : 0) + (n.review?.seen ? .4 * fresh(n.review.seen) : 0) + (openLoops(n) ? .2 : 0);
+}
+const openLoops = n => (n.items || []).filter(i => !i.done && i.text.trim()).length;
+const THEME_COLORS = ["#8ab4f8", "#f28b82", "#fdd663", "#81c995", "#c58af9", "#78d9ec", "#fcad70", "#ff8bcb"];
+
+function buildMind(notes) {
+  const S2 = similarity(notes), idx = new Map(notes.map((n, i) => [n.id, i]));
+  const links = new Map();   // key "a|b" -> { a, b, w (0..1), why, src }
+  const put = (a, b, w, why, src) => { if (a === b) return; const k = [a, b].sort().join("|"), o = links.get(k); if (!o || w > o.w || src === "ai") links.set(k, { a, b, w, why, src }); };
+  // 1. words in common, weighted
+  for (let i = 0; i < notes.length; i++) {
+    const cand = [];
+    for (let j = 0; j < notes.length; j++) if (i !== j) { const s = S2.sim(i, j); if (s >= 0.12) cand.push([j, s]); }
+    cand.sort((x, y) => y[1] - x[1]).slice(0, 3).forEach(([j, s]) => put(notes[i].id, notes[j].id, Math.min(1, s * 1.6), S2.shared(i, j), "words"));
+  }
+  // 2. shared labels
+  for (let i = 0; i < notes.length; i++) for (let j = i + 1; j < notes.length; j++) { const l = notes[i].labels.find(x => notes[j].labels.includes(x)); if (l) put(notes[i].id, notes[j].id, .7, l, "label"); }
+  // 3. Claude's links (by meaning), stored on the notes
+  for (const n of notes) for (const l of n.links || []) if (idx.has(l.to)) put(n.id, l.to, ({ 1: .45, 2: .75, 3: 1 })[l.strength] || .7, l.why || "", "ai");
+  // themes: Claude's if they are still current, otherwise groups of strongly linked notes
+  let themes = [];
+  const mind = S.mind && S.mind.themes ? S.mind : null;
+  if (mind) themes = mind.themes.map((t, k) => ({ name: t.name, ids: t.ids.filter(id => idx.has(id)), summary: t.summary || "", color: THEME_COLORS[k % THEME_COLORS.length], ai: true })).filter(t => t.ids.length);
+  const themed = new Set(themes.flatMap(t => t.ids));
+  const rest = notes.filter(n => !themed.has(n.id));
+  if (rest.length) {
+    const parent = new Map(rest.map(n => [n.id, n.id])), find = x => parent.get(x) === x ? x : (parent.set(x, find(parent.get(x))), parent.get(x));
+    for (const l of links.values()) if (l.w >= .45 && parent.has(l.a) && parent.has(l.b)) parent.set(find(l.a), find(l.b));
+    const groups = new Map(); for (const n of rest) { const r = find(n.id); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(n); }
+    for (const g of groups.values()) {
+      if (g.length < 2) continue;
+      const lab = {}; g.forEach(n => n.labels.forEach(l => lab[l] = (lab[l] || 0) + 1));
+      const topLab = Object.entries(lab).sort((a, b) => b[1] - a[1])[0];
+      const terms = {}; g.forEach(n => S2.topTerms(idx.get(n.id)).forEach((w, r) => terms[w] = (terms[w] || 0) + (4 - r)));
+      const name = topLab ? topLab[0] : (Object.entries(terms).sort((a, b) => b[1] - a[1])[0] || ["notes"])[0];
+      themes.push({ name: name.charAt(0).toUpperCase() + name.slice(1), ids: g.map(n => n.id), color: THEME_COLORS[themes.length % THEME_COLORS.length] });
+    }
+  }
+  // what's on your mind: each theme's share of recent attention, and its trend against the two weeks before
+  const now = Date.now(), att = new Map(notes.map(n => [n.id, attention(n, now)]));
+  const total = [...att.values()].reduce((a, b) => a + b, 0) || 1;
+  const events = (ids, from, to) => ids.reduce((a, id) => a + activityTimes(notes[idx.get(id)]).filter(t => t >= from && t < to).length, 0);
+  for (const t of themes) {
+    t.share = t.ids.reduce((a, id) => a + att.get(id), 0) / total;
+    const recent = events(t.ids, now - 14 * DAY, now + 1), before = events(t.ids, now - 28 * DAY, now - 14 * DAY);
+    t.trend = recent > before + 1 ? "up" : before > recent + 1 ? "down" : "flat";
+  }
+  themes.sort((a, b) => b.share - a.share);
+  themes.forEach((t, k) => t.color = THEME_COLORS[k % THEME_COLORS.length]);
+  const degree = new Map(); for (const l of links.values()) { degree.set(l.a, (degree.get(l.a) || 0) + 1); degree.set(l.b, (degree.get(l.b) || 0) + 1); }
+  const forgotten = notes.filter(n => !degree.get(n.id) || now - Math.max(n.updatedAt, n.review?.seen || 0, ...(n.thoughts || []).map(t => t.at)) > 21 * DAY)
+    .filter(n => now - Math.max(n.updatedAt, n.review?.seen || 0) > 10 * DAY).map(n => n.id);
+  return { links: [...links.values()], themes, att, forgotten: new Set(forgotten), loops: notes.filter(openLoops).map(n => n.id) };
+}
+
 let MM = null;
 function openMap() {
   closeLayer();
   const el = document.createElement("section"); el.className = "screen over"; el.id = "map-screen";
   el.innerHTML = `<div class="topbar"><button class="ib" data-act="close-map" aria-label="Back">${ic("back")}</button><span class="t">Mind map</span>
-    <button class="pill" data-act="map-ai">✨ Link with AI</button></div>
+      <button class="pill" data-act="map-ai">✨ Ask Claude</button></div>
+    <div class="mind-chips" id="mind-chips"></div>
     <div class="map-wrap" id="map-wrap"><canvas id="map"></canvas>
-      <div class="map-tools"><button data-act="map-zoom" data-z="1.25" aria-label="Zoom in">+</button><button data-act="map-zoom" data-z="0.8" aria-label="Zoom out">−</button><button data-act="map-fit" aria-label="Fit" style="font-size:15px">⤢</button></div>
-      <div class="map-hint">Pinch to zoom · drag to move · tap a note to open it</div></div>`;
+      <div class="map-tools"><button data-act="map-zoom" data-z="1.25" aria-label="Zoom in">+</button><button data-act="map-zoom" data-z="0.8" aria-label="Zoom out">−</button><button data-act="map-fit" aria-label="Fit everything" style="font-size:15px">⤢</button></div>
+      <div class="node-card" id="node-card" hidden></div>
+    </div>
+    <div class="time-row"><span id="time-lbl">All time</span><input id="time" type="range" min="0" max="1000" value="1000" aria-label="Show notes up to a date"></div>`;
   document.body.appendChild(el);
-  const notes = live(), cv = $("#map"), wrap = $("#map-wrap"), ctx = cv.getContext("2d");
+  const all = live(), cv = $("#map"), wrap = $("#map-wrap"), ctx = cv.getContext("2d");
   const W = () => wrap.clientWidth, H = () => wrap.clientHeight;
-  const nodes = notes.map((n, i) => { const a = i / Math.max(1, notes.length) * Math.PI * 2, r = 120 + (i % 3) * 40; return { n, x: Math.cos(a) * r, y: Math.sin(a) * r, vx: 0, vy: 0 }; });
+  const nodes = all.map((n, i) => { const a = i / Math.max(1, all.length) * Math.PI * 2, r = 140 + (i % 3) * 50; return { n, x: Math.cos(a) * r, y: Math.sin(a) * r, vx: 0, vy: 0 }; });
   const byId = new Map(nodes.map(o => [o.n.id, o]));
-  const edges = () => { const out = [], seen = new Set();
-    for (const o of nodes) for (const l of o.n.links || []) { const b = byId.get(l.to); const k = [o.n.id, l.to].sort().join("|"); if (b && !seen.has(k)) { seen.add(k); out.push({ a: o, b, why: l.why || "" }); } }
-    // notes that share a label are always linked too
-    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) { const k = [nodes[i].n.id, nodes[j].n.id].sort().join("|"); const s = nodes[i].n.labels.find(l => nodes[j].n.labels.includes(l)); if (s && !seen.has(k)) { seen.add(k); out.push({ a: nodes[i], b: nodes[j], why: s }); } }
-    return out; };
-  MM = { cam: { x: 0, y: 0, z: 1 }, nodes, edges: edges(), refresh() { this.edges = edges(); }, running: true };
+  MM = { cam: { x: 0, y: 0, z: 1 }, nodes, running: true, focus: null, theme: null, show: null, until: Infinity };
+  MM.rebuild = () => {
+    MM.mind = buildMind(all);
+    MM.edges = MM.mind.links.map(l => ({ a: byId.get(l.a), b: byId.get(l.b), w: l.w, why: l.why, src: l.src })).filter(e => e.a && e.b);
+    MM.themeOf = new Map(); MM.mind.themes.forEach(t => t.ids.forEach(id => MM.themeOf.set(id, t)));
+    const maxA = Math.max(.01, ...MM.mind.att.values());
+    for (const o of nodes) o.heat = MM.mind.att.get(o.n.id) / maxA;
+    renderMindChips();
+  };
+  MM.rebuild();
+  const times = all.map(n => n.createdAt).sort((a, b) => a - b), t0 = times[0] || Date.now(), t1 = Date.now();
+  $("#time").oninput = e => { const v = +e.target.value; MM.until = v >= 1000 ? Infinity : t0 + (t1 - t0) * v / 1000; $("#time-lbl").textContent = v >= 1000 ? "All time" : "Up to " + fmtDate(MM.until); };
   const resize = () => { const d = devicePixelRatio || 1; cv.width = W() * d; cv.height = H() * d; ctx.setTransform(d, 0, 0, d, 0, 0); };
   new ResizeObserver(resize).observe(wrap); resize();
   const cs = getComputedStyle(document.documentElement), col = v => cs.getPropertyValue(v).trim();
   const pts = new Map(); let drag = null, pinch = null;
+  const visible = o => o.n.createdAt <= MM.until;
   const toWorld = (px, py) => ({ x: (px - W() / 2 - MM.cam.x) / MM.cam.z, y: (py - H() / 2 - MM.cam.y) / MM.cam.z });
-  const hit = (px, py) => { const p = toWorld(px, py); return nodes.find(o => Math.hypot(o.x - p.x, o.y - p.y) < 34); };
+  const radius = o => 22 + 16 * (o.heat || 0);
+  const hit = (px, py) => { const p = toWorld(px, py); return nodes.find(o => visible(o) && Math.hypot(o.x - p.x, o.y - p.y) < radius(o) + 6); };
+  const neighbours = o => new Set(MM.edges.filter(e => e.a === o || e.b === o).flatMap(e => [e.a, e.b]));
   function step() {
-    for (const o of nodes) { o.vx -= o.x * .002; o.vy -= o.y * .002; }
-    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) { const a = nodes[i], b = nodes[j]; let dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy || 1, d = Math.sqrt(d2), f = Math.min(3000 / d2, 4); a.vx -= dx / d * f; a.vy -= dy / d * f; b.vx += dx / d * f; b.vy += dy / d * f; }
-    for (const e of MM.edges) { const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y, d = Math.hypot(dx, dy) || 1, f = (d - 150) * .004; e.a.vx += dx / d * f; e.a.vy += dy / d * f; e.b.vx -= dx / d * f; e.b.vy -= dy / d * f; }
+    const centres = new Map();
+    for (const t of MM.mind.themes) { const m = t.ids.map(id => byId.get(id)).filter(o => o && visible(o)); if (m.length) centres.set(t, { x: m.reduce((a, o) => a + o.x, 0) / m.length, y: m.reduce((a, o) => a + o.y, 0) / m.length }); }
+    for (const o of nodes) { if (!visible(o)) continue; o.vx -= o.x * .0016; o.vy -= o.y * .0016; const t = MM.themeOf.get(o.n.id), c = t && centres.get(t); if (c) { o.vx += (c.x - o.x) * .006; o.vy += (c.y - o.y) * .006; } }
+    const vis = nodes.filter(visible);
+    for (let i = 0; i < vis.length; i++) for (let j = i + 1; j < vis.length; j++) { const a = vis[i], b = vis[j]; let dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy || 1, d = Math.sqrt(d2), sameT = MM.themeOf.get(a.n.id) && MM.themeOf.get(a.n.id) === MM.themeOf.get(b.n.id), f = Math.min((sameT ? 2400 : 5200) / d2, 4); a.vx -= dx / d * f; a.vy -= dy / d * f; b.vx += dx / d * f; b.vy += dy / d * f; }
+    for (const e of MM.edges) { if (!visible(e.a) || !visible(e.b)) continue; const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y, d = Math.hypot(dx, dy) || 1, rest = 190 - 70 * e.w, f = (d - rest) * .004 * (0.5 + e.w); e.a.vx += dx / d * f; e.a.vy += dy / d * f; e.b.vx -= dx / d * f; e.b.vy -= dy / d * f; }
     for (const o of nodes) { if (drag && drag.node === o) continue; o.vx *= .85; o.vy *= .85; o.x += o.vx; o.y += o.vy; }
   }
   function draw() {
-    ctx.clearRect(0, 0, W(), H()); ctx.save(); ctx.translate(W() / 2 + MM.cam.x, H() / 2 + MM.cam.y); ctx.scale(MM.cam.z, MM.cam.z);
-    ctx.lineWidth = 1.3 / MM.cam.z; ctx.strokeStyle = col("--line"); ctx.fillStyle = col("--muted"); ctx.textAlign = "center";
-    for (const e of MM.edges) { ctx.beginPath(); ctx.moveTo(e.a.x, e.a.y); ctx.lineTo(e.b.x, e.b.y); ctx.stroke();
-      if (e.why && MM.cam.z > .8) { ctx.font = `${11}px -apple-system, sans-serif`; ctx.fillText(e.why, (e.a.x + e.b.x) / 2, (e.a.y + e.b.y) / 2 - 4); } }
-    for (const o of nodes) {
-      const w = 116, h = 46, x = o.x - w / 2, y = o.y - h / 2;
-      ctx.fillStyle = o.n.color ? col("--" + o.n.color) : col("--surface"); ctx.strokeStyle = col("--line");
-      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, 9) : ctx.rect(x, y, w, h); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = col("--text"); ctx.font = `600 12.5px -apple-system, sans-serif`;
-      let t = o.n.title || o.n.body || (o.n.items || []).map(i => i.text).join(", ") || "Image"; t = t.replace(/\s+/g, " ");
-      while (ctx.measureText(t).width > w - 16 && t.length > 3) t = t.slice(0, -2); if (t !== (o.n.title || "")) t = t.length < (o.n.title || o.n.body || "").length ? t + "…" : t;
-      ctx.fillText(t, o.x, o.y + 4);
+    const z = MM.cam.z, foc = MM.focus, near = foc ? neighbours(foc) : null, now = Date.now();
+    ctx.clearRect(0, 0, W(), H()); ctx.save(); ctx.translate(W() / 2 + MM.cam.x, H() / 2 + MM.cam.y); ctx.scale(z, z);
+    const dim = o => (foc && !near.has(o)) || (MM.theme && MM.themeOf.get(o.n.id) !== MM.theme) || (MM.show === "forgotten" && !MM.mind.forgotten.has(o.n.id)) || (MM.show === "loops" && !openLoops(o.n));
+    // theme clouds
+    for (const t of MM.mind.themes) {
+      const m = t.ids.map(id => byId.get(id)).filter(o => o && visible(o)); if (m.length < 2) continue;
+      const cx = m.reduce((a, o) => a + o.x, 0) / m.length, cy = m.reduce((a, o) => a + o.y, 0) / m.length, r = Math.max(...m.map(o => Math.hypot(o.x - cx, o.y - cy) + radius(o))) + 26;
+      ctx.globalAlpha = MM.theme && MM.theme !== t ? .25 : 1;
+      const g = ctx.createRadialGradient(cx, cy, r * .2, cx, cy, r); g.addColorStop(0, t.color + "33"); g.addColorStop(1, t.color + "08");
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = t.color; ctx.font = `600 ${13 / Math.max(.6, z)}px -apple-system, sans-serif`; ctx.textAlign = "center"; ctx.fillText(t.name.toUpperCase(), cx, cy - r + 16 / Math.max(.6, z));
     }
-    ctx.restore();
+    // links: thicker and brighter when closer
+    for (const e of MM.edges) {
+      if (!visible(e.a) || !visible(e.b)) continue;
+      ctx.globalAlpha = (dim(e.a) || dim(e.b)) ? .08 : .25 + .6 * e.w;
+      ctx.strokeStyle = e.src === "ai" ? col("--accent") : col("--muted"); ctx.lineWidth = (1 + 3.5 * e.w) / z;
+      ctx.setLineDash(e.src === "words" && e.w < .5 ? [5 / z, 5 / z] : []);
+      ctx.beginPath(); ctx.moveTo(e.a.x, e.a.y); ctx.lineTo(e.b.x, e.b.y); ctx.stroke();
+      if (e.why && (foc ? (e.a === foc || e.b === foc) : z > 1.3)) { ctx.setLineDash([]); ctx.globalAlpha = .85; ctx.fillStyle = col("--muted"); ctx.font = `11px -apple-system, sans-serif`; ctx.textAlign = "center"; ctx.fillText(e.why, (e.a.x + e.b.x) / 2, (e.a.y + e.b.y) / 2 - 5); }
+    }
+    ctx.setLineDash([]);
+    // notes: bigger and glowing = on your mind lately; faded = not touched for a long time
+    for (const o of nodes) {
+      if (!visible(o)) continue;
+      const r = radius(o), t = MM.themeOf.get(o.n.id), stale = now - Math.max(o.n.updatedAt, o.n.review?.seen || 0) > 30 * DAY;
+      ctx.globalAlpha = dim(o) ? .18 : stale ? .55 : 1;
+      if (o.heat > .45 && !dim(o)) { ctx.shadowColor = t ? t.color : col("--accent"); ctx.shadowBlur = 24 * o.heat; }
+      ctx.fillStyle = o.n.color ? col("--" + o.n.color) : col("--raise"); ctx.beginPath(); ctx.arc(o.x, o.y, r, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.lineWidth = (o === foc ? 3 : 2) / z; ctx.strokeStyle = o === foc ? col("--text") : t ? t.color : col("--line"); ctx.stroke();
+      if (MM.mind.forgotten.has(o.n.id) && MM.show === "forgotten") { ctx.setLineDash([4 / z, 4 / z]); ctx.beginPath(); ctx.arc(o.x, o.y, r + 6, 0, Math.PI * 2); ctx.strokeStyle = col("--star"); ctx.stroke(); ctx.setLineDash([]); }
+      const loops = openLoops(o.n);
+      if (loops) { ctx.fillStyle = col("--danger"); ctx.beginPath(); ctx.arc(o.x + r * .72, o.y - r * .72, 9, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = "#fff"; ctx.font = "700 10px -apple-system, sans-serif"; ctx.textAlign = "center"; ctx.fillText(String(loops), o.x + r * .72, o.y - r * .72 + 3.5); }
+      ctx.fillStyle = col("--text"); ctx.font = `600 12px -apple-system, sans-serif`; ctx.textAlign = "center";
+      let label = (o.n.title || o.n.body || (o.n.items || []).map(i => i.text).join(", ") || "Image").replace(/\s+/g, " ");
+      if (ctx.measureText(label).width > 130) { while (label.length > 3 && ctx.measureText(label + "…").width > 130) label = label.slice(0, -1); label += "…"; }
+      ctx.fillText(label, o.x, o.y + r + 15);
+    }
+    ctx.globalAlpha = 1; ctx.restore();
   }
   (function loop() { if (!MM || !MM.running) return; step(); draw(); requestAnimationFrame(loop); })();
-  // pointers: one finger drags a note or the map, two fingers pinch-zoom
+  // one finger: move a note or the map; two fingers: pinch-zoom; tap: focus a note (tap again to open)
   cv.onpointerdown = e => { cv.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
     if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: MM.cam.z, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, cam: { ...MM.cam } }; drag = null; }
     else { const o = hit(e.offsetX, e.offsetY); drag = o ? { node: o, moved: false, sx: e.offsetX, sy: e.offsetY } : { pan: true, sx: e.offsetX, sy: e.offsetY, cx: MM.cam.x, cy: MM.cam.y, moved: false }; } };
   cv.onpointermove = e => { if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
     if (pinch && pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y); zoomAt(pinch.z * d / pinch.d, pinch.cx, pinch.cy, pinch.cam); return; }
     if (!drag) return; if (Math.hypot(e.offsetX - drag.sx, e.offsetY - drag.sy) > 6) drag.moved = true;
-    if (drag.node) { const p = toWorld(e.offsetX, e.offsetY); drag.node.x = p.x; drag.node.y = p.y; drag.node.vx = drag.node.vy = 0; }
-    else { MM.cam.x = drag.cx + e.offsetX - drag.sx; MM.cam.y = drag.cy + e.offsetY - drag.sy; } };
+    if (drag.node && drag.moved) { const p = toWorld(e.offsetX, e.offsetY); drag.node.x = p.x; drag.node.y = p.y; drag.node.vx = drag.node.vy = 0; }
+    else if (drag.pan) { MM.cam.x = drag.cx + e.offsetX - drag.sx; MM.cam.y = drag.cy + e.offsetY - drag.sy; } };
   cv.onpointerup = cv.onpointercancel = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null;
-    if (drag && !drag.moved && drag.node) { const id = drag.node.n.id; const ids = live().sort((a, b) => b.updatedAt - a.updatedAt).map(n => n.id); openFeed(ids, ids.indexOf(id)); }
+    if (drag && !drag.moved) { if (drag.node) { if (MM.focus === drag.node) openNodeFeed(drag.node.n.id); else focusNode(drag.node); } else focusNode(null); }
     if (!pts.size) drag = null; };
   cv.onwheel = e => { e.preventDefault(); zoomAt(MM.cam.z * (e.deltaY < 0 ? 1.12 : .89), e.offsetX, e.offsetY); };
-  function zoomAt(z, px, py, base = MM.cam) { z = Math.max(.25, Math.min(4, z)); const wx = (px - W() / 2 - base.x) / base.z, wy = (py - H() / 2 - base.y) / base.z; MM.cam = { x: px - W() / 2 - wx * z, y: py - H() / 2 - wy * z, z }; }
-  MM.zoomAt = zoomAt; MM.W = W; MM.H = H;
-  MM.fit = () => { if (!nodes.length) return; const xs = nodes.map(o => o.x), ys = nodes.map(o => o.y); const w = Math.max(...xs) - Math.min(...xs) + 160, h = Math.max(...ys) - Math.min(...ys) + 120;
-    const z = Math.max(.25, Math.min(1.6, Math.min(W() / w, H() / h))); MM.cam = { z, x: -(Math.max(...xs) + Math.min(...xs)) / 2 * z, y: -(Math.max(...ys) + Math.min(...ys)) / 2 * z }; };
-  setTimeout(() => MM && MM.fit(), 900);
+  function zoomAt(z, px, py, base = MM.cam) { z = Math.max(.2, Math.min(4, z)); const wx = (px - W() / 2 - base.x) / base.z, wy = (py - H() / 2 - base.y) / base.z; MM.cam = { x: px - W() / 2 - wx * z, y: py - H() / 2 - wy * z, z }; }
+  MM.zoomAt = zoomAt; MM.W = W; MM.H = H; MM.byId = byId;
+  MM.fit = (only) => { const vis = (only || nodes).filter(visible); if (!vis.length) return; const xs = vis.map(o => o.x), ys = vis.map(o => o.y); const w = Math.max(...xs) - Math.min(...xs) + 200, h = Math.max(...ys) - Math.min(...ys) + 170;
+    const z = Math.max(.2, Math.min(1.7, Math.min(W() / w, H() / h))); MM.cam = { z, x: -(Math.max(...xs) + Math.min(...xs)) / 2 * z, y: -(Math.max(...ys) + Math.min(...ys)) / 2 * z }; };
+  setTimeout(() => MM && MM.fit(), 1100);
+}
+function openNodeFeed(id) { const ids = live().sort((a, b) => b.updatedAt - a.updatedAt).map(n => n.id); openFeed(ids, ids.indexOf(id)); }
+function focusNode(o) {
+  MM.focus = o; const card = $("#node-card"); if (!card) return;
+  if (!o) { card.hidden = true; return; }
+  const n = o.n, t = MM.themeOf.get(n.id), conn = MM.edges.filter(e => e.a === o || e.b === o).sort((a, b) => b.w - a.w).slice(0, 3);
+  const last = Math.max(n.updatedAt, n.review?.seen || 0, ...(n.thoughts || []).map(x => x.at));
+  card.hidden = false;
+  card.innerHTML = `<div class="nc-top">${t ? `<span class="nc-theme" style="--tc:${t.color}">${esc(t.name)}</span>` : ""}<span class="muted">last touched ${esc(ago(last).toLowerCase())}</span></div>
+    <b>${esc(n.title || (n.body || "").split("\n")[0] || "Untitled")}</b>
+    ${conn.length ? `<div class="nc-conn">${conn.map(e => { const other = e.a === o ? e.b : e.a; return `<button data-act="map-jump" data-id="${other.n.id}"><span class="bar" style="--w:${Math.round(e.w * 100)}%"></span>${esc(other.n.title || "Untitled")}<small>${esc(e.why || "")}</small></button>`; }).join("")}</div>` : `<p class="muted" style="margin:0;font-size:13px">Not connected to anything yet.</p>`}
+    <div class="row-btns"><button class="btn" data-act="map-open" data-id="${n.id}">Open</button>${MM.mind.forgotten.has(n.id) || last < Date.now() - 10 * DAY ? `<button class="btn ghost" data-act="map-bring" data-id="${n.id}">Bring back tomorrow</button>` : ""}</div>`;
+}
+function renderMindChips() {
+  const box = $("#mind-chips"); if (!box || !MM) return;
+  const m = MM.mind, arrow = t => t === "up" ? "↑" : t === "down" ? "↓" : "";
+  box.innerHTML = `<span class="mc-h">On your mind</span>
+    ${m.themes.map(t => `<button class="mc ${MM.theme === t ? "on" : ""}" data-act="map-theme" data-name="${esc(t.name)}" style="--tc:${t.color}"><i></i>${esc(t.name)} <b>${Math.round(t.share * 100)}%</b>${arrow(t.trend) ? `<em class="${t.trend}">${arrow(t.trend)}</em>` : ""}</button>`).join("") || `<span class="muted" style="font-size:13px">Add a few related notes to see themes</span>`}
+    ${m.loops.length ? `<button class="mc ${MM.show === "loops" ? "on" : ""}" data-act="map-show" data-k="loops" style="--tc:var(--danger)"><i></i>Open loops <b>${m.loops.length}</b></button>` : ""}
+    ${m.forgotten.size ? `<button class="mc ${MM.show === "forgotten" ? "on" : ""}" data-act="map-show" data-k="forgotten" style="--tc:var(--star)"><i></i>Forgotten <b>${m.forgotten.size}</b></button>` : ""}
+    ${S.mind?.insights?.length ? `<button class="mc" data-act="map-insights" style="--tc:var(--accent)"><i></i>Insights</button>` : ""}`;
 }
 function closeMap() { if (MM) MM.running = false; MM = null; const el = $("#map-screen"); if (!el) return; el.classList.add("out"); setTimeout(() => el.remove(), 200); }
+function openInsights() {
+  const m = S.mind; if (!m) return;
+  $("#layer").innerHTML = `<div class="scrim" data-act="close-layer"></div><div class="sheet" role="dialog" aria-label="What Claude noticed">
+    <h3>What Claude noticed</h3><p class="muted" style="margin:-6px 0 0;font-size:13px">From your notes on ${esc(fmtDate(m.at))}</p>
+    ${(m.themes || []).map((t, k) => `<div class="ins-theme"><span style="--tc:${(MM?.mind.themes.find(x => x.name === t.name) || {}).color || THEME_COLORS[k % THEME_COLORS.length]}"></span><div><b>${esc(t.name)}</b><p>${esc(t.summary || "")}</p></div></div>`).join("")}
+    ${(m.insights || []).length ? `<ul class="ins">${m.insights.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+    ${m.nextStep ? `<div class="ins-next"><b>A next step</b><p>${esc(m.nextStep)}</p></div>` : ""}
+    <button class="btn ghost" data-act="close-layer">Close</button></div>`;
+}
 async function mapAI() {
   const btn = document.querySelector('[data-act="map-ai"]'), notes = live(); if (notes.length < 2) { toast("Add at least two notes first"); return; }
   const sample = await sampler();
-  if (!sample) { toast("Claude isn't available here; notes are linked by shared labels"); return; }
-  btn.innerHTML = '<span class="busy"></span> Linking…';
+  if (!sample) { toast("Claude isn't available here. Links come from the words your notes share"); return; }
+  btn.innerHTML = '<span class="busy"></span> Reading…';
   try {
-    const digest = notes.map(n => ({ id: n.id, title: n.title, text: (n.body || (n.items || []).map(i => i.text).join(", ")).slice(0, 300), labels: n.labels }));
-    const out = await sample.json(`Link related personal notes for a mind map. Return JSON only: [{"a": "<id>", "b": "<id>", "why": "why they connect, max 4 words"}]. Only real connections (same topic, project, person or idea), at most ${Math.min(notes.length * 2, 30)} links, never a note to itself.\n\nNOTES:\n${JSON.stringify(digest)}`);
-    const ids = new Set(notes.map(n => n.id)); for (const n of notes) n.links = [];
-    let k = 0; for (const l of Array.isArray(out) ? out : []) { if (ids.has(l.a) && ids.has(l.b) && l.a !== l.b) { NOTES.find(n => n.id === l.a).links.push({ to: l.b, why: String(l.why || "").slice(0, 30) }); k++; } }
-    notes.forEach(n => persist(n, false)); MM?.refresh(); toast(`${k} link${k === 1 ? "" : "s"} found`);
-  } catch (e) { toast(e?.code === "not_granted" ? "Claude wasn't allowed; using shared labels" : "Couldn't link notes right now"); }
-  btn.innerHTML = "✨ Link with AI";
+    const digest = notes.slice(0, 120).map(n => ({ id: n.id, title: n.title, text: (n.body || (n.items || []).map(i => (i.done ? "[x] " : "[ ] ") + i.text).join("; ")).slice(0, 400), labels: n.labels, thoughts: (n.thoughts || []).map(t => t.text).slice(-3), created: fmtDate(n.createdAt), lastTouched: ago(n.updatedAt) }));
+    const out = await sample.json(`You map a person's personal notes so they can see what their mind is occupied with. Judge relatedness by MEANING (same goal, project, person, worry, idea or topic), not by shared words.
+Return JSON only:
+{"themes": [{"name": "1-2 word theme", "ids": ["note ids"], "summary": "one sentence on what this theme is about for them"}],
+ "links": [{"a": "<id>", "b": "<id>", "strength": 1|2|3, "why": "max 4 words"}],
+ "insights": ["3 short, specific observations: what they keep returning to, what connects unexpectedly, what is unfinished or forgotten"],
+ "nextStep": "one concrete, gentle suggestion, e.g. merge notes, finish a list, revisit something"}
+Rules: 2-7 themes, every note in at most one theme; strength 3 = clearly the same thing, 1 = loosely related; at most ${Math.min(notes.length * 2, 40)} links; never invent facts that are not in the notes; write plainly and kindly.
+
+NOTES:
+${JSON.stringify(digest)}`);
+    const ids = new Set(notes.map(n => n.id));
+    for (const n of notes) n.links = [];
+    let k = 0;
+    for (const l of Array.isArray(out?.links) ? out.links : []) if (ids.has(l.a) && ids.has(l.b) && l.a !== l.b) { NOTES.find(n => n.id === l.a).links.push({ to: l.b, why: String(l.why || "").slice(0, 32), strength: Math.max(1, Math.min(3, +l.strength || 2)) }); k++; }
+    notes.forEach(n => persist(n, false));
+    S.mind = { at: Date.now(), themes: (out?.themes || []).map(t => ({ name: String(t.name || "Theme").slice(0, 24), ids: (t.ids || []).filter(id => ids.has(id)), summary: String(t.summary || "").slice(0, 200) })).filter(t => t.ids.length),
+      insights: (out?.insights || []).map(String).slice(0, 4), nextStep: String(out?.nextStep || "") };
+    saveS(); MM?.rebuild(); openInsights();
+  } catch (e) { toast(e?.code === "not_granted" ? "Claude wasn't allowed. Links come from shared words" : "Couldn't read your notes right now"); }
+  if (btn.isConnected) btn.innerHTML = "✨ Ask Claude";
 }
 
 /* ================= import / export / examples ================= */
@@ -985,6 +1175,12 @@ document.addEventListener("click", e => {
     case "map-zoom": MM?.zoomAt(MM.cam.z * +b.dataset.z, MM.W() / 2, MM.H() / 2); break;
     case "map-fit": MM?.fit(); break;
     case "map-ai": mapAI(); break;
+    case "map-theme": { const t = MM.mind.themes.find(x => x.name === b.dataset.name); MM.theme = MM.theme === t ? null : t; MM.show = null; focusNode(null); renderMindChips(); if (MM.theme) MM.fit(MM.theme.ids.map(id => MM.byId.get(id)).filter(Boolean)); else MM.fit(); break; }
+    case "map-show": MM.show = MM.show === b.dataset.k ? null : b.dataset.k; MM.theme = null; focusNode(null); renderMindChips(); break;
+    case "map-insights": openInsights(); break;
+    case "map-open": openNodeFeed(b.dataset.id); break;
+    case "map-jump": { const o = MM.byId.get(b.dataset.id); if (o) { focusNode(o); MM.cam = { ...MM.cam, x: -o.x * MM.cam.z, y: -o.y * MM.cam.z }; } break; }
+    case "map-bring": { n.review = { ...(n.review || {}), due: startOfDay(Date.now()) + DAY }; persist(n, false); toast("Comes back in tomorrow's review"); focusNode(MM.focus); break; }
     case "import-v1": importV1(); break;
     case "export": exportNotes(); break;
     case "del-examples": NOTES.filter(x => x.example).forEach(removeNote); S.today = null; saveS(); closeLayer(); renderHome(); toast("Example notes removed"); break;

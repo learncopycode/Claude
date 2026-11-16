@@ -10,3 +10,17 @@ Two versions, kept side by side:
 v2 is `v2/app.html` (the page as published in Claude); `python3 v2/build.py` wraps it into `v2/index.html`
 for GitHub Pages and the home screen. Nothing on the page zooms except the mind map, and every text field is
 16px or larger so iPhone doesn't zoom in while typing.
+
+## v2 mind map
+
+- **Connections by meaning, weighted.** On the device, every note is compared with every other (TF-IDF
+  cosine similarity over its words, labels and thoughts); close matches become links, thicker when closer.
+  Shared labels always link. **Ask Claude** reads the notes for meaning, weighs each link 1–3, groups notes
+  into themes, and writes what it notices plus one next step.
+- **On your mind.** Each theme's share of your recent attention (edits, thoughts, likes, reviews, fading over
+  about two weeks) with a trend against the two weeks before. Tap a theme to focus it.
+- **Heat.** Notes you've touched lately are bigger and glow; long-untouched ones fade.
+- **Open loops.** Unticked checklist items show as a red count on the note.
+- **Forgotten.** Notes not touched or reviewed for weeks; "Bring back tomorrow" puts one in the next review.
+- **Time slider.** Replays how your map grew.
+- **Tap a note** to see its strongest connections and why; tap again to open it. Pinch to zoom.
