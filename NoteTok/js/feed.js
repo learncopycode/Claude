@@ -70,34 +70,29 @@ function renderShort(note) {
   el.className = 'short';
   el.dataset.id = note.id;
 
-  const [c1, c2, c3] = note.theme?.gradient || ['#fe2c55', '#7b2ff7', '#25f4ee'];
-  const particles = (note.theme?.particles?.length ? note.theme.particles : ['✨'])
-    .flatMap(p => [p, p, p])
-    .map((p, i) => {
-      const left = (i * 37 + 11) % 100;
-      const dur = 9 + ((i * 13) % 8);
-      const delay = (i * 1.7) % 9;
-      return `<span class="particle" style="left:${left}%;animation-duration:${dur}s;animation-delay:${delay}s">${esc(p)}</span>`;
-    }).join('');
+  // One fixed, calm background for every slide; the note sits on a paper card.
+  // The note's own colour only shows as a thin accent line on the card.
+  const accent = note.theme?.gradient?.[0] || '#c9a227';
 
   let d = 0;
-  const delay = () => `style="--d:${(d += 0.09).toFixed(2)}s"`;
+  const delay = () => `style="--d:${(d += 0.06).toFixed(2)}s"`;
   const points = (note.keyPoints || []).map(p => `<li ${delay()}>${esc(p)}</li>`).join('');
-  const tags = (note.tags || []).map(t => `<span class="tag" ${delay()}>#${esc(t)}</span>`).join('');
+  const tags = (note.tags || []).map(t => `<span class="tag" ${delay()}>${esc(t)}</span>`).join('');
   const date = new Date(note.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
   el.innerHTML = `
-    <div class="short-bg" style="background-image:linear-gradient(135deg, ${esc(c1)}, ${esc(c2)}, ${esc(c3)})"></div>
-    <div class="short-particles">${particles}</div>
-    ${note.image ? `<div class="short-media"><img src="${note.image}" alt="${esc(note.title)}"></div>` : ''}
-    <div class="short-vignette"></div>
-    <div class="short-content ${note.image ? '' : 'center-stage'}">
-      <div class="short-cat" style="--d:0s">${esc(note.theme?.emoji || '📝')} ${esc(note.category || 'General')}</div>
-      <h2 class="short-title" style="--d:0.08s">${esc(note.title)}</h2>
-      <p class="short-summary" style="--d:0.16s">${esc(note.summary)}</p>
-      ${points ? `<ul class="short-points">${points}</ul>` : ''}
-      ${tags ? `<div class="short-tags">${tags}</div>` : ''}
-      <div class="short-date" ${delay()}>${date}</div>
+    <div class="short-stage">
+      <div class="short-card" style="--accent:${esc(accent)}">
+        ${note.image ? `<div class="short-media"><img src="${note.image}" alt="${esc(note.title)}"></div>` : ''}
+        <div class="short-content">
+          <div class="short-cat" style="--d:0s">${esc(note.theme?.emoji || '📝')} ${esc(note.category || 'General')}</div>
+          <h2 class="short-title" style="--d:0.05s">${esc(note.title)}</h2>
+          ${note.summary ? `<p class="short-summary" style="--d:0.1s">${esc(note.summary)}</p>` : ''}
+          ${points ? `<ul class="short-points">${points}</ul>` : ''}
+          ${tags ? `<div class="short-tags">${tags}</div>` : ''}
+          <div class="short-date" ${delay()}>${date}</div>
+        </div>
+      </div>
     </div>
     <div class="short-rail">
       <button class="rail-btn ${note.liked ? 'liked' : ''}" data-action="like">

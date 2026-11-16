@@ -67,6 +67,7 @@ export function initCapture({ onSaved: cb, showToast }) {
   document.getElementById('btn-back-capture').addEventListener('click', () => showStep('input'));
   document.getElementById('btn-save-note').addEventListener('click', save);
 
+  for (const el of [summaryEl, pointsEl, textInput]) el.addEventListener('input', () => autosize(el));
   document.getElementById('btn-add-tag').addEventListener('click', addOwnTag);
   tagInput.addEventListener('keydown', ev => { if (ev.key === 'Enter') addOwnTag(); });
 }
@@ -181,7 +182,11 @@ function fillReview() {
   pointsEl.value = (a.keyPoints || []).join('\n');
   categoryEl.value = a.category || 'General';
   renderTagChips();
+  requestAnimationFrame(() => [summaryEl, pointsEl, textInput].forEach(autosize));
 }
+
+// Text boxes grow with their text, like a note.
+function autosize(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 2 + 'px'; }
 
 function renderTagChips() {
   const all = [...new Set([...(state.analysis.suggestedTags || []), ...state.confirmedTags])];
