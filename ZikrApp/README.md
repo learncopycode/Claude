@@ -1,6 +1,6 @@
 # Zikr · v1.1
 
-A dhikr counter with Hisn al-Muslim, the Quran ayah by ayah (with tafsir, Bangla), after-prayer adhkar,
+A dhikr counter with Hisn al-Muslim, duas from hadith (HadeethEnc, Bukhari, Muslim), the Quran ayah by ayah (with tafsir, Bangla), after-prayer adhkar,
 prayer times and the adhan. Every religious text in it is taken from a published source (see `web/src/README.md`).
 
 Everything for Zikr lives in this folder:

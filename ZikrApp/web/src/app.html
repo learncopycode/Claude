@@ -80,6 +80,18 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 @keyframes roam3 { to { transform: translate(35%, -45%) scale(1.2); } }
 
 /* ---------- My Zikr ---------- */
+.hday { position: relative; overflow: hidden; border-radius: 22px; padding: 16px; background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.hday > * { position: relative; }
+.hday > b.display { font-weight: 400; font-size: 17px; line-height: 1.35; }
+.hday .htext p, .hfull p { margin: 0 0 8px; line-height: 1.6; font-size: 15px; }
+.hday .htext { max-height: 260px; overflow: auto; overscroll-behavior: contain; }
+.hdua { font-size: 24px; line-height: 2; text-align: right; margin: 0; }
+.har { font-size: 20px; line-height: 2; text-align: right; margin: 8px 0 0; }
+.hday details, .hfull details { border-top: 1px solid var(--line); padding-top: 8px; }
+.hday summary, .hfull summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--accent, inherit); }
+.hfull { display: flex; flex-direction: column; gap: 8px; }
+.hfull ul { margin: 8px 0 0; padding-left: 20px; line-height: 1.6; }
+.hfull details p:first-of-type { margin-top: 8px; }
 .today-z { position: relative; overflow: hidden; border-radius: 22px; padding: 14px 14px 12px; background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
 .today-z .row1 { position: relative; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .today-z .row1 b { font-family: var(--font-display); font-weight: 400; font-size: 18px; }
@@ -481,7 +493,8 @@ const DATA = /*DATA*/;
 /* adhan.js 4.4.6 by Batoul Apps (MIT) – prayer time calculation */
 /*ADHAN_LIB*/
 /* World cities with coordinates and time zones: city-timezones 1.3.4 (MIT). [name, country, lat, lng, tz], largest first */
-const CITIES = /*CITIES*/;
+let CITIES = /*CITIES_TZ*/;   // the largest city in each time zone; the full list below replaces it once unzipped
+const CITIES_GZ = /*CITIES_GZ*/;
 /* "Beautiful adhan" by Adam-synagda, Wikimedia Commons, CC0 (public domain dedication); re-encoded as MP3. */
 const ADHAN_MP3 = "data:audio/mpeg;base64,/*ADHAN_MP3*/";
 
@@ -603,6 +616,8 @@ const BY_ID = Object.fromEntries(ALL.map(d => [d.id, d]));
 // The meaning shown for a library entry in the current language (Quran entries have a Bangla edition).
 function meaningOf(d) {
   if (!d) return "";
+  if (BN() && d.kind === "he" && d.bn && !d.dua_ar) return d.bn;
+  if (BN() && d.kind === "sahih" && d.bn) return d.bn;
   if (BN() && QBN && d.qkeys) return d.qkeys.map(k => (startsSurah(k) ? qbn(1, 1) + "\n" : "") + rangeMeaning(k)).join("\n\n");
   return d.meaning;
 }
@@ -827,10 +842,33 @@ function sourceFor(libId) {
   const d = BY_ID[libId]; if (!d) return null;
   if (d.kind === "name") { const s = hadithSrc(NAMES_HADITH.ref); return s ? { kind: "Hadith", ref: NAMES_HADITH.ref, ...s, text: s.en, verified: true, names: true } : null; }
   if (d.kind === "quran") return { kind: "Quran", ref: `Quran ${d.key}`, text: d.meaning, verified: true };
+  if (d.kind === "he" || d.kind === "sahih") return { kind: "Hadith", ref: d.kind === "he" ? d.attr || "Hadith" : d.source, full: d };
   const e = HISN_RAW[d.from || d.id]; if (!e) return null;
   return { kind: "Hisn", ref: `Hisn al-Muslim ${e.n}`, chapter: e.chapter, text: d.virtue ? `${d.virtue}\n\n${e.ref}` : e.ref, url: `https://sunnah.com/hisn:${parseInt(e.n, 10)}`, verified: true, quran: d.quran };
 }
 const SRC_LABEL = { Quran: "From the Quran", Hadith: "Hadith", Hisn: "Hisn al-Muslim" };
+/* Duas and dhikr from hadith (loaded just after start; gzipped to keep the page small):
+   - HadeethEnc.com, the Encyclopedia of Translated Prophetic Hadiths: the hadith in Arabic, English and Bangla, its grade,
+     explanation and lessons, all as published there. Where the hadith quotes the dua in so many words, the counter shows that quote.
+   - Sahih al-Bukhari, Book of Invocations, and Sahih Muslim, Book of Remembrance, from sunnah.com; Bangla from the Bangla editions. */
+const HADITH_LIB_GZ = /*HADITH_LIB_GZ*/;
+let HADITH_READY = false, HE_LIB = [], HE_CATS = {}, SAHIH_LIB = [];
+const bnNum = n => String(n).replace(/\d/g, x => "০১২৩৪৫৬৭৮৯"[x]);
+function loadHadithLib(H) {
+  HE_CATS = H.he_cats;
+  HE_LIB = H.he.map(e => ({ ...e, kind: "he", arabic: e.dua_ar || e.ar, translit: e.dua_tl || "", meaning: e.dua_en || e.en, title: e.title,
+    count: 1, source: e.attr ? `${e.attr} · HadeethEnc` : "HadeethEnc", chapter: (H.he_cats[e.cat] || {}).en || "Duas from hadith" }));
+  SAHIH_LIB = H.sahih.map(e => ({ ...e, kind: "sahih", arabic: e.ar, translit: "", meaning: e.en, count: 1, source: `${e.col} ${e.num}`,
+    title: (e.chapter || "").replace(/^Chapter:\s*/i, "").replace(/[.:]\s*$/, "") || `${e.col} ${e.num}`, chapter: e.col === "Sahih Muslim" ? "Sahih Muslim: remembrance and supplication" : "Sahih al-Bukhari: invocations" }));
+  for (const d of HE_LIB.concat(SAHIH_LIB)) { LIB.push(d); ALL.push(d); BY_ID[d.id] = d; INDEX.push({ d, tk: searchKey(d.translit), ti: searchKey(d.title) }); }
+  HADITH_READY = true;
+  for (const it of S.items) { const d = BY_ID[it.libraryID]; if (d && (d.kind === "he" || d.kind === "sahih")) Object.assign(it, { title: d.title, arabic: d.arabic, translit: d.translit, translation: d.meaning, source: d.source }); }
+  if (!$counter && !document.querySelector(".sheet, .sheet-src")) rerenderKeepScroll?.();
+}
+const heTitle = d => BN() && d.title_bn ? d.title_bn : d.title;
+const heCatTitle = c => (BN() && (HE_CATS[c] || {}).bn) || (HE_CATS[c] || {}).en || "";
+// The hadith that turns today: every hadith in turn, a different one each day.
+function hadithOfDay() { if (!HE_LIB.length) return null; return HE_LIB[(DAY_INDEX * 37) % HE_LIB.length]; }
 
 /* ================= Stats helpers ================= */
 const PERIODS = [["today", "Day", "Today"], ["week", "Week", "This week"], ["month", "Month", "This month"], ["year", "Year", "This year"], ["all", "All", "All time"]];
@@ -880,6 +918,8 @@ function tick(strong) {
 }
 async function keepAwake(on) { try { if (on && navigator.wakeLock) wakeLock = await navigator.wakeLock.request("screen"); else if (wakeLock) { await wakeLock.release(); wakeLock = null; } } catch (e) {} }
 
+if (typeof DecompressionStream !== "undefined") gunzipB64(CITIES_GZ).then(t => { CITIES = JSON.parse(t); }).catch(() => {});
+if (typeof DecompressionStream !== "undefined") gunzipB64(HADITH_LIB_GZ).then(t => loadHadithLib(JSON.parse(t))).catch(() => {});
 if (typeof DecompressionStream !== "undefined") gunzipB64(QURAN_BN_GZ).then(t => {
   QBN = JSON.parse(t);
   if (BN()) { rerenderKeepScroll?.(); if (typeof drawReader === "function" && $reader) drawReader(); if (typeof drawCounter === "function" && $counter) drawCounter(); }
@@ -942,11 +982,26 @@ function homeHTML() {
     <section class="today-z" style="${auroraVars(h0)}">${aurora()}
       <div class="row1"><span><span class="eyebrow">Today's zikr</span><br><b>${m.title}</b></span><button class="btn ghost small" data-act="addall">Add these</button></div>
       <div class="chips">${m.items.map(d => `<button class="chip ${added(d) ? "on" : ""}" data-act="lib" data-id="${d.id}"><b>${esc(d.title)}</b><span class="ar">${esc(d.arabic)}</span></button>`).join("")}${m.total > m.items.length ? `<button class="chip" data-act="sub" data-sub="${m.sub}"><b>See all ${m.total}</b><span class="muted" style="font-size:12px">Hisn al-Muslim</span></button>` : ""}</div>
-    </section>`;
+    </section>
+    ${hadithDayHTML()}`;
   return h + `<p class="note">Counts are saved on this device. · Zikr v${APP_VERSION}</p></div>`;
 }
 
 /* ---------- Discover ---------- */
+function hadithDayHTML() {
+  const d = hadithOfDay(), bn = BN();
+  if (!d) return HADITH_READY || typeof DecompressionStream === "undefined" ? "" : `<section class="hday"><span class="eyebrow">${bn ? "আজকের হাদীস ও দোয়া" : "Today's dua from the hadith"}</span><span class="muted">Loading…</span></section>`;
+  const tr = bn && d.bn ? d.bn : d.en, attr = bn && d.attr_bn ? d.attr_bn : d.attr, grade = bn && d.grade_bn ? d.grade_bn : d.grade;
+  return `<section class="hday" style="${auroraVars((DAY_INDEX * 53 + 200) % 360)}">${aurora()}
+    <span class="eyebrow">${bn ? "আজকের হাদীস ও দোয়া" : "Today's dua from the hadith"} · ${esc(heCatTitle(d.cat))}</span>
+    <b class="display">${esc(heTitle(d))}</b>
+    ${d.dua_ar ? `<p class="ar hdua">${esc(d.dua_ar)}</p>` : ""}
+    <div class="htext">${esc(tr).split(/\n+/).filter(Boolean).map(x => `<p>${x}</p>`).join("")}</div>
+    <small class="muted">${esc(attr)}${grade ? ` · ${esc(grade)}` : ""}</small>
+    <details><summary>${bn ? "আরবি পাঠ" : "Arabic text of the hadith"}</summary><p class="ar har">${esc(d.ar)}</p></details>
+    <div class="btn-row"><button class="btn small" data-act="lib" data-id="${d.id}">${bn ? "গণনা করুন" : "Count it"}</button><button class="btn ghost small" data-act="hadith" data-id="${d.id}">${bn ? "ব্যাখ্যা ও শিক্ষা" : "Explanation & lessons"}</button></div>
+  </section>`;
+}
 function libRow(d, sub) {
   const on = added(d);
   return `<div class="row"><button class="rowmain" data-act="lib" data-id="${d.id}"><span class="rt"><b>${esc(d.title)}</b><small>${esc(sub ?? `×${d.count} · ${d.source}`)}</small></span><span class="rar ar">${esc(d.arabic)}</span></button>
@@ -968,6 +1023,7 @@ function discoverHTML() {
     <button class="tile" data-act="sub" data-sub="names"><span class="ic">${ICONS.star8}</span><b>99 Names of Allah</b><span>Invoke Him by His beautiful names</span><span class="count">99</span></button>` +
     `<button class="tile" data-act="sub" data-sub="hisn"><span class="ic">${ICONS.lamp}</span><b>Hisn al-Muslim</b><span>Fortress of the Muslim: every dua by chapter</span><span class="count">${HISN_LIB.length}</span></button>
     <button class="tile" data-act="sub" data-sub="quran"><span class="ic">${ICONS.arch}</span><b>Duas from the Quran</b><span>Ayat al-Kursi, the Quls, duas of the prophets</span><span class="count">${QURAN_LIB.length}</span></button>
+    <button class="tile" data-act="sub" data-sub="hadith" style="grid-column:1 / -1;min-height:auto"><span class="ic">${ICONS.book}</span><b>Duas & dhikr from hadith</b><span>From HadeethEnc.com with explanation and lessons, and the books of dua in Sahih al-Bukhari and Sahih Muslim</span><span class="count">${HADITH_READY ? HE_LIB.length + SAHIH_LIB.length : "…"}</span></button>
     <button class="tile" data-act="sub" data-sub="ch:27"><span class="ic">${ICONS.sun}</span><b>Morning & evening</b><span>${esc(chTitle(chapterOf[27]))}</span><span class="count">${chapterOf[27].items.length}</span></button>
     <button class="tile" data-act="prayer"><span class="ic">${ICONS.beads}</span><b>After prayer</b><span>Pick a prayer and swipe through its adhkar</span><span class="count">${chapterOf[25].items.length}</span></button>
     </div>
@@ -975,6 +1031,7 @@ function discoverHTML() {
 }
 function subHTML(sub) {
   const c = sub.startsWith("ch:") ? chapterOf[sub.slice(3)] : null;
+  if (sub === "hadith" || sub.startsWith("hc:") || sub.startsWith("hb:")) return hadithSubHTML(sub);
   const title = sub === "names" ? "99 Names of Allah" : sub === "hisn" ? "Hisn al-Muslim" : sub === "quran" ? "Duas from the Quran" : c ? chTitle(c) : "";
   const back = `<div class="bar"><button class="icon-btn" data-act="${c ? "sub" : "tab"}" ${c ? 'data-sub="hisn"' : 'data-tab="discover"'} aria-label="Back">${ICONS.back}</button><div class="brand"><b>${esc(title)}</b>${c ? "<span>Hisn al-Muslim</span>" : ""}</div></div>`;
   if (sub === "names") return `<div class="wrap">${back}<div class="list">${NAMES.map(n => libRow(n, n.meaning)).join("")}</div>
@@ -989,6 +1046,25 @@ function subHTML(sub) {
   return `<div class="wrap">${back}<div class="list">${c.items.map(d => libRow(d, `×${d.count} · ${d.source}`)).join("")}</div>
     ${c.notes.map(e => `<div class="virtue"><span class="eyebrow">Hisn al-Muslim ${esc(e.n)}</span>${e.arabic ? `<p class="ar" style="font-size:19px;line-height:1.9;text-align:right;margin:0">${esc(e.arabic)}</p>` : ""}<span>${esc(e.meaning)}</span>${e.ref ? `<small class="muted">${esc(e.ref)}</small>` : ""}</div>`).join("")}
     <p class="note"><a href="https://sunnah.com/hisn" target="_blank" rel="noopener">Hisn al-Muslim on sunnah.com ↗</a></p></div>`;
+}
+function hadithSubHTML(sub) {
+  const top = sub === "hadith", back = `<div class="bar"><button class="icon-btn" data-act="${top ? "tab" : "sub"}" ${top ? 'data-tab="discover"' : 'data-sub="hadith"'} aria-label="Back">${ICONS.back}</button><div class="brand"><b>`;
+  if (!HADITH_READY) return `<div class="wrap">${back}Duas & dhikr from hadith</b></div></div><div class="empty">Loading…</div></div>`;
+  const row = d => libRow(d, d.kind === "he" ? (d.dua_ar ? "Dua · " : "") + (BN() && d.attr_bn ? d.attr_bn : d.attr) : d.source);
+  if (top) {
+    const cats = [...new Set(HE_LIB.map(d => d.cat))];
+    return `<div class="wrap">${back}Duas & dhikr from hadith</b><span>HadeethEnc · Bukhari · Muslim</span></div></div>
+      <h2 class="sec">HadeethEnc.com</h2><div class="list">${cats.map(c => { const n = HE_LIB.filter(d => d.cat === c).length; return `<button class="row" data-act="sub" data-sub="hc:${c}" style="text-align:left"><span class="rt"><b>${esc(heCatTitle(c))}</b><small>${n} hadith${n === 1 ? "" : "s"}</small></span></button>`; }).join("")}</div>
+      <h2 class="sec">The books of dua</h2><div class="list">
+        <button class="row" data-act="sub" data-sub="hb:Sahih al-Bukhari" style="text-align:left"><span class="rt"><b>Sahih al-Bukhari: Invocations</b><small>Book 80 · ${SAHIH_LIB.filter(d => d.col === "Sahih al-Bukhari").length} hadiths</small></span></button>
+        <button class="row" data-act="sub" data-sub="hb:Sahih Muslim" style="text-align:left"><span class="rt"><b>Sahih Muslim: Remembrance, supplication, repentance</b><small>Book 48 · ${SAHIH_LIB.filter(d => d.col === "Sahih Muslim").length} hadiths</small></span></button></div>
+      <p class="note">HadeethEnc.com is the Encyclopedia of Translated Prophetic Hadiths: each hadith with its grade, explanation and lessons, in Arabic, English and Bangla. Sahih al-Bukhari and Sahih Muslim are from sunnah.com, with Bangla from the Bangla editions where it could be matched. Tap a hadith to count it; its source button opens the full hadith.</p></div>`;
+  }
+  if (sub.startsWith("hc:")) { const c = sub.slice(3);
+    return `<div class="wrap">${back}${esc(heCatTitle(c))}</b><span>HadeethEnc.com</span></div></div><div class="list">${HE_LIB.filter(d => d.cat === c).map(d => `<div class="row"><button class="rowmain" data-act="hadith" data-id="${d.id}"><span class="rt"><b>${esc(heTitle(d))}</b><small>${esc((d.dua_ar ? "Dua · " : "") + (BN() && d.attr_bn ? d.attr_bn : d.attr))}</small></span>${d.dua_ar ? `<span class="rar ar">${esc(d.dua_ar)}</span>` : ""}</button><button class="addbtn ${added(d) ? "on" : ""}" data-act="quickadd" data-id="${d.id}" aria-label="Add to My Zikr">${added(d) ? "✓" : "+"}</button></div>`).join("")}</div>
+      <p class="note"><a href="https://hadeethenc.com" target="_blank" rel="noopener">HadeethEnc.com ↗</a></p></div>`; }
+  const col = sub.slice(3);
+  return `<div class="wrap">${back}${esc(col)}</b><span>${col === "Sahih Muslim" ? "Book 48" : "Book 80"} · sunnah.com</span></div></div><div class="list">${SAHIH_LIB.filter(d => d.col === col).map(d => `<div class="row"><button class="rowmain" data-act="hadith" data-id="${d.id}"><span class="rt"><b>${esc(d.title)}</b><small>${esc(d.source)}</small></span></button><button class="addbtn ${added(d) ? "on" : ""}" data-act="quickadd" data-id="${d.id}" aria-label="Add to My Zikr">${added(d) ? "✓" : "+"}</button></div>`).join("")}</div></div>`;
 }
 function chapterRows(q) {
   const k = q.trim().toLowerCase();
@@ -2094,8 +2170,33 @@ Return JSON only: {"reflection": "two short paragraphs separated by a blank line
     fallback(e?.code !== "not_granted");
   }
 }
+function hadithFullHTML(d, open) {
+  const bn = BN(), he = d.kind === "he";
+  const tr = bn && d.bn ? d.bn : d.en, expl = bn && d.expl_bn ? d.expl_bn : d.expl, hints = bn && d.hints_bn && d.hints_bn.length ? d.hints_bn : d.hints || [];
+  const attr = he ? (bn && d.attr_bn ? d.attr_bn : d.attr) : `${d.col} ${d.num}`, grade = he ? (bn && d.grade_bn ? d.grade_bn : d.grade) : "";
+  const para = t => esc(t).split(/\n+/).filter(Boolean).map(x => `<p>${x}</p>`).join("");
+  return `<div class="hfull">
+    ${d.dua_ar ? `<span class="eyebrow">${bn ? "দোয়া" : "The dua"}</span><p class="ar hdua">${esc(d.dua_ar)}</p>${d.dua_tl ? `<p class="tl" style="margin:0">${esc(d.dua_tl)}</p>` : ""}<p style="margin:0">${esc(d.dua_en)}</p>` : ""}
+    <span class="eyebrow">${bn ? "পূর্ণ হাদীস" : "The full hadith"}</span>
+    ${para(tr)}
+    <b>${esc(attr)}${grade ? ` · <span class="muted" style="font-weight:600">${esc(grade)}</span>` : ""}</b>
+    <details ${open ? "open" : ""}><summary>${bn ? "আরবি পাঠ" : "Arabic text"}</summary><p class="ar har">${esc(d.ar)}</p></details>
+    ${expl ? `<details><summary>${bn ? "ব্যাখ্যা" : "Explanation"}</summary>${para(expl)}</details>` : ""}
+    ${hints.length ? `<details><summary>${bn ? "হাদীসের শিক্ষা" : "Lessons from the hadith"}</summary><ul>${hints.map(h => `<li>${esc(h)}</li>`).join("")}</ul></details>` : ""}
+    <span class="note">${he ? (bn ? "আরবি, অনুবাদ, মান, ব্যাখ্যা ও শিক্ষা HadeethEnc.com (অনূদিত নববী হাদীস বিশ্বকোষ) থেকে, যেভাবে প্রকাশিত।" : "Arabic, translation, grade, explanation and lessons from HadeethEnc.com, the Encyclopedia of Translated Prophetic Hadiths, as published.")
+      : bn && d.bn ? "Arabic and English from sunnah.com · Bangla from the Bangla edition in fawazahmed0/hadith-api" : "Arabic and English from sunnah.com"}</span>
+    <a href="${he ? `https://hadeethenc.com/${bn ? "bn" : "en"}/browse/hadith/${d.src}` : d.url}" target="_blank" rel="noopener">${he ? "HadeethEnc.com" : "sunnah.com"} ↗</a></div>`;
+}
+function openHadith(libId, fromCounter) {
+  const d = BY_ID[libId]; if (!d) return;
+  $layer.insertAdjacentHTML("beforeend", `<div class="scrim" data-act="closesrc" style="z-index:54"></div><div class="sheet-src" role="dialog" aria-label="Hadith"><div class="in">
+    <span class="eyebrow">${esc(d.kind === "he" ? heCatTitle(d.cat) : d.chapter)}</span><b class="display" style="font-size:19px">${esc(d.kind === "he" ? heTitle(d) : d.title)}</b>
+    ${hadithFullHTML(d)}
+    <div class="btn-row" style="justify-content:flex-start">${fromCounter ? `<button class="btn small" data-act="closesrc">Back to counting</button>` : `<button class="btn small" data-act="closesrc" data-then="lib" data-id="${d.id}">Count it</button><button class="btn ghost small" data-act="closesrc">Close</button>`}</div></div></div>`);
+}
 function openSource(libId) {
   const s = sourceFor(libId); if (!s) return;
+  if (s.full) return openHadith(libId, true);
   const link = s.url ? { label: "Open on sunnah.com", url: s.url } : sourceLink(s.ref), d = BY_ID[libId];
   $layer.insertAdjacentHTML("beforeend", `<div class="scrim" data-act="closesrc" style="z-index:54"></div><div class="sheet-src" role="dialog" aria-label="${s.kind}"><div class="in">
     <span class="eyebrow">${SRC_LABEL[s.kind]} · ${esc(d && d.ch ? chTitle(d) || s.chapter : s.chapter || (d ? d.title : ""))}</span>
@@ -2200,7 +2301,8 @@ document.addEventListener("click", e => {
     case "readnext": if (rnSkipClick) { rnSkipClick = false; break; } readNext(); break;
     case "rewrite": writeReflection(+b.dataset.n); break;
     case "source": openSource(b.dataset.lib); break;
-    case "closesrc": $layer.querySelectorAll(".sheet-src").forEach(x => x.remove()); $layer.querySelectorAll('.scrim[data-act="closesrc"]').forEach(x => x.remove()); break;
+    case "hadith": openHadith(id); break;
+    case "closesrc": $layer.querySelectorAll(".sheet-src").forEach(x => x.remove()); $layer.querySelectorAll('.scrim[data-act="closesrc"]').forEach(x => x.remove()); if (b.dataset.then === "lib") openCounter(findOrCreate(BY_ID[id]).id); break;
     case "add": openAdd(); break;
     case "closeadd": closeAdd(); break;
     case "kind": form.kind = b.dataset.kind; if (!form.filled) form.target = form.kind === "dua" ? 1 : 33; drawAdd(); break;

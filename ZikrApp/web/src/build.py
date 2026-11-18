@@ -9,6 +9,11 @@ r = lambda f: open(os.path.join(HERE, f), encoding="utf8").read()
 j = lambda f: json.load(open(os.path.join(HERE, f), encoding="utf8"))
 dump = lambda v: json.dumps(v, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
 gz = lambda b: base64.b64encode(gzip.compress(b, 9)).decode()
+def one_per_tz(cities):   # the largest city of each time zone (and Makkah), for use before the full list is unzipped
+    seen, out = set(), []
+    for c in cities:
+        if c[0] in ("Makkah", "Mecca") or c[4] not in seen: out.append(c); seen.add(c[4])
+    return out
 taf = {ed: {s: gz(open(os.path.join(TAF, ed, f"{s}.json"), "rb").read()) for s in range(1, 115)} for ed in ("ik", "mx", "zkb", "mxb")}
 parts = {
     "/*DATA*/": dump({"hisn": j("hisn.json"), "names": j("names.json"), "virtues": j("hisn_virtues.json")}),
@@ -18,7 +23,9 @@ parts = {
     "/*QURAN_BN*/": json.dumps(gz(open(os.path.join(HERE, "quran_bn.json"), "rb").read())),
     "/*TAFSIR_GZ*/": json.dumps(taf),
     "/*ADHAN_LIB*/": r("adhan.umd.min.js").replace("</", "<\\/").replace("//# sourceMappingURL=adhan.umd.min.js.map", ""),
-    "/*CITIES*/": dump(j("cities.json")),
+    "/*CITIES_TZ*/": dump(one_per_tz(j("cities.json"))),
+    "/*CITIES_GZ*/": json.dumps(gz(open(os.path.join(HERE, "cities.json"), "rb").read())),
+    "/*HADITH_LIB_GZ*/": json.dumps(gz(open(os.path.join(HERE, "hadith_lib.json"), "rb").read())),
     "/*ADHAN_MP3*/": base64.b64encode(open(os.path.join(HERE, "adhan.mp3"), "rb").read()).decode(),
 }
 out = app

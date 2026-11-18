@@ -111,3 +111,20 @@ Off claude.ai the page has no access to Claude, so reflections show the Al-Mukht
   E.g. #256 "SubhanAllahi wa bihamdihi, SubhanAllahil-'Azim", #259, #260 (la hawla…), #261.
 - Duas from the Quran: the "Rabbana" duas and the duas of the prophets (55 entries), whole ayahs.
 - Search folds spellings together (th/dh/z/zh, aa/ee/oo, w/u) and matches word by word.
+
+## Duas and dhikr from hadith (no transliteration needed)
+
+- `hadith_lib.json` (by `build_hadith_lib.py`), embedded gzipped and loaded just after the page starts:
+  - **HadeethEnc.com** (Encyclopedia of Translated Prophetic Hadiths), 140 hadiths from "Supplications and
+    remembrance of Allah", "Merits of supplication" and "Dhikr during prayer"
+    (`https://hadeethenc.com/api/v1/hadeeths/one/?language=en|bn&id=<id>`): Arabic, English and Bangla, the
+    narrator, grade, explanation and lessons, exactly as published. Ruqyah was left out. When the hadith quotes the
+    dua in so many words (after "he used to say: «…»"), the counter shows that quote, Arabic and English as written
+    in the hadith; otherwise it shows the whole hadith.
+  - **Sahih al-Bukhari, Book 80 (Invocations)** and **Sahih Muslim, Book 48 (Remembrance, supplication,
+    repentance)**, 233 hadiths with the chain, from the sunnah.com data; Bangla from fawazahmed0/hadith-api's
+    Bangla editions where it matches by the Arabic (192).
+- Home shows **Today's dua from the hadith** under Today's zikr: a different HadeethEnc hadith each day, with the
+  full hadith, its Arabic, grade, and "Explanation & lessons". Discover → "Duas & dhikr from hadith" lists them all.
+- To keep the page under 16 MB the city list is now embedded gzipped too (one city per time zone is kept plain
+  for the first moment after start).
