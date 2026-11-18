@@ -80,6 +80,7 @@ h2.sec small { font-family: var(--font-ui); font-size: 12px; color: var(--muted)
 @keyframes roam3 { to { transform: translate(35%, -45%) scale(1.2); } }
 
 /* ---------- My Zikr ---------- */
+.backup { margin-top: 18px; padding: 16px; border-radius: 22px; background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
 .hday { position: relative; overflow: hidden; border-radius: 22px; padding: 16px; background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
 .hday > * { position: relative; }
 .hday > b.display { font-weight: 400; font-size: 17px; line-height: 1.35; }
@@ -1141,7 +1142,56 @@ function statsHTML() {
       <span class="five">${PERIODS.map(([id, s]) => `<span class="${id === p ? "sel" : ""}"><small>${s}</small><b>${short(totalFor(days, it.total, id))}</b></span>`).join("")}</span>
       ${open ? panelHTML(days, it.total, it.title, c) : ""}</button>`;
   }).join("");
-  return h + `</div>`;
+  return h + backupHTML() + `</div>`;
+}
+/* ---------- Backup & restore: everything in one small file ---------- */
+function backupHTML() {
+  const last = S.lastBackup ? new Date(S.lastBackup).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : null;
+  return `<section class="backup"><span class="eyebrow">Backup</span>
+    <span class="muted" style="font-size:13.5px">Your zikrs, counts, streaks, reflections, prayer settings and Quran place are kept only on this phone. Save a backup file (to Files or iCloud Drive) so you can restore them after deleting the app or on a new phone.</span>
+    <small class="muted">${last ? `Last backup: ${esc(last)}` : "No backup yet"}</small>
+    <div class="btn-row" style="justify-content:flex-start"><button class="btn small" data-act="backup">Save backup</button><button class="btn ghost small" data-act="restore">Restore from file</button></div>
+    <input type="file" id="restore-file" accept="application/json,.json,text/plain" hidden></section>`;
+}
+async function doBackup() {
+  const name = `zikr-backup-${dayKey()}.json`, data = JSON.stringify({ app: "zikr", version: APP_VERSION, savedAt: Date.now(), state: { ...S, lastBackup: Date.now() } });
+  const done = () => { S.lastBackup = Date.now(); save(); render(); toast("Backup saved", name, 150, 2600); };
+  let file = null; try { file = new File([data], name, { type: "application/json" }); } catch (e) {}
+  if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: "Zikr backup" }); return done(); }
+    catch (e) { if (e && e.name === "AbortError") return; }
+  }
+  try {
+    const dl = window.claude?.use ? await window.claude.use("downloads") : null;
+    if (dl) { await dl.save({ filename: name, data }); return done(); }
+  } catch (e) { if (e && /declin|cancel|abort/i.test(String(e.code || e.message || e))) return; }
+  try {
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], { type: "application/json" })); a.download = name;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000); done();
+  } catch (e) { toast("Couldn't save", "Your browser didn't allow the file", 20, 3000); }
+}
+let pendingRestore = null;
+function pickRestore() {
+  const inp = document.getElementById("restore-file"); if (!inp) return;
+  inp.value = ""; inp.onchange = async () => {
+    const f = inp.files && inp.files[0]; if (!f) return;
+    try {
+      const j = JSON.parse(await f.text()), st = j && (j.state || j);
+      if (!st || !Array.isArray(st.items)) throw new Error("not a backup");
+      pendingRestore = st;
+      const when = j.savedAt ? new Date(j.savedAt).toLocaleString() : "an earlier date", total = st.items.reduce((a, it) => a + (it.total || 0), 0);
+      $layer.insertAdjacentHTML("beforeend", `<div class="scrim" data-act="closesrc" style="z-index:54"></div><div class="sheet-src" role="dialog" aria-label="Restore"><div class="in">
+        <span class="eyebrow">Restore backup</span><b class="display" style="font-size:19px">Replace what's on this phone?</b>
+        <p>The backup from ${esc(when)} has ${st.items.length} zikr${st.items.length === 1 ? "" : "s"} and ${fmt(total)} recitations in all. Everything now in the app will be replaced by it.</p>
+        <div class="btn-row" style="justify-content:flex-start"><button class="btn small" data-act="restoreok">Restore</button><button class="btn ghost small" data-act="closesrc">Cancel</button></div></div></div>`);
+    } catch (e) { toast("Not a Zikr backup", "Choose a zikr-backup file", 20, 3000); }
+  };
+  inp.click();
+}
+function confirmRestore() {
+  if (!pendingRestore) return;
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(pendingRestore)); } catch (e) { toast("Couldn't restore", "Storage isn't available", 20, 3000); return; }
+  location.reload();
 }
 
 /* ================= Prayer times and adhan =================
@@ -2329,6 +2379,9 @@ document.addEventListener("click", e => {
     case "rewrite": writeReflection(+b.dataset.n); break;
     case "source": openSource(b.dataset.lib); break;
     case "hadith": openHadith(id); break;
+    case "backup": doBackup(); break;
+    case "restore": pickRestore(); break;
+    case "restoreok": confirmRestore(); break;
     case "closesrc": $layer.querySelectorAll(".sheet-src").forEach(x => x.remove()); $layer.querySelectorAll('.scrim[data-act="closesrc"]').forEach(x => x.remove()); if (b.dataset.then === "lib") openCounter(findOrCreate(BY_ID[id]).id); break;
     case "add": openAdd(); break;
     case "closeadd": closeAdd(); break;

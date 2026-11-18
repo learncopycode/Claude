@@ -128,3 +128,9 @@ Off claude.ai the page has no access to Claude, so reflections show the Al-Mukht
   full hadith, its Arabic, grade, and "Explanation & lessons". Discover → "Duas & dhikr from hadith" lists them all.
 - To keep the page under 16 MB the city list is now embedded gzipped too (one city per time zone is kept plain
   for the first moment after start).
+
+## Backup and restore
+
+Stats → Backup: "Save backup" writes everything the app keeps (the whole saved state) to `zikr-backup-<date>.json`,
+through the iPhone share sheet (Save to Files / iCloud Drive) where available, else as a download.
+"Restore from file" reads such a file, asks before replacing, and reloads.
