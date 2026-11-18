@@ -868,7 +868,17 @@ function loadHadithLib(H) {
 const heTitle = d => BN() && d.title_bn ? d.title_bn : d.title;
 const heCatTitle = c => (BN() && (HE_CATS[c] || {}).bn) || (HE_CATS[c] || {}).en || "";
 // The hadith that turns today: every hadith in turn, a different one each day.
-function hadithOfDay() { if (!HE_LIB.length) return null; return HE_LIB[(DAY_INDEX * 37) % HE_LIB.length]; }
+// A hadith whose dua is also in Hisn al-Muslim: the counter counts the dua itself (the same words, from Hisn al-Muslim).
+const DUA_IN_HISN = { bk6306: "h79" };   // Sayyid al-Istighfar
+const countIdOf = d => DUA_IN_HISN[d.id] || d.id;
+// The dua of the day takes turns: a HadeethEnc hadith one day, a Hisn al-Muslim dua the next,
+// and every Friday Sayyid al-Istighfar with its full hadith from Sahih al-Bukhari (6306).
+function hadithOfDay() {
+  if (!HE_LIB.length) return null;
+  if (new Date().getDay() === 5 && BY_ID.bk6306) return BY_ID.bk6306;
+  const k = Math.floor(DAY_INDEX / 2), hisn = HISN_LIB.filter(d => !d.qkeys && !d.id.startsWith("t-"));
+  return DAY_INDEX % 2 ? hisn[(k * 29) % hisn.length] : HE_LIB[(k * 37) % HE_LIB.length];
+}
 
 /* ================= Stats helpers ================= */
 const PERIODS = [["today", "Day", "Today"], ["week", "Week", "This week"], ["month", "Month", "This month"], ["year", "Year", "This year"], ["all", "All", "All time"]];
@@ -989,18 +999,35 @@ function homeHTML() {
 
 /* ---------- Discover ---------- */
 function hadithDayHTML() {
-  const d = hadithOfDay(), bn = BN();
-  if (!d) return HADITH_READY || typeof DecompressionStream === "undefined" ? "" : `<section class="hday"><span class="eyebrow">${bn ? "আজকের হাদীস ও দোয়া" : "Today's dua from the hadith"}</span><span class="muted">Loading…</span></section>`;
-  const tr = bn && d.bn ? d.bn : d.en, attr = bn && d.attr_bn ? d.attr_bn : d.attr, grade = bn && d.grade_bn ? d.grade_bn : d.grade;
+  const d = hadithOfDay(), bn = BN(), head = bn ? "আজকের দোয়া ও হাদীস" : "Today's dua and its hadith";
+  if (!d) return HADITH_READY || typeof DecompressionStream === "undefined" ? "" : `<section class="hday"><span class="eyebrow">${head}</span><span class="muted">Loading…</span></section>`;
+  const para = t => `<div class="htext">${esc(t).split(/\n+/).filter(Boolean).map(x => `<p>${x}</p>`).join("")}</div>`;
+  const tl = t => t && S.tlZikr !== false ? `<p class="tl" style="margin:0">${esc(t)}</p>` : "";
+  const arDetails = ar => `<details><summary>${bn ? "আরবি পাঠ" : "Arabic text of the hadith"}</summary><p class="ar har">${esc(ar)}</p></details>`;
+  const count = `<button class="btn small" data-act="lib" data-id="${countIdOf(d)}">${bn ? "গণনা করুন" : "Count it"}</button>`;
+  let eyebrow, body, more;
+  if (d.kind === "he") {
+    const attr = bn && d.attr_bn ? d.attr_bn : d.attr, grade = bn && d.grade_bn ? d.grade_bn : d.grade;
+    eyebrow = heCatTitle(d.cat);
+    body = `<b class="display">${esc(heTitle(d))}</b>${d.dua_ar ? `<p class="ar hdua">${esc(d.dua_ar)}</p>` : ""}${para(bn && d.bn ? d.bn : d.en)}
+      <small class="muted">${esc(attr)}${grade ? ` · ${esc(grade)}` : ""}</small>${arDetails(d.ar)}`;
+    more = `<button class="btn ghost small" data-act="hadith" data-id="${d.id}">${bn ? "ব্যাখ্যা ও শিক্ষা" : "Explanation & lessons"}</button>`;
+  } else if (d.kind === "sahih") {
+    const dua = BY_ID[DUA_IN_HISN[d.id]];
+    eyebrow = `${d.col} · ${d.title}`;
+    body = (dua ? `<p class="ar hdua">${esc(dua.arabic)}</p>${tl(dua.translit)}<p style="margin:0">${esc(meaningOf(dua))}</p><span class="eyebrow">${bn ? "পূর্ণ হাদীস" : "The full hadith"}</span>` : "")
+      + `${para(bn && d.bn ? d.bn : d.en)}<small class="muted">${esc(d.source)}</small>${arDetails(d.ar)}`;
+    more = `<button class="btn ghost small" data-act="hadith" data-id="${d.id}">${bn ? "উৎস" : "Source"}</button>`;
+  } else {   // Hisn al-Muslim: the dua, and the narration and reference as the book gives them
+    const e = HISN_RAW[d.from || d.id] || {};
+    eyebrow = `Hisn al-Muslim ${d.n} · ${(bn && HISN_BN_TITLES[Math.round(d.ch)]) || d.chapter}`;
+    body = `<p class="ar hdua">${esc(d.arabic)}</p>${tl(d.translit)}<p style="margin:0">${esc(meaningOf(d))}</p>
+      ${d.virtue ? para(d.virtue) : ""}${e.ref ? `<small class="muted">${esc(e.ref)}</small>` : ""}`;
+    more = `<button class="btn ghost small" data-act="source" data-lib="${d.id}">${bn ? "উৎস" : "Source"}</button>`;
+  }
   return `<section class="hday" style="${auroraVars((DAY_INDEX * 53 + 200) % 360)}">${aurora()}
-    <span class="eyebrow">${bn ? "আজকের হাদীস ও দোয়া" : "Today's dua from the hadith"} · ${esc(heCatTitle(d.cat))}</span>
-    <b class="display">${esc(heTitle(d))}</b>
-    ${d.dua_ar ? `<p class="ar hdua">${esc(d.dua_ar)}</p>` : ""}
-    <div class="htext">${esc(tr).split(/\n+/).filter(Boolean).map(x => `<p>${x}</p>`).join("")}</div>
-    <small class="muted">${esc(attr)}${grade ? ` · ${esc(grade)}` : ""}</small>
-    <details><summary>${bn ? "আরবি পাঠ" : "Arabic text of the hadith"}</summary><p class="ar har">${esc(d.ar)}</p></details>
-    <div class="btn-row"><button class="btn small" data-act="lib" data-id="${d.id}">${bn ? "গণনা করুন" : "Count it"}</button><button class="btn ghost small" data-act="hadith" data-id="${d.id}">${bn ? "ব্যাখ্যা ও শিক্ষা" : "Explanation & lessons"}</button></div>
-  </section>`;
+    <span class="eyebrow">${head} · ${esc(eyebrow)}</span>${body}
+    <div class="btn-row">${count}${more}</div></section>`;
 }
 function libRow(d, sub) {
   const on = added(d);
@@ -2192,7 +2219,7 @@ function openHadith(libId, fromCounter) {
   $layer.insertAdjacentHTML("beforeend", `<div class="scrim" data-act="closesrc" style="z-index:54"></div><div class="sheet-src" role="dialog" aria-label="Hadith"><div class="in">
     <span class="eyebrow">${esc(d.kind === "he" ? heCatTitle(d.cat) : d.chapter)}</span><b class="display" style="font-size:19px">${esc(d.kind === "he" ? heTitle(d) : d.title)}</b>
     ${hadithFullHTML(d)}
-    <div class="btn-row" style="justify-content:flex-start">${fromCounter ? `<button class="btn small" data-act="closesrc">Back to counting</button>` : `<button class="btn small" data-act="closesrc" data-then="lib" data-id="${d.id}">Count it</button><button class="btn ghost small" data-act="closesrc">Close</button>`}</div></div></div>`);
+    <div class="btn-row" style="justify-content:flex-start">${fromCounter ? `<button class="btn small" data-act="closesrc">Back to counting</button>` : `<button class="btn small" data-act="closesrc" data-then="lib" data-id="${countIdOf(d)}">Count it</button><button class="btn ghost small" data-act="closesrc">Close</button>`}</div></div></div>`);
 }
 function openSource(libId) {
   const s = sourceFor(libId); if (!s) return;

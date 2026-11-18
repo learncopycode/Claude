@@ -124,7 +124,7 @@ Off claude.ai the page has no access to Claude, so reflections show the Al-Mukht
   - **Sahih al-Bukhari, Book 80 (Invocations)** and **Sahih Muslim, Book 48 (Remembrance, supplication,
     repentance)**, 233 hadiths with the chain, from the sunnah.com data; Bangla from fawazahmed0/hadith-api's
     Bangla editions where it matches by the Arabic (192).
-- Home shows **Today's dua from the hadith** under Today's zikr: a different HadeethEnc hadith each day, with the
+- Home shows **Today's dua and its hadith** under Today's zikr. It alternates daily between a HadeethEnc hadith and a Hisn al-Muslim dua (with the narration and reference the book gives), and every Friday shows Sayyid al-Istighfar with its full hadith from Sahih al-Bukhari 6306 (counted as Hisn al-Muslim 79, the same words). HadeethEnc days show the
   full hadith, its Arabic, grade, and "Explanation & lessons". Discover → "Duas & dhikr from hadith" lists them all.
 - To keep the page under 16 MB the city list is now embedded gzipped too (one city per time zone is kept plain
   for the first moment after start).
