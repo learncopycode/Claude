@@ -101,3 +101,13 @@ Serve it with GitHub Pages ("Deploy from a branch", folder `/ (root)`); it is th
 On iPhone open that link in Safari, tap Share → Add to Home Screen.
 
 Off claude.ai the page has no access to Claude, so reflections show the Al-Mukhtasar tafsir instead of a written reflection.
+
+## More dhikr from Hisn al-Muslim's narrations, and more Quran duas
+
+- `hisn_virtues.json` (by `build_hisn_virtues.py`): the dhikr Hisn al-Muslim quotes inside its narrations
+  ("Whoever says … a hundred times"), as counters. The book marks the words to say in brackets; the Arabic is
+  the bracketed text from sunnah.com, the transliteration, meaning and repeat count come from hisnmuslim.com's
+  English edition (`https://www.hisnmuslim.com/api/en/<chapter>.json`). The full narration shows as the source.
+  E.g. #256 "SubhanAllahi wa bihamdihi, SubhanAllahil-'Azim", #259, #260 (la hawla…), #261.
+- Duas from the Quran: the "Rabbana" duas and the duas of the prophets (55 entries), whole ayahs.
+- Search folds spellings together (th/dh/z/zh, aa/ee/oo, w/u) and matches word by word.

@@ -11,7 +11,7 @@ dump = lambda v: json.dumps(v, ensure_ascii=False, separators=(",", ":")).replac
 gz = lambda b: base64.b64encode(gzip.compress(b, 9)).decode()
 taf = {ed: {s: gz(open(os.path.join(TAF, ed, f"{s}.json"), "rb").read()) for s in range(1, 115)} for ed in ("ik", "mx", "zkb", "mxb")}
 parts = {
-    "/*DATA*/": dump({"hisn": j("hisn.json"), "names": j("names.json")}),
+    "/*DATA*/": dump({"hisn": j("hisn.json"), "names": j("names.json"), "virtues": j("hisn_virtues.json")}),
     "/*REFLECTIONS*/": r("reflections.js"), "/*MORE*/": r("more_topics.js"),
     "/*SOURCES*/": r("sources.js"), "/*QURAN*/": r("quran.js"), "/*ART*/": r("art.js"),
     "/*HISN_BN_TITLES*/": dump(j("hisn_bn_titles.json")), "/*HADITH_BN*/": dump(j("hadith_bn.json")),

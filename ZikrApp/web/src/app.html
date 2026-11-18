@@ -582,8 +582,18 @@ const RESTS = [
 ].filter(t => t.arabic && t.translit && t.meaning)
  .map(t => { const e = HISN_RAW[t.from]; return { ...t, kind: "hisn", n: e.n, ch: e.ch, chapter: e.chapter, title: brief(t.translit), source: `Hisn al-Muslim ${e.n}` }; });
 chapterOf[25].items.unshift(...SPLITS, ...RESTS);
+// Dhikr the book quotes inside its narrations ("Whoever says ... a hundred times"): the bracketed words, as counters.
+// Arabic from sunnah.com; transliteration, meaning and count from hisnmuslim.com's English edition.
+const VIRTUES = (DATA.virtues || []).filter(v => v.n !== "188").map(v => ({ id: v.id, kind: "hisn", n: v.n, ch: v.ch, chapter: v.chapter, from: "h" + v.n,
+  arabic: v.arabic, translit: v.translit, meaning: v.meaning, count: v.count, virtue: v.virtue, title: brief(v.translit), source: `Hisn al-Muslim ${v.n}` }));
+for (const v of VIRTUES) { const c = chapterOf[v.ch]; if (!c) continue; c.items.push(v); c.notes = c.notes.filter(e => e.id !== v.from); }
 // Duas in the words of the Quran (whole ayahs).
-const QURAN_DUAS = ["2:255", ...QULS, "2:285-286", "2:201", "3:8", "3:193-194", "7:23", "14:40-41", "17:24", "18:10", "20:25-28", "20:114", "21:87", "23:118", "25:74", "59:10"];
+// The "Rabbana" duas and the duas of the prophets, each as whole ayahs.
+const QURAN_DUAS = ["2:255", ...QULS, "2:285-286",
+  "2:127-128", "2:201", "2:250", "3:8-9", "3:16", "3:53", "3:147", "3:191-192", "3:193-194", "5:83", "5:114", "7:23", "7:47", "7:89", "7:126",
+  "10:85-86", "14:38", "14:40-41", "18:10", "20:45", "23:109", "25:65-66", "25:74", "40:7-9", "59:10", "60:4-5", "66:8",
+  "3:38", "7:151", "7:155-156", "11:47", "12:101", "17:24", "17:80", "20:25-28", "20:114", "21:83", "21:87", "21:89", "23:29", "23:97-98", "23:118",
+  "26:83-85", "27:19", "28:16", "28:21", "28:24", "37:100", "46:15", "71:28"];
 const QURAN_LIB = QURAN_DUAS.map(k => ({ id: "q-" + k, kind: "quran", key: k, qkeys: [k], ...quranText([k]), title: quranTitle([k]), count: QULS.includes(k) ? 3 : 1, source: `Quran ${k}`, chapter: "From the Quran" }));
 const NAMES = DATA.names.names.map(x => ({ ...x, kind: "name", title: x.translit, count: 33, source: "Jami` at-Tirmidhi 3507", chapter: "99 Names" }));
 const NAMES_NOTE = { ref: DATA.names.ref, url: DATA.names.url, grade: DATA.names.grade };
@@ -656,13 +666,19 @@ S.unlocks = S.unlocks || {}; S.days = S.days || {}; S.itemDays = S.itemDays || {
   if (S.scale !== 50) { const out = {}; for (const [k, v] of Object.entries(S.unlocks)) { const [id, t] = k.split("|"); out[id + "|" + (+t * 2)] = v; } S.unlocks = out; S.scale = 50; }
 })();
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) {} }
-if (S.libV !== 2) {
+if (S.libV !== 2 && S.libV !== 3) {
   for (const it of S.items) {
     if (!it.libraryID) continue;
     const m = /^name-(\d+)$/.exec(it.libraryID);
     it.libraryID = m ? NAMES[oldNameIndex(+m[1])].id : OLD_IDS[it.libraryID] || null;
   }
   S.libV = 2; save();
+}
+// v3: three zikrs the old library had that now have a published entry
+if (S.libV === 2) {
+  const BY_TITLE = { "SubhanAllahi wa bihamdihi, SubhanAllahil-'Azim": "v256", "SubhanAllah, Alhamdulillah, La ilaha illallah, Allahu Akbar": "v261", "La hawla wa la quwwata illa billah": "v260" };
+  for (const it of S.items) if (!it.libraryID && BY_TITLE[it.title] && BY_ID[BY_TITLE[it.title]]) it.libraryID = BY_TITLE[it.title];
+  S.libV = 3; save();
 }
 // Library zikrs always show the published text.
 for (const it of S.items) { const d = BY_ID[it.libraryID]; if (d) Object.assign(it, { title: d.title, arabic: d.arabic, translit: d.translit, translation: d.meaning, source: d.source }); }
@@ -774,7 +790,9 @@ function allUnlocks() {
 /* ================= Search ================= */
 function searchKey(text) {
   let t = text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z]/g, "");
-  for (const [a, b] of [["gh", "g"], ["kh", "k"], ["dh", "d"], ["th", "t"], ["sh", "s"], ["q", "k"], ["h", ""], ["e", "i"], ["o", "u"], ["y", "i"]]) t = t.split(a).join(b);
+  // Spellings differ between sources (ʿAẓīm, Azim, AAatheem; dhikr, zikr): sounds that people write
+  // several ways are folded together, so any common spelling finds the entry.
+  for (const [a, b] of [["zh", "z"], ["dh", "z"], ["th", "z"], ["gh", "g"], ["kh", "k"], ["sh", "s"], ["q", "k"], ["h", ""], ["ee", "i"], ["oo", "u"], ["e", "i"], ["o", "u"], ["y", "i"], ["w", "u"]]) t = t.split(a).join(b);
   return t.replace(/(.)\1+/g, "$1");
 }
 const INDEX = ALL.map(d => ({ d, tk: searchKey(d.translit), ti: searchKey(d.title) }));
@@ -790,6 +808,12 @@ function search(q, limit = 6) {
     if (tk.startsWith(k) || ti.startsWith(k)) add(d, 100 - (d.kind === "name" ? 5 : 0) - Math.min(20, tk.length / 10));
     else if (k.length >= 3 && (tk.includes(k) || ti.includes(k))) add(d, 60 - (d.kind === "name" ? 5 : 0));
   }
+  // Word by word, so the same phrase written differently still matches (bihamdihi / bihamdih, SubhanAllahil-Azim / subhanal-lahil-AAatheem).
+  const qw = q.split(/[\s,.;:!?-]+/).map(searchKey).filter(w => w.length >= 3);
+  if (qw.length >= 2) for (const { d, tk } of INDEX) {
+    const hits = qw.filter(w => tk.includes(w) || (w.length > 4 && tk.includes(w.slice(0, -1)))).length;
+    if (hits / qw.length >= 0.75) add(d, 55 + 30 * hits / qw.length - Math.min(15, tk.length / 20));
+  }
   const words = lower.split(/[^a-z]+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
   for (const d of LIB) {
     let s = 0; const ch = d.chapter.toLowerCase(), en = d.meaning.toLowerCase();
@@ -804,7 +828,7 @@ function sourceFor(libId) {
   if (d.kind === "name") { const s = hadithSrc(NAMES_HADITH.ref); return s ? { kind: "Hadith", ref: NAMES_HADITH.ref, ...s, text: s.en, verified: true, names: true } : null; }
   if (d.kind === "quran") return { kind: "Quran", ref: `Quran ${d.key}`, text: d.meaning, verified: true };
   const e = HISN_RAW[d.from || d.id]; if (!e) return null;
-  return { kind: "Hisn", ref: `Hisn al-Muslim ${e.n}`, chapter: e.chapter, text: e.ref, url: `https://sunnah.com/hisn:${parseInt(e.n, 10)}`, verified: true, quran: d.quran };
+  return { kind: "Hisn", ref: `Hisn al-Muslim ${e.n}`, chapter: e.chapter, text: d.virtue ? `${d.virtue}\n\n${e.ref}` : e.ref, url: `https://sunnah.com/hisn:${parseInt(e.n, 10)}`, verified: true, quran: d.quran };
 }
 const SRC_LABEL = { Quran: "From the Quran", Hadith: "Hadith", Hisn: "Hisn al-Muslim" };
 
