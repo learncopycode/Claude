@@ -143,8 +143,11 @@ hour waits and the next hour's portion is added on top, until everything up to t
 ("You're current"). Reading ahead counts toward the next hours. The plan keeps its own place in the Quran
 (free reading keeps its own), only the plan's next ayah counts when swiped, and a plan started mid-Quran runs on
 from An-Nas to Al-Fatihah. Changing the settings keeps what is owed and counts the new settings from the next hour.
-In the iPhone app a local notification comes at the start of every waking hour (repeating, ids 9000 + hour);
+The reader has an Hourly / Normal switch. In hourly mode the reader stops once you are current ("You're current",
+with the next portion's time and ayahs); "Read ahead" lets you swipe on, and each hour finished ahead is marked green.
+In the iPhone app a local notification comes at the start of each waking hour that still needs reading (ids 9000+,
+about two days set ahead and set again whenever the app is opened or left), so hours read ahead get no reminder;
 tapping it opens the hour's portion. The web page can't notify while closed; it shows the portion when opened.
 The card lists the current hour, this hour's portion and what is left of it, the missed ayahs and hours, where to
-start and the ayah to read up to; a strip of today's waking hours marks each hour read (green), missed (red) or now.
+start and the ayah to read up to; a strip of today's waking hours marks each hour read (green) or not read (red); the current hour is outlined, green when current and red when not.
 The reader marks the last ayah of the portion. The waking hours button on the card opens the settings.
