@@ -145,3 +145,6 @@ hour waits and the next hour's portion is added on top, until everything up to t
 from An-Nas to Al-Fatihah. Changing the settings keeps what is owed and counts the new settings from the next hour.
 In the iPhone app a local notification comes at the start of every waking hour (repeating, ids 9000 + hour);
 tapping it opens the hour's portion. The web page can't notify while closed; it shows the portion when opened.
+The card lists the current hour, this hour's portion and what is left of it, the missed ayahs and hours, where to
+start and the ayah to read up to; a strip of today's waking hours marks each hour read (green), missed (red) or now.
+The reader marks the last ayah of the portion. The waking hours button on the card opens the settings.
