@@ -134,3 +134,14 @@ Off claude.ai the page has no access to Claude, so reflections show the Al-Mukht
 Stats → Backup: "Save backup" writes everything the app keeps (the whole saved state) to `zikr-backup-<date>.json`,
 through the iPhone share sheet (Save to Files / iCloud Drive) where available, else as a download.
 "Restore from file" reads such a file, asks before replacing, and reloads.
+
+## Hourly Quran
+
+Home → "Hourly Quran": a portion of ayahs (13 by default) for every waking hour (6 AM–10 PM by default, 16 hours),
+so 13 × 16 × 30 ≈ 6,236 ayahs: the whole Quran in about 30 days. Each waking hour that starts adds a portion; a missed
+hour waits and the next hour's portion is added on top, until everything up to the current hour is read
+("You're current"). Reading ahead counts toward the next hours. The plan keeps its own place in the Quran
+(free reading keeps its own), only the plan's next ayah counts when swiped, and a plan started mid-Quran runs on
+from An-Nas to Al-Fatihah. Changing the settings keeps what is owed and counts the new settings from the next hour.
+In the iPhone app a local notification comes at the start of every waking hour (repeating, ids 9000 + hour);
+tapping it opens the hour's portion. The web page can't notify while closed; it shows the portion when opened.
